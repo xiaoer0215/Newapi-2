@@ -89,6 +89,7 @@ cd Newapi-2
 
 - Monitoring enhancements: added group monitoring and model monitoring, with more visibility into status, success rate, and failure counts
 - UI adjustments for both user and admin sides: customized login/register, model marketplace, token pages, and related interactions
+- Model marketplace attribution: the model marketplace page is imitated from [one-hub](https://github.com/MartialBE/one-hub)
 - User-side AI image generation: includes a basic AI image generation entry backed by the in-site workflow and balance billing
 - Customizable data dashboard: dashboard modules can be arranged as needed, with two extra QR-code slots for QQ groups, support contacts, or similar use cases
 - Personal rate limits: supports per-user request limits by minute, hour, and day
