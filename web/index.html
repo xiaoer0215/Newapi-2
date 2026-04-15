@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="/logo.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta
+      name="description"
+      lang="zh"
+      content="统一的 AI 模型聚合与分发网关，支持将各类大语言模型跨格式转换为 OpenAI、Claude、Gemini 兼容接口，为个人与企业提供集中式模型管理与网关服务。"
+    />
+    <meta
+      name="description"
+      lang="en"
+      content="A unified AI model hub for aggregation & distribution. It supports cross-converting various LLMs into OpenAI-compatible, Claude-compatible, or Gemini-compatible formats. A centralized gateway for personal and enterprise model management."
+    />
+    <meta name="generator" content="new-api" />
+    <title>New API</title>
+    <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.cn/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+    />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.cn/css2?family=Orbitron:wght@400;500;600;700;800;900&display=swap"
+    />
+    <link
+      rel="stylesheet"
+      href="/node_modules/@douyinfe/semi-ui/dist/css/semi.css"
+    />
+    <!--umami-->
+    <!--Google Analytics-->
+  </head>
+
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+    <script>
+      // 预加载首页自定义HTML，在React启动前同步获取
+      (function(){
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '/api/home_page_content', false); // 同步请求
+        try {
+          xhr.send();
+          if (xhr.status === 200) {
+            var res = JSON.parse(xhr.responseText);
+            if (res && res.success && res.data) {
+              window.__HOME_PAGE_CONTENT__ = res.data;
+            }
+          }
+        } catch(e) {}
+      })();
+    </script>
+    <script type="module" src="/src/index.jsx"></script>
+  </body>
+</html>

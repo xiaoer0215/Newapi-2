@@ -1,0 +1,175 @@
+/*
+Copyright (C) 2025 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
+
+import React, { useContext, useEffect, useState } from 'react';
+import { Card, Select, Typography, Avatar } from '@douyinfe/semi-ui';
+import { Languages } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { API, showSuccess, showError } from '../../../../helpers';
+import { UserContext } from '../../../../context/User';
+import { normalizeLanguage } from '../../../../i18n/language';
+
+const languageOptions = [
+  { value: 'zh-CN', label: '简体中文' },
+  { value: 'zh-TW', label: '繁體中文' },
+  { value: 'en', label: 'English' },
+  { value: 'fr', label: 'Français' },
+  { value: 'ru', label: 'Русский' },
+  { value: 'ja', label: '日本語' },
+  { value: 'vi', label: 'Tiếng Việt' },
+];
+
+const PreferencesSettings = ({ t }) => {
+  const { i18n } = useTranslation();
+  const [userState, userDispatch] = useContext(UserContext);
+  const [currentLanguage, setCurrentLanguage] = useState(
+    normalizeLanguage(i18n.language) || 'zh-CN',
+  );
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (userState?.user?.setting) {
+      try {
+        const settings = JSON.parse(userState.user.setting);
+        if (settings.language) {
+          const lang = normalizeLanguage(settings.language);
+          setCurrentLanguage(lang);
+          if (i18n.language !== lang) {
+            i18n.changeLanguage(lang);
+          }
+        }
+      } catch (e) {
+        // Ignore parse errors.
+      }
+    }
+  }, [userState?.user?.setting, i18n]);
+
+  const handleLanguagePreferenceChange = async (lang) => {
+    if (lang === currentLanguage) return;
+
+    setLoading(true);
+    const previousLang = currentLanguage;
+
+    try {
+      setCurrentLanguage(lang);
+      i18n.changeLanguage(lang);
+      localStorage.setItem('i18nextLng', lang);
+
+      const res = await API.put('/api/user/self', {
+        language: lang,
+      });
+
+      if (res.data.success) {
+        showSuccess(t('语言偏好已保存'));
+
+        let settings = {};
+        if (userState?.user?.setting) {
+          try {
+            settings = JSON.parse(userState.user.setting) || {};
+          } catch (e) {
+            settings = {};
+          }
+        }
+
+        settings.language = lang;
+        const nextUser = {
+          ...userState.user,
+          setting: JSON.stringify(settings),
+        };
+
+        userDispatch({
+          type: 'login',
+          payload: nextUser,
+        });
+        localStorage.setItem('user', JSON.stringify(nextUser));
+      } else {
+        showError(res.data.message || t('保存失败'));
+        setCurrentLanguage(previousLang);
+        i18n.changeLanguage(previousLang);
+        localStorage.setItem('i18nextLng', previousLang);
+      }
+    } catch (error) {
+      showError(t('保存失败，请重试'));
+      setCurrentLanguage(previousLang);
+      i18n.changeLanguage(previousLang);
+      localStorage.setItem('i18nextLng', previousLang);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Card className='ps-card !rounded-2xl shadow-sm border-0' bodyStyle={{ background: 'transparent' }}>
+      <div className='flex items-center mb-4'>
+        <Avatar className='mr-3 shadow-md' color='violet' size='small'>
+          <Languages size={16} />
+        </Avatar>
+        <div>
+          <Typography.Text className='text-lg font-medium'>
+            {t('偏好设置')}
+          </Typography.Text>
+          <div className='text-xs text-gray-600'>
+            {t('界面语言和其他个人偏好')}
+          </div>
+        </div>
+      </div>
+
+      <Card className='ps-inner-card !rounded-xl border'>
+        <div className='flex flex-col sm:flex-row items-start sm:items-center sm:justify-between gap-4'>
+          <div className='flex items-start w-full sm:w-auto'>
+            <div className='w-12 h-12 rounded-full bg-violet-50 flex items-center justify-center mr-4 flex-shrink-0'>
+              <Languages
+                className='text-violet-600'
+                size={20}
+              />
+            </div>
+            <div>
+              <Typography.Title className='mb-1' heading={6}>
+                {t('语言偏好')}
+              </Typography.Title>
+              <Typography.Text className='text-sm' type='tertiary'>
+                {t('选择您的首选界面语言，设置将自动保存并同步到所有设备')}
+              </Typography.Text>
+            </div>
+          </div>
+          <Select
+            loading={loading}
+            optionList={languageOptions.map((opt) => ({
+              value: opt.value,
+              label: opt.label,
+            }))}
+            style={{ width: 180 }}
+            value={currentLanguage}
+            onChange={handleLanguagePreferenceChange}
+          />
+        </div>
+      </Card>
+
+      <div className='mt-4 text-xs text-gray-500'>
+        <Typography.Text type='tertiary'>
+          {t(
+            '提示：语言偏好会同步到您登录的所有设备，并影响API返回的错误消息语言。',
+          )}
+        </Typography.Text>
+      </div>
+    </Card>
+  );
+};
+
+export default PreferencesSettings;

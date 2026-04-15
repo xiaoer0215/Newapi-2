@@ -1,0 +1,186 @@
+/*
+Copyright (C) 2025 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
+
+/* ─── CSS Variables ──────────────────────────────────────────────────────────── */
+.ps-page {
+  --ps-primary:       #4F46E5;
+  --ps-primary-hover: #4338CA;
+  --ps-primary-glow:  rgba(79, 70, 229, 0.30);
+  --ps-success:       #10B981;
+  --ps-danger:        #E11D48;
+  --ps-text:          #0F172A;
+  --ps-text2:         #475569;
+  --ps-text3:         #94A3B8;
+  --ps-border:        rgba(148, 163, 184, 0.20);
+  --ps-border-hi:     rgba(255, 255, 255, 0.80);
+  --ps-card-bg:       rgba(255, 255, 255, 0.75);
+  --ps-inner-bg:      rgba(255, 255, 255, 0.55);
+  --ps-shadow-lg:     0 20px 25px -5px rgba(0,0,0,0.06), 0 10px 10px -5px rgba(0,0,0,0.02);
+  --ps-shadow-sm:     0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.03);
+  --ps-radius-card:   20px;
+  --ps-radius-inner:  12px;
+  --ps-radius-btn:    10px;
+}
+
+/* ─── Page wrapper ───────────────────────────────────────────────────────────── */
+.ps-page {
+  margin-top: 60px;
+  min-height: calc(100vh - 60px);
+  background: linear-gradient(135deg, #eef2ff 0%, #f8fafc 50%, #e0f2fe 100%);
+  padding: 16px 0 40px;
+}
+
+/* ─── Glass card (outer) ─────────────────────────────────────────────────────── */
+.ps-card {
+  position: relative;
+  background: var(--ps-card-bg) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  border: 1px solid var(--ps-border-hi) !important;
+  border-radius: var(--ps-radius-card) !important;
+  box-shadow: var(--ps-shadow-lg) !important;
+  overflow: hidden;
+}
+
+.ps-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.80), transparent);
+  opacity: 0.5;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ─── Inner glass card (binding cards, security cards) ──────────────────────── */
+.ps-inner-card {
+  background: var(--ps-inner-bg) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  border: 1px solid var(--ps-border) !important;
+  border-radius: var(--ps-radius-inner) !important;
+  box-shadow: var(--ps-shadow-sm) !important;
+  transition: box-shadow 0.18s, border-color 0.18s;
+}
+
+.ps-inner-card:hover {
+  border-color: rgba(79, 70, 229, 0.25) !important;
+  box-shadow: 0 4px 16px rgba(79, 70, 229, 0.10) !important;
+}
+
+/* ─── Cover gradient header ──────────────────────────────────────────────────── */
+.ps-cover {
+  background: linear-gradient(135deg, rgba(79,70,229,0.85), rgba(14,165,233,0.70));
+  position: relative;
+}
+
+/* ─── Bind row (icon + info + button) ───────────────────────────────────────── */
+.ps-bind-icon {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  background: rgba(148,163,184,0.12);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid var(--ps-border);
+}
+
+/* Override Semi `!rounded-xl` inner card defaults in AccountManagement */
+.ps-card .semi-card.rounded-xl,
+.ps-card .semi-card.\!rounded-xl {
+  background: var(--ps-inner-bg) !important;
+  border: 1px solid var(--ps-border) !important;
+  border-radius: var(--ps-radius-inner) !important;
+  box-shadow: var(--ps-shadow-sm) !important;
+}
+
+/* ─── Quota badge text ───────────────────────────────────────────────────────── */
+.ps-quota-val {
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: var(--ps-text);
+  line-height: 1.1;
+}
+
+/* ─── Stats row ──────────────────────────────────────────────────────────────── */
+.ps-stats-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.45);
+  border: 1px solid var(--ps-border);
+  border-radius: 10px;
+}
+.ps-stats-row__item {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 13px; color: var(--ps-text2);
+}
+
+.ps-divider-v {
+  width: 1px; height: 16px;
+  background: var(--ps-border);
+}
+
+/* ─── Buttons ────────────────────────────────────────────────────────────────── */
+.ps-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 34px; padding: 0 16px;
+  border-radius: var(--ps-radius-btn);
+  font-size: 13px; font-weight: 600;
+  cursor: pointer; border: 1px solid transparent;
+  transition: all 0.2s; white-space: nowrap;
+}
+.ps-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.ps-btn--primary {
+  background: var(--ps-primary); color: #fff;
+  box-shadow: 0 4px 12px var(--ps-primary-glow);
+}
+.ps-btn--primary:hover:not(:disabled) { background: var(--ps-primary-hover); }
+.ps-btn--outline {
+  background: transparent;
+  color: var(--ps-primary);
+  border-color: rgba(79,70,229,0.30);
+}
+.ps-btn--outline:hover:not(:disabled) { background: rgba(79,70,229,0.06); }
+.ps-btn--danger {
+  background: rgba(225,29,72,0.10);
+  color: var(--ps-danger);
+  border-color: rgba(225,29,72,0.25);
+}
+.ps-btn--danger:hover:not(:disabled) { background: rgba(225,29,72,0.18); }
+.ps-btn--ghost {
+  background: rgba(148,163,184,0.12);
+  color: var(--ps-text2);
+  border-color: var(--ps-border);
+}
+.ps-btn--ghost:hover:not(:disabled) { background: rgba(148,163,184,0.22); color: var(--ps-text); }
+
+/* ─── Calendar card ──────────────────────────────────────────────────────────── */
+.ps-calendar-card .semi-calendar-header-left,
+.ps-calendar-card .semi-calendar-header-right {
+  background: transparent;
+}
+
+/* ─── Responsive ─────────────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .ps-page { padding: 8px 0 32px; }
+  .ps-card { border-radius: 14px !important; }
+  .ps-quota-val { font-size: 1.5rem; }
+}

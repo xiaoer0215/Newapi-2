@@ -1,0 +1,231 @@
+/*
+Copyright (C) 2025 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
+
+import React from 'react';
+import {
+  Banner,
+  Modal,
+  Typography,
+  Card,
+  Button,
+  Select,
+  Divider,
+} from '@douyinfe/semi-ui';
+import { Gift, Package } from 'lucide-react';
+import { SiStripe } from 'react-icons/si';
+import { IconCreditCard } from '@douyinfe/semi-icons';
+import { renderQuota } from '../../../helpers';
+
+const { Text } = Typography;
+
+const formatCnyPrice = (value) => {
+  const amount = Number(value || 0);
+  return amount.toFixed(Number.isInteger(amount) ? 0 : 2);
+};
+
+const AutoDeliveryPurchaseModal = ({
+  t,
+  visible,
+  onCancel,
+  selectedProduct,
+  paying,
+  selectedEpayMethod,
+  setSelectedEpayMethod,
+  epayMethods = [],
+  enableOnlineTopUp = false,
+  enableStripeTopUp = false,
+  enableCreemTopUp = false,
+  onPayStripe,
+  onPayCreem,
+  onPayEpay,
+}) => {
+  const product = selectedProduct;
+  const price = product ? Number(product.price || 0) : 0;
+  const displayPrice = formatCnyPrice(price);
+  const hasStripe = enableStripeTopUp && !!product?.stripe_price_id;
+  const hasCreem = enableCreemTopUp && !!product?.creem_product_id;
+  const hasEpay = enableOnlineTopUp && epayMethods.length > 0;
+  const hasAnyPayment = hasStripe || hasCreem || hasEpay;
+
+  return (
+    <Modal
+      title={
+        <div className='flex items-center'>
+          <Gift className='mr-2' size={18} />
+          {t('购买商品')}
+        </div>
+      }
+      visible={visible}
+      onCancel={onCancel}
+      footer={null}
+      size='small'
+      centered
+    >
+      {product ? (
+        <div className='space-y-4 pb-10'>
+          <Card className='!rounded-xl !border-0 bg-slate-50'>
+            <div className='space-y-3'>
+              <div className='flex justify-between items-center gap-3'>
+                <Text strong className='text-slate-700'>
+                  {t('商品名称')}：
+                </Text>
+                <Typography.Text
+                  ellipsis={{ rows: 1, showTooltip: true }}
+                  className='text-slate-900'
+                  style={{ maxWidth: 200 }}
+                >
+                  {product.name}
+                </Typography.Text>
+              </div>
+
+              {product.description && (
+                <div className='flex justify-between items-start gap-3'>
+                  <Text strong className='text-slate-700'>
+                    {t('商品描述')}：
+                  </Text>
+                  <Text
+                    className='text-slate-900'
+                    style={{ maxWidth: 200, textAlign: 'right' }}
+                  >
+                    {product.description}
+                  </Text>
+                </div>
+              )}
+
+              {product.quota > 0 && (
+                <div className='flex justify-between items-center gap-3'>
+                  <Text strong className='text-slate-700'>
+                    {t('赠送额度')}：
+                  </Text>
+                  <div className='flex items-center'>
+                    <Package size={14} className='mr-1 text-slate-500' />
+                    <Text className='text-slate-900'>
+                      {renderQuota(product.quota)}
+                    </Text>
+                  </div>
+                </div>
+              )}
+
+              <div className='flex justify-between items-center gap-3'>
+                <Text strong className='text-slate-700'>
+                  {t('剩余库存')}：
+                </Text>
+                <Text className='text-slate-900'>
+                  {product.stock}
+                </Text>
+              </div>
+
+              <Divider margin={8} />
+
+              <div className='flex justify-between items-center gap-3'>
+                <Text strong className='text-slate-700'>
+                  {t('实付金额')}：
+                </Text>
+                <Text strong className='text-xl text-purple-600'>
+                  ¥{displayPrice}
+                </Text>
+              </div>
+            </div>
+          </Card>
+
+          {product.stock <= 0 && (
+            <Banner
+              type='warning'
+              description={t('商品库存不足')}
+              className='!rounded-xl'
+              closeIcon={null}
+            />
+          )}
+
+          {hasAnyPayment ? (
+            <div className='space-y-3'>
+              <Text size='small' type='tertiary'>
+                {t('选择支付方式')}：
+              </Text>
+
+              {(hasStripe || hasCreem) && (
+                <div className='flex gap-2'>
+                  {hasStripe && (
+                    <Button
+                      theme='light'
+                      className='flex-1'
+                      icon={<SiStripe size={14} color='#635BFF' />}
+                      onClick={onPayStripe}
+                      loading={paying}
+                      disabled={product.stock <= 0}
+                    >
+                      Stripe
+                    </Button>
+                  )}
+                  {hasCreem && (
+                    <Button
+                      theme='light'
+                      className='flex-1'
+                      icon={<IconCreditCard />}
+                      onClick={onPayCreem}
+                      loading={paying}
+                      disabled={product.stock <= 0}
+                    >
+                      Creem
+                    </Button>
+                  )}
+                </div>
+              )}
+
+              {hasEpay && (
+                <div className='flex gap-2'>
+                  <Select
+                    value={selectedEpayMethod}
+                    onChange={setSelectedEpayMethod}
+                    style={{ flex: 1 }}
+                    size='default'
+                    placeholder={t('选择支付方式')}
+                    optionList={epayMethods.map((method) => ({
+                      value: method.type,
+                      label: method.name || method.type,
+                    }))}
+                    disabled={product.stock <= 0}
+                  />
+                  <Button
+                    theme='solid'
+                    type='primary'
+                    onClick={onPayEpay}
+                    loading={paying}
+                    disabled={!selectedEpayMethod || product.stock <= 0}
+                  >
+                    {t('支付')}
+                  </Button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <Banner
+              type='info'
+              description={t('管理员未开启在线支付功能，请联系管理员配置。')}
+              className='!rounded-xl'
+              closeIcon={null}
+            />
+          )}
+        </div>
+      ) : null}
+    </Modal>
+  );
+};
+
+export default AutoDeliveryPurchaseModal;
