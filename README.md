@@ -59,6 +59,33 @@
 > - Users must comply with OpenAI's [Terms of Use](https://openai.com/policies/terms-of-use) and **applicable laws and regulations**, and must not use it for illegal purposes
 > - According to the [《Interim Measures for the Management of Generative Artificial Intelligence Services》](http://www.cac.gov.cn/2023-07/13/c_1690898327029107.htm), please do not provide any unregistered generative AI services to the public in China.
 
+## 🧩 Fork Notes
+
+### Deploying This Fork
+
+If you want to deploy this secondary-development repository directly instead of starting from the upstream repository, use:
+
+```bash
+git clone https://github.com/xiaoer0215/Newapi-2.git
+cd Newapi-2
+```
+
+> Notes:
+> - The official repository, image, and documentation links are kept below for upstream reference and compatibility notes
+> - If you want to distribute entirely through this fork, you should also maintain your own releases, image registry, changelog, and documentation homepage
+
+### Custom additions currently organized in this repository
+
+- Monitoring enhancements: added group monitoring and model monitoring, with more visibility into status, success rate, and failure counts
+- UI adjustments for both user and admin sides: customized login/register, model marketplace, token pages, and related interactions
+- User-side AI image generation: includes a basic AI image generation entry backed by the in-site workflow and balance billing
+- Customizable data dashboard: dashboard modules can be arranged as needed, with two extra QR-code slots for QQ groups, support contacts, or similar use cases
+- Personal rate limits: supports per-user request limits by minute, hour, and day
+- Wallet and subscription management: adds visual wallet discounts and bonus credits, plus subscription instance management with per-user subscription details
+- Redemption codes and auto-delivery: redemption codes can be searched together with linked users, and auto-delivery supports product listing plus card-secret import and sale
+- Logs and homepage override: supports request logs, error logs, and usage/billing logs, and fixes the issue where custom HTML homepage overrides could not fully cover the navigation bar and footer; `new-api` copyright still needs to be retained
+- Billing lookup improvements: supports searching payment records by username or payment number, and removes the original order-number display logic
+
 ---
 
 ## 🤝 Trusted Partners
