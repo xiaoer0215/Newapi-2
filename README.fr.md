@@ -59,6 +59,10 @@
 > - Les utilisateurs doivent se conformer aux [Conditions d'utilisation](https://openai.com/policies/terms-of-use) d'OpenAI et aux **lois et réglementations applicables**, et ne doivent pas l'utiliser à des fins illégales.
 > - Conformément aux [《Mesures provisoires pour la gestion des services d'intelligence artificielle générative》](http://www.cac.gov.cn/2023-07/13/c_1690898327029107.htm), veuillez ne fournir aucun service d'IA générative non enregistré au public en Chine.
 
+## 🧩 Notes sur la version dérivée
+
+- Place de marché des modèles : la page de la place de marché des modèles est imitée de [one-hub](https://github.com/MartialBE/one-hub)
+
 ---
 
 ## 🤝 Partenaires de confiance
