@@ -74,6 +74,26 @@ const isFullHtmlDocument = (content = '') =>
 const looksLikeHtmlFragment = (content = '') =>
   /^\s*<([a-zA-Z!][^>]*)>/m.test(content) || /<\/[a-zA-Z][^>]*>/m.test(content);
 
+const shouldPromoteToTopNavigation = (href = '') => {
+  const trimmedHref = href.trim();
+  if (
+    !trimmedHref ||
+    trimmedHref.startsWith('#') ||
+    /^javascript:/i.test(trimmedHref) ||
+    /^mailto:/i.test(trimmedHref) ||
+    /^tel:/i.test(trimmedHref)
+  ) {
+    return false;
+  }
+
+  try {
+    const targetUrl = new URL(trimmedHref, window.location.origin);
+    return targetUrl.origin === window.location.origin;
+  } catch (error) {
+    return false;
+  }
+};
+
 const Home = () => {
   const { t, i18n } = useTranslation();
   const [statusState] = useContext(StatusContext);
@@ -150,8 +170,59 @@ const Home = () => {
     iframeElement.contentWindow.postMessage({ lang: i18n.language }, '*');
   };
 
+  const bridgeHomePageFrameNavigation = (iframeElement) => {
+    if (!iframeElement?.contentWindow) {
+      return;
+    }
+
+    try {
+      const doc =
+        iframeElement.contentDocument || iframeElement.contentWindow.document;
+      if (!doc) {
+        return;
+      }
+
+      doc.querySelectorAll('a[href]').forEach((anchor) => {
+        const href = anchor.getAttribute('href') || '';
+        if (
+          shouldPromoteToTopNavigation(href) &&
+          (!anchor.target || anchor.target === '_self')
+        ) {
+          anchor.setAttribute('target', '_top');
+        }
+      });
+
+      if (!doc.__NEWAPI_HOME_LINK_HANDLER__) {
+        const handleTopNavigation = (event) => {
+          const anchor = event.target?.closest?.('a[href]');
+          if (!anchor) {
+            return;
+          }
+
+          const href = anchor.getAttribute('href') || '';
+          if (
+            !shouldPromoteToTopNavigation(href) ||
+            (anchor.target && anchor.target !== '_self' && anchor.target !== '')
+          ) {
+            return;
+          }
+
+          const targetUrl = new URL(href, window.location.origin);
+          event.preventDefault();
+          window.location.assign(targetUrl.toString());
+        };
+
+        doc.addEventListener('click', handleTopNavigation);
+        doc.__NEWAPI_HOME_LINK_HANDLER__ = handleTopNavigation;
+      }
+    } catch (error) {
+      // Cross-origin iframe content cannot be bridged from the parent page.
+    }
+  };
+
   const handleHomePageFrameLoad = (event) => {
     syncHomePageFrameContext(event.currentTarget);
+    bridgeHomePageFrameNavigation(event.currentTarget);
   };
 
   const handleCopyBaseURL = async () => {
@@ -204,6 +275,7 @@ const Home = () => {
       'iframe[data-home-page-frame="true"]',
     );
     syncHomePageFrameContext(iframeElement);
+    bridgeHomePageFrameNavigation(iframeElement);
   }, [actualTheme, i18n.language, resolvedHomePageContent]);
 
   return (
