@@ -152,6 +152,12 @@ func RequestStripePay(c *gin.Context) {
 }
 
 func StripeWebhook(c *gin.Context) {
+	if setting.StripeWebhookSecret == "" {
+		log.Println("Stripe Webhook Secret 未配置，拒绝处理")
+		c.AbortWithStatus(http.StatusForbidden)
+		return
+	}
+
 	payload, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		log.Printf("解析Stripe Webhook参数失败: %v\n", err)
@@ -176,6 +182,10 @@ func StripeWebhook(c *gin.Context) {
 		sessionCompleted(event)
 	case stripe.EventTypeCheckoutSessionExpired:
 		sessionExpired(event)
+	case stripe.EventTypeCheckoutSessionAsyncPaymentSucceeded:
+		sessionAsyncPaymentSucceeded(event)
+	case stripe.EventTypeCheckoutSessionAsyncPaymentFailed:
+		sessionAsyncPaymentFailed(event)
 	default:
 		log.Printf("不支持的Stripe Webhook事件类型: %s\n", event.Type)
 	}
@@ -196,7 +206,67 @@ func sessionCompleted(event stripe.Event) {
 		return
 	}
 
-	// Try complete subscription order first
+	paymentStatus := event.GetObjectValue("payment_status")
+	if paymentStatus != "paid" {
+		log.Printf("Stripe Checkout 支付尚未完成，payment_status: %s, ref: %s（等待异步支付结果）", paymentStatus, referenceId)
+		return
+	}
+
+	fulfillOrder(event, referenceId, customerId, paymentOrderNo)
+}
+
+// sessionAsyncPaymentSucceeded handles delayed payment methods that confirm after checkout completed.
+func sessionAsyncPaymentSucceeded(event stripe.Event) {
+	customerId := event.GetObjectValue("customer")
+	referenceId := event.GetObjectValue("client_reference_id")
+	paymentOrderNo := event.GetObjectValue("payment_intent")
+	if paymentOrderNo == "" {
+		paymentOrderNo = event.GetObjectValue("id")
+	}
+
+	log.Printf("Stripe 异步支付成功: %s", referenceId)
+	fulfillOrder(event, referenceId, customerId, paymentOrderNo)
+}
+
+// sessionAsyncPaymentFailed marks pending topup orders as failed when delayed payment methods fail.
+func sessionAsyncPaymentFailed(event stripe.Event) {
+	referenceId := event.GetObjectValue("client_reference_id")
+	log.Printf("Stripe 异步支付失败: %s", referenceId)
+
+	if len(referenceId) == 0 {
+		log.Println("异步支付失败事件未提供支付单号")
+		return
+	}
+
+	LockOrder(referenceId)
+	defer UnlockOrder(referenceId)
+
+	topUp := model.GetTopUpByTradeNo(referenceId)
+	if topUp == nil {
+		log.Println("异步支付失败，充值订单不存在:", referenceId)
+		return
+	}
+
+	if topUp.Status != common.TopUpStatusPending {
+		log.Printf("异步支付失败，订单状态非 pending: %s, ref: %s", topUp.Status, referenceId)
+		return
+	}
+
+	topUp.Status = common.TopUpStatusFailed
+	if err := topUp.Update(); err != nil {
+		log.Printf("标记充值订单失败出错: %v, ref: %s", err, referenceId)
+		return
+	}
+	log.Printf("充值订单已标记为失败: %s", referenceId)
+}
+
+func fulfillOrder(event stripe.Event, referenceId string, customerId string, paymentOrderNo string) {
+	if len(referenceId) == 0 {
+		log.Println("未提供支付单号")
+		return
+	}
+
+	// Try complete subscription order first.
 	LockOrder(referenceId)
 	defer UnlockOrder(referenceId)
 	payload := map[string]any{
@@ -212,8 +282,7 @@ func sessionCompleted(event stripe.Event) {
 		return
 	}
 
-	err := model.Recharge(referenceId, customerId, paymentOrderNo)
-	if err != nil {
+	if err := model.Recharge(referenceId, customerId, paymentOrderNo); err != nil {
 		log.Println(err.Error(), referenceId)
 		return
 	}
