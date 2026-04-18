@@ -88,6 +88,7 @@ const LoginForm = () => {
   const [githubButtonDisabled, setGithubButtonDisabled] = useState(false);
   const [customOAuthLoading, setCustomOAuthLoading] = useState({});
   const githubTimeoutRef = useRef(null);
+  const expiredHandledRef = useRef(false);
 
   const status = useMemo(() => {
     if (statusState?.status) return statusState.status;
@@ -133,9 +134,26 @@ const LoginForm = () => {
 
   useEffect(() => {
     if (searchParams.get('expired')) {
+      if (expiredHandledRef.current) {
+        return;
+      }
+      expiredHandledRef.current = true;
+      localStorage.removeItem('user');
+      API.get('/api/user/logout', {
+        skipErrorHandler: true,
+        disableDuplicate: true,
+      }).catch(() => {});
       showError(t('未登录或登录已过期，请重新登录'));
     }
   }, [searchParams, t]);
+
+  const getPostLoginRedirect = () => {
+    const redirect = searchParams.get('redirect');
+    if (!redirect || !redirect.startsWith('/')) {
+      return '/console';
+    }
+    return redirect;
+  };
 
   const ensureTermsAccepted = () => {
     if ((hasUserAgreement || hasPrivacyPolicy) && !agreedToTerms) {
@@ -145,20 +163,20 @@ const LoginForm = () => {
     return true;
   };
 
-  const completeLogin = (data, redirectTo = '/console') => {
+  const completeLogin = (data, redirectTo = getPostLoginRedirect()) => {
     userDispatch({ type: 'login', payload: data });
     localStorage.setItem('user', JSON.stringify(data));
     setUserData(data);
     updateAPI();
     showSuccess(t('登录成功！'));
-    navigate(redirectTo);
+    navigate(redirectTo, { replace: true });
   };
 
   const handle2FASuccess = (data) => {
     setUserData(data);
     updateAPI();
     userDispatch({ type: 'login', payload: data });
-    navigate('/console');
+    navigate(getPostLoginRedirect(), { replace: true });
   };
 
   const handleChange = (name, value) => {

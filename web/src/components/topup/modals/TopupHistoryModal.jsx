@@ -38,7 +38,7 @@ import {
 import { IconSearch } from '@douyinfe/semi-icons';
 import { useNavigate } from 'react-router-dom';
 import { API, renderQuotaWithAmount, timestamp2string } from '../../../helpers';
-import { isAdmin } from '../../../helpers/utils';
+import { isAdmin, isRoot } from '../../../helpers/utils';
 import { useIsMobile } from '../../../hooks/common/useIsMobile';
 
 const { Text } = Typography;
@@ -71,9 +71,15 @@ const TopupHistoryModal = ({ visible, onCancel, t }) => {
   const [adOrders, setAdOrders] = useState([]);
   const [adLoading, setAdLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('topup');
+  const [summaryStats, setSummaryStats] = useState({
+    yesterday_income: 0,
+    today_income: 0,
+    unsuccessful_count: 0,
+  });
 
   const isMobile = useIsMobile();
   const userIsAdmin = useMemo(() => isAdmin(), []);
+  const userIsRoot = useMemo(() => isRoot(), []);
   const modalWidth = useMemo(() => {
     if (isMobile) {
       return '100%';
@@ -83,6 +89,14 @@ const TopupHistoryModal = ({ visible, onCancel, t }) => {
     }
     return Math.min(window.innerWidth - 40, userIsAdmin ? 1280 : 1120);
   }, [isMobile, userIsAdmin]);
+  const tableScrollY = useMemo(() => {
+    if (isMobile || typeof window === 'undefined') {
+      return undefined;
+    }
+    return Math.max(360, Math.min(620, window.innerHeight - 320));
+  }, [isMobile]);
+
+  const formatMoney = (value) => Number(value || 0).toFixed(2);
 
   const loadTopups = async (currentPage, currentPageSize) => {
     setLoading(true);
@@ -123,10 +137,30 @@ const TopupHistoryModal = ({ visible, onCancel, t }) => {
     }
   };
 
+  const loadSummaryStats = async () => {
+    if (!userIsRoot) {
+      return;
+    }
+    try {
+      const res = await API.get('/api/user/topup/stats');
+      const { success, data } = res.data;
+      if (success && data) {
+        setSummaryStats({
+          yesterday_income: Number(data.yesterday_income || 0),
+          today_income: Number(data.today_income || 0),
+          unsuccessful_count: Number(data.unsuccessful_count || 0),
+        });
+      }
+    } catch (_) {
+      // Ignore stats loading failure to avoid blocking the modal.
+    }
+  };
+
   useEffect(() => {
     if (visible) {
       loadTopups(page, pageSize);
       loadAdOrders();
+      loadSummaryStats();
     }
   }, [visible, page, pageSize, keyword]);
 
@@ -138,6 +172,7 @@ const TopupHistoryModal = ({ visible, onCancel, t }) => {
       if (res.data?.success) {
         Toast.success({ content: t('补单成功') });
         await loadTopups(page, pageSize);
+        await loadSummaryStats();
       } else {
         Toast.error({ content: res.data?.message || t('补单失败') });
       }
@@ -423,7 +458,12 @@ const TopupHistoryModal = ({ visible, onCancel, t }) => {
       size={isMobile ? 'full-width' : 'large'}
       width={modalWidth}
       className='topup-history-modal'
-      bodyStyle={{ paddingTop: 10, paddingBottom: 8 }}
+      bodyStyle={{
+        paddingTop: 10,
+        paddingBottom: 8,
+        maxHeight: isMobile ? 'calc(100vh - 120px)' : 'calc(100vh - 180px)',
+        overflow: 'hidden',
+      }}
     >
       <Tabs
         activeKey={activeTab}
@@ -444,6 +484,20 @@ const TopupHistoryModal = ({ visible, onCancel, t }) => {
             />
           </div>
 
+          {userIsRoot ? (
+            <div className='mb-3 flex flex-wrap items-center gap-2'>
+              <Tag color='blue' size='large'>
+                {`${t('昨天收入')}：${formatMoney(summaryStats.yesterday_income)}${t('元')}`}
+              </Tag>
+              <Tag color='green' size='large'>
+                {`${t('今日收入')}：${formatMoney(summaryStats.today_income)}${t('元')}`}
+              </Tag>
+              <Tag color='orange' size='large'>
+                {`${t('未支付成功')}：${summaryStats.unsuccessful_count}${t('单')}`}
+              </Tag>
+            </div>
+          ) : null}
+
           <Table
             columns={columns}
             dataSource={topups}
@@ -452,7 +506,7 @@ const TopupHistoryModal = ({ visible, onCancel, t }) => {
             size={isMobile ? 'small' : 'middle'}
             className='topup-history-table'
             tableLayout='fixed'
-            scroll={{ x: userIsAdmin ? 1320 : 1120 }}
+            scroll={{ x: userIsAdmin ? 1320 : 1120, y: tableScrollY }}
             pagination={{
               currentPage: page,
               pageSize,
@@ -486,7 +540,7 @@ const TopupHistoryModal = ({ visible, onCancel, t }) => {
             rowKey='id'
             size={isMobile ? 'small' : 'middle'}
             tableLayout='fixed'
-            scroll={{ x: 1030 }}
+            scroll={{ x: 1030, y: tableScrollY }}
             pagination={{
               pageSize: 10,
               showSizeChanger: true,

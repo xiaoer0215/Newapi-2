@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/logger"
@@ -28,6 +29,14 @@ type TopUp struct {
 	GiftAmount        int64   `json:"gift_amount" gorm:"default:0"`
 	CreditAmount      int64   `json:"credit_amount" gorm:"default:0"`
 }
+
+type TopUpSummaryStats struct {
+	YesterdayIncome   float64 `json:"yesterday_income"`
+	TodayIncome       float64 `json:"today_income"`
+	UnsuccessfulCount int64   `json:"unsuccessful_count"`
+}
+
+var ErrPaymentMethodMismatch = errors.New("payment method mismatch")
 
 func (topUp *TopUp) Insert() error {
 	return DB.Create(topUp).Error
@@ -193,6 +202,10 @@ func Recharge(referenceId string, customerId string, paymentOrderNo string) erro
 			return errors.New("\u5145\u503c\u8ba2\u5355\u4e0d\u5b58\u5728")
 		}
 
+		if topUp.PaymentMethod != "stripe" {
+			return ErrPaymentMethodMismatch
+		}
+
 		if topUp.Status != common.TopUpStatusPending {
 			return errors.New("topup order status is invalid")
 		}
@@ -215,7 +228,7 @@ func Recharge(referenceId string, customerId string, paymentOrderNo string) erro
 		}).Error; err != nil {
 			return err
 		}
-		return markInvitationFirstTopupReward(tx, topUp.UserId, topUp, customerId)
+		return markInvitationFirstTopupRewardOnce(tx, topUp.UserId, topUp, customerId)
 	})
 	if err != nil {
 		common.SysError("topup failed: " + err.Error())
@@ -358,6 +371,37 @@ func SearchAllTopUps(keyword string, pageInfo *common.PageInfo) (topups []*TopUp
 	return topups, total, nil
 }
 
+func GetTopUpSummaryStats() (*TopUpSummaryStats, error) {
+	now := time.Now()
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).Unix()
+	yesterdayStart := todayStart - 86400
+	tomorrowStart := todayStart + 86400
+
+	stats := &TopUpSummaryStats{}
+
+	if err := DB.Model(&TopUp{}).
+		Where("status = ? AND complete_time >= ? AND complete_time < ?", common.TopUpStatusSuccess, yesterdayStart, todayStart).
+		Select("COALESCE(SUM(money), 0)").
+		Scan(&stats.YesterdayIncome).Error; err != nil {
+		return nil, err
+	}
+
+	if err := DB.Model(&TopUp{}).
+		Where("status = ? AND complete_time >= ? AND complete_time < ?", common.TopUpStatusSuccess, todayStart, tomorrowStart).
+		Select("COALESCE(SUM(money), 0)").
+		Scan(&stats.TodayIncome).Error; err != nil {
+		return nil, err
+	}
+
+	if err := DB.Model(&TopUp{}).
+		Where("status <> ?", common.TopUpStatusSuccess).
+		Count(&stats.UnsuccessfulCount).Error; err != nil {
+		return nil, err
+	}
+
+	return stats, nil
+}
+
 func completeTopUp(tradeNo string, paymentOrderNo string) (userId int, quotaToAdd int, payMoney float64, err error) {
 	if tradeNo == "" {
 		return 0, 0, 0, errors.New("trade no is required")
@@ -397,7 +441,7 @@ func completeTopUp(tradeNo string, paymentOrderNo string) (userId int, quotaToAd
 			return err
 		}
 
-		if err := markInvitationFirstTopupReward(tx, topUp.UserId, topUp, ""); err != nil {
+		if err := markInvitationFirstTopupRewardOnce(tx, topUp.UserId, topUp, ""); err != nil {
 			return err
 		}
 
@@ -463,6 +507,10 @@ func RechargeCreem(referenceId string, customerEmail string, customerName string
 			return errors.New("\u5145\u503c\u8ba2\u5355\u4e0d\u5b58\u5728")
 		}
 
+		if topUp.PaymentMethod != "creem" {
+			return ErrPaymentMethodMismatch
+		}
+
 		if topUp.Status != common.TopUpStatusPending {
 			return errors.New("topup order status is invalid")
 		}
@@ -499,7 +547,7 @@ func RechargeCreem(referenceId string, customerEmail string, customerName string
 			return err
 		}
 
-		return markInvitationFirstTopupReward(tx, topUp.UserId, topUp, customerEmail)
+		return markInvitationFirstTopupRewardOnce(tx, topUp.UserId, topUp, customerEmail)
 	})
 	if err != nil {
 		common.SysError("creem topup failed: " + err.Error())
@@ -529,6 +577,10 @@ func RechargeWaffo(tradeNo string, paymentOrderNo string) error {
 			return errors.New("\u5145\u503c\u8ba2\u5355\u4e0d\u5b58\u5728")
 		}
 
+		if topUp.PaymentMethod != "waffo" {
+			return ErrPaymentMethodMismatch
+		}
+
 		if topUp.Status == common.TopUpStatusSuccess {
 			return nil
 		}
@@ -552,7 +604,7 @@ func RechargeWaffo(tradeNo string, paymentOrderNo string) error {
 			return err
 		}
 
-		return markInvitationFirstTopupReward(tx, topUp.UserId, topUp, "")
+		return markInvitationFirstTopupRewardOnce(tx, topUp.UserId, topUp, "")
 	})
 	if err != nil {
 		common.SysError("waffo topup failed: " + err.Error())

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync/atomic"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/logger"
@@ -59,6 +60,9 @@ type invitationRewardGroupCount struct {
 	Value string `json:"value"`
 	Count int    `json:"count"`
 }
+
+var invitationFirstTopupSyncRunning atomic.Bool
+var invitationFirstTopupSyncLastRun atomic.Int64
 
 func maskInvitationDisplay(raw string) string {
 	raw = strings.TrimSpace(raw)
@@ -390,6 +394,89 @@ func parseInvitationSearchID(keyword string) (int, error) {
 	return value, nil
 }
 
+func getInvitationFirstTopupDisplayAmount(topUp *TopUp) float64 {
+	if topUp == nil {
+		return 0
+	}
+
+	// Token display mode stores top-up orders in base units, so use the
+	// actual credited quota instead of the payment amount.
+	if operation_setting.GetQuotaDisplayType() == operation_setting.QuotaDisplayTypeTokens {
+		quotaToAdd := topUp.GetQuotaToAdd()
+		if quotaToAdd > 0 {
+			return float64(quotaToAdd)
+		}
+	}
+
+	if topUp.Amount > 0 {
+		return float64(topUp.Amount)
+	}
+	if topUp.CreditAmount > 0 {
+		return float64(topUp.CreditAmount)
+	}
+	if topUp.Money > 0 {
+		return topUp.Money
+	}
+	return 0
+}
+
+func applyInvitationFirstTopupReward(tx *gorm.DB, record *InvitationReward, topUp *TopUp, paymentAccount string) error {
+	if tx == nil || record == nil || topUp == nil || record.InviteeId == 0 {
+		return nil
+	}
+
+	if record.FirstTopupRewardStatus == InvitationRewardStatusPending ||
+		record.FirstTopupRewardStatus == InvitationRewardStatusApproved ||
+		record.FirstTopupRewardStatus == InvitationRewardStatusRejected {
+		return nil
+	}
+
+	// The invitation relation should only ever bind to the first successful
+	// top-up. Once captured, later top-ups must not overwrite it.
+	if strings.TrimSpace(record.FirstTopupTradeNo) != "" ||
+		record.FirstTopupAmount > 0 ||
+		record.FirstTopupQualifiedAt > 0 {
+		return nil
+	}
+
+	firstTopupAmount := getInvitationFirstTopupDisplayAmount(topUp)
+	if firstTopupAmount <= 0 {
+		return nil
+	}
+
+	now := common.GetTimestamp()
+	displayAccount, accountHash := normalizePaymentAccount(paymentAccount)
+
+	record.FirstTopupRewardStatus = InvitationRewardStatusNotTopup
+	record.FirstTopupRewardQuota = 0
+	record.FirstTopupTradeNo = topUp.TradeNo
+	record.FirstTopupPaymentMethod = topUp.PaymentMethod
+	record.FirstTopupPaymentOrderNo = topUp.PaymentOrderNo
+	record.FirstTopupPaymentAccount = displayAccount
+	record.FirstTopupPaymentAccountHash = accountHash
+	record.FirstTopupAmount = firstTopupAmount
+	record.FirstTopupIP = strings.TrimSpace(topUp.ClientIP)
+	record.FirstTopupDeviceFingerprint = normalizeFingerprint(topUp.DeviceFingerprint)
+	record.FirstTopupQualifiedAt = 0
+	record.UpdatedTime = now
+
+	threshold := operation_setting.InvitationFirstTopupThreshold
+	rewardQuota := operation_setting.DisplayAmountToQuota(operation_setting.InvitationFirstTopupReward)
+	if rewardQuota > 0 && (threshold <= 0 || firstTopupAmount >= threshold) {
+		record.FirstTopupRewardStatus = InvitationRewardStatusPending
+		record.FirstTopupRewardQuota = rewardQuota
+		record.FirstTopupQualifiedAt = now
+	}
+
+	if err := tx.Save(record).Error; err != nil {
+		return err
+	}
+
+	// Avoid writing logs through LOG_DB while the invitation reward transaction
+	// is still open, which can stall SQLite and block the first-topup binding.
+	return nil
+}
+
 func markInvitationFirstTopupReward(tx *gorm.DB, userId int, topUp *TopUp, paymentAccount string) error {
 	if tx == nil || userId == 0 || topUp == nil {
 		return nil
@@ -436,9 +523,82 @@ func markInvitationFirstTopupReward(tx *gorm.DB, userId int, topUp *TopUp, payme
 	if err := tx.Save(&record).Error; err != nil {
 		return err
 	}
-
-	RecordLog(record.InviterId, LogTypeSystem, fmt.Sprintf("邀请好友 %s 首充达标，奖励待审核", record.InviteeMaskedDisplay))
 	return nil
+}
+
+func markInvitationFirstTopupRewardOnce(tx *gorm.DB, userId int, topUp *TopUp, paymentAccount string) error {
+	if tx == nil || userId == 0 || topUp == nil {
+		return nil
+	}
+
+	var record InvitationReward
+	if err := tx.Set("gorm:query_option", "FOR UPDATE").Where("invitee_id = ?", userId).First(&record).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil
+		}
+		return err
+	}
+
+	return applyInvitationFirstTopupReward(tx, &record, topUp, paymentAccount)
+}
+
+func SyncInvitationFirstTopupRewards() error {
+	return DB.Transaction(func(tx *gorm.DB) error {
+		var records []*InvitationReward
+		if err := tx.
+			Where("first_topup_trade_no = ''").
+			Where("first_topup_amount = ?", 0).
+			Where("first_topup_qualified_at = ?", 0).
+			Where("first_topup_reward_status = ? OR first_topup_reward_status = ?", InvitationRewardStatusNotTopup, InvitationRewardStatusNone).
+			Find(&records).Error; err != nil {
+			return err
+		}
+
+		for _, record := range records {
+			if record == nil || record.InviteeId == 0 {
+				continue
+			}
+
+			var firstTopup TopUp
+			result := tx.
+				Where("user_id = ? AND status = ?", record.InviteeId, common.TopUpStatusSuccess).
+				Order("complete_time asc").
+				Order("id asc").
+				Limit(1).
+				Find(&firstTopup)
+			if result.Error != nil {
+				return result.Error
+			}
+			if result.RowsAffected == 0 {
+				continue
+			}
+
+			if err := applyInvitationFirstTopupReward(tx, record, &firstTopup, ""); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+}
+
+func TriggerInvitationFirstTopupRewardSync() {
+	now := common.GetTimestamp()
+	lastRun := invitationFirstTopupSyncLastRun.Load()
+	if lastRun > 0 && now-lastRun < 30 {
+		return
+	}
+	if !invitationFirstTopupSyncRunning.CompareAndSwap(false, true) {
+		return
+	}
+	invitationFirstTopupSyncLastRun.Store(now)
+
+	go func() {
+		defer invitationFirstTopupSyncRunning.Store(false)
+		if err := SyncInvitationFirstTopupRewards(); err != nil {
+			common.SysError("sync invitation first topup rewards failed: " + err.Error())
+		}
+	}()
 }
 
 func creditInvitationRewardTx(tx *gorm.DB, inviterId int, quota int) error {

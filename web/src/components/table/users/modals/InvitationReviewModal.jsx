@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Button,
   Empty,
@@ -31,6 +31,7 @@ import {
   Typography,
 } from '@douyinfe/semi-ui';
 import { API, renderQuota, showError, showSuccess, timestamp2string } from '../../../../helpers';
+import { useIsMobile } from '../../../../hooks/common/useIsMobile';
 
 const { Text } = Typography;
 
@@ -49,6 +50,16 @@ const EMPTY_REVIEW_DIALOG = {
   reviewType: 'register',
   action: 'approve',
   rejectReason: '',
+};
+
+const INVITATION_COPY = {
+  inviter: '\u9080\u8bf7\u4eba',
+  inviterId: '\u9080\u8bf7\u4eba ID',
+  invitee: '\u88ab\u9080\u8bf7\u7528\u6237',
+  inviteeId: '\u88ab\u9080\u8bf7\u4eba ID',
+  inviteChain: '\u9080\u8bf7\u94fe\u8def',
+  childInvites: '\u4e8c\u7ea7\u9080\u8bf7',
+  noChildInvites: '\u6682\u65e0\u4e0b\u7ea7\u9080\u8bf7',
 };
 
 const renderStatusTag = (status, quota, t) => {
@@ -139,6 +150,23 @@ const InvitationReviewModal = ({ visible, onCancel, t }) => {
   const [total, setTotal] = useState(0);
   const [reviewDialog, setReviewDialog] = useState(EMPTY_REVIEW_DIALOG);
   const [submittingReview, setSubmittingReview] = useState(false);
+  const requestSeqRef = useRef(0);
+  const isMobile = useIsMobile();
+  const modalWidth = useMemo(() => {
+    if (isMobile) {
+      return '100%';
+    }
+    if (typeof window === 'undefined') {
+      return 1320;
+    }
+    return Math.min(window.innerWidth - 40, 1320);
+  }, [isMobile]);
+  const tableScrollY = useMemo(() => {
+    if (isMobile || typeof window === 'undefined') {
+      return undefined;
+    }
+    return 520;
+  }, [isMobile]);
 
   const loadData = useCallback(
     async (page = activePage, size = pageSize, overrides = {}) => {
@@ -146,9 +174,12 @@ const InvitationReviewModal = ({ visible, onCancel, t }) => {
         return;
       }
 
+      const requestSeq = requestSeqRef.current + 1;
+      requestSeqRef.current = requestSeq;
       setLoading(true);
       try {
         const res = await API.get('/api/user/aff/rewards', {
+          disableDuplicate: true,
           params: {
             p: page,
             page_size: size,
@@ -160,6 +191,9 @@ const InvitationReviewModal = ({ visible, onCancel, t }) => {
           },
         });
         const { success, message, data } = res.data;
+        if (requestSeq !== requestSeqRef.current) {
+          return;
+        }
         if (success) {
           setRecords(data?.items || []);
           setActivePage(data?.page || page);
@@ -169,9 +203,14 @@ const InvitationReviewModal = ({ visible, onCancel, t }) => {
           showError(message);
         }
       } catch {
+        if (requestSeq !== requestSeqRef.current) {
+          return;
+        }
         showError(t('邀请奖励记录加载失败'));
       } finally {
-        setLoading(false);
+        if (requestSeq === requestSeqRef.current) {
+          setLoading(false);
+        }
       }
     },
     [activePage, keyword, pageSize, status, t, visible],
@@ -181,10 +220,25 @@ const InvitationReviewModal = ({ visible, onCancel, t }) => {
     if (visible) {
       loadData(1, pageSize, { keyword, status });
     } else {
+      requestSeqRef.current += 1;
+      setLoading(false);
       setReviewDialog(EMPTY_REVIEW_DIALOG);
       setSubmittingReview(false);
     }
   }, [visible]);
+
+  const tableRenderKey = useMemo(
+    () =>
+      [
+        visible ? 'visible' : 'hidden',
+        loading ? 'loading' : 'ready',
+        activePage,
+        pageSize,
+        total,
+        records.length,
+      ].join('-'),
+    [activePage, loading, pageSize, records.length, total, visible],
+  );
 
   const openReviewDialog = (record, reviewType, action) => {
     setReviewDialog({
@@ -248,27 +302,135 @@ const InvitationReviewModal = ({ visible, onCancel, t }) => {
       {
         title: t('邀请关系'),
         key: 'relation',
-        width: 320,
+        width: 280,
         render: (_, record) => {
           const inviteeLabel =
             record.invitee_username || record.invitee_display || '--';
           const inviterLabel =
             record.inviter_username || `#${record.inviter_id || '--'}`;
           const children = record.invitee_children || [];
+          const childPreviewLimit = isMobile ? 2 : 3;
 
           return (
             <div className='min-w-0 flex flex-col gap-2'>
+              <div className='flex min-w-0 flex-wrap items-center gap-1.5'>
+                <Tag color='blue' type='light'>
+                  {t(INVITATION_COPY.inviter)}
+                </Tag>
+                <div
+                  className='truncate text-sm font-medium'
+                  style={{ maxWidth: isMobile ? 120 : 88 }}
+                >
+                  {inviterLabel}
+                </div>
+                <Tag color='grey' type='light'>
+                  {`ID ${record.inviter_id || '--'}`}
+                </Tag>
+
+                <Text type='tertiary'>-&gt;</Text>
+
+                <Tag color='cyan' type='light'>
+                  {t(INVITATION_COPY.invitee)}
+                </Tag>
+                <div
+                  className='truncate text-sm font-medium'
+                  style={{ maxWidth: isMobile ? 120 : 96 }}
+                >
+                  {inviteeLabel}
+                </div>
+                <Tag color='grey' type='light'>
+                  {`ID ${record.invitee_id || '--'}`}
+                </Tag>
+              </div>
+
+              <div className='flex flex-wrap gap-1'>
+                {children.length > 0 ? (
+                  <Tag color='orange' type='light'>
+                    {`${t(INVITATION_COPY.childInvites)} ${children.length}`}
+                  </Tag>
+                ) : (
+                  <Tag color='grey' type='light'>
+                    {t(INVITATION_COPY.noChildInvites)}
+                  </Tag>
+                )}
+
+                {children.slice(0, childPreviewLimit).map((child) => (
+                  <Tag key={child.id} color='blue'>
+                    {child.invitee_display ||
+                      child.invitee_username ||
+                      `#${child.invitee_id}`}
+                  </Tag>
+                ))}
+
+                {children.length > childPreviewLimit ? (
+                  <Tag color='grey'>{`+${children.length - childPreviewLimit}`}</Tag>
+                ) : null}
+              </div>
+              <div className='hidden'>
+              <div className='overflow-hidden rounded-xl border border-gray-200 bg-gray-50 px-3 py-3'>
+                <div
+                  className='grid gap-x-3 gap-y-2 items-start'
+                  style={{
+                    gridTemplateColumns: isMobile
+                      ? '1fr'
+                      : '84px minmax(0, 1fr)',
+                  }}
+                >
+                  <Text type='tertiary' size='small'>
+                    {t(INVITATION_COPY.inviter)}
+                  </Text>
+                  <div className='min-w-0 break-all text-sm font-medium'>
+                    {inviterLabel}
+                  </div>
+
+                  <Text type='tertiary' size='small'>
+                    {t(INVITATION_COPY.inviterId)}
+                  </Text>
+                  <div className='min-w-0 break-all text-sm'>
+                    {record.inviter_id || '--'}
+                  </div>
+
+                  <Text type='tertiary' size='small'>
+                    {t(INVITATION_COPY.invitee)}
+                  </Text>
+                  <div className='min-w-0 break-all text-sm font-medium'>
+                    {inviteeLabel}
+                  </div>
+
+                  <Text type='tertiary' size='small'>
+                    {t(INVITATION_COPY.inviteeId)}
+                  </Text>
+                  <div className='min-w-0 break-all text-sm'>
+                    {record.invitee_id || '--'}
+                  </div>
+
+                  <Text type='tertiary' size='small'>
+                    {t(INVITATION_COPY.inviteChain)}
+                  </Text>
+                  <div className='min-w-0 break-all text-sm text-gray-600'>
+                    {`${inviterLabel} -> ${inviteeLabel}`}
+                  </div>
+                </div>
+              </div>
+              <div className='hidden'>
               <div className='font-medium break-all'>{inviteeLabel}</div>
+              <Text type='quaternary' size='small'>
+                {`${t('閭€璇蜂汉 ID')}锛?${record.inviter_id || '--'}`}
+              </Text>
               <Text type='tertiary' size='small'>
                 {`${t('邀请链路')}：${inviterLabel} -> ${inviteeLabel}`}
               </Text>
               <Text type='quaternary' size='small'>
                 {`${t('邀请用户 ID')}：${record.invitee_id || '--'}`}
               </Text>
+              </div>
 
               {children.length > 0 ? (
                 <div className='rounded-lg bg-gray-50 px-3 py-2'>
                   <div className='text-xs text-gray-500 mb-2'>
+                    {`${t(INVITATION_COPY.childInvites)} ${children.length}`}
+                  </div>
+                  <div className='hidden text-xs text-gray-500 mb-2'>
                     {`${t('该好友后续又邀请了')} ${children.length} ${t('人')}`}
                   </div>
                   <div className='flex flex-wrap gap-1'>
@@ -285,10 +447,16 @@ const InvitationReviewModal = ({ visible, onCancel, t }) => {
                   </div>
                 </div>
               ) : (
+                <>
                 <Text type='quaternary' size='small'>
+                  {t(INVITATION_COPY.noChildInvites)}
+                </Text>
+                <Text className='hidden' type='quaternary' size='small'>
                   {t('暂无下级邀请')}
                 </Text>
+                </>
               )}
+              </div>
             </div>
           );
         },
@@ -472,8 +640,15 @@ const InvitationReviewModal = ({ visible, onCancel, t }) => {
         visible={visible}
         onCancel={onCancel}
         footer={null}
-        width={1320}
+        size={isMobile ? 'full-width' : 'large'}
+        width={modalWidth}
         centered
+        bodyStyle={{
+          paddingTop: 10,
+          paddingBottom: 8,
+          maxHeight: isMobile ? 'calc(100vh - 120px)' : 'calc(100vh - 180px)',
+          overflow: 'hidden',
+        }}
       >
         <div className='flex flex-col gap-4'>
           <div className='flex flex-col md:flex-row gap-3'>
@@ -502,6 +677,7 @@ const InvitationReviewModal = ({ visible, onCancel, t }) => {
           </div>
 
           <Table
+            key={tableRenderKey}
             columns={columns}
             dataSource={records}
             loading={loading}
@@ -518,7 +694,7 @@ const InvitationReviewModal = ({ visible, onCancel, t }) => {
                 loadData(1, size);
               },
             }}
-            scroll={{ x: 'max-content' }}
+            scroll={{ x: 'max-content', y: tableScrollY }}
             empty={
               <Empty
                 description={t('暂无邀请奖励记录')}
@@ -544,8 +720,42 @@ const InvitationReviewModal = ({ visible, onCancel, t }) => {
         onOk={submitReview}
       >
         <div className='flex flex-col gap-3'>
-          <Text>
+          <Text className='hidden'>
             {`${t('邀请好友')}：${reviewTargetLabel}`}
+          </Text>
+          <div className='rounded-xl border border-gray-200 bg-gray-50 px-3 py-3'>
+            <div
+              className='grid gap-x-3 gap-y-2 items-start'
+              style={{
+                gridTemplateColumns: isMobile ? '1fr' : '96px minmax(0, 1fr)',
+              }}
+            >
+              <Text type='tertiary' size='small'>
+                {t(INVITATION_COPY.invitee)}
+              </Text>
+              <div className='min-w-0 break-all text-sm font-medium'>
+                {reviewTargetLabel}
+              </div>
+
+              <Text type='tertiary' size='small'>
+                {t(INVITATION_COPY.inviter)}
+              </Text>
+              <div className='min-w-0 break-all text-sm font-medium'>
+                {reviewDialog.record?.inviter_username || '--'}
+              </div>
+
+              <Text type='tertiary' size='small'>
+                {t(INVITATION_COPY.inviterId)}
+              </Text>
+              <div className='min-w-0 break-all text-sm'>
+                {reviewDialog.record?.inviter_id || '--'}
+              </div>
+            </div>
+          </div>
+          <Text className='hidden' type='secondary'>
+            {`${t('閭€璇蜂汉')}锛?${reviewDialog.record?.inviter_username || '--'} (#${
+              reviewDialog.record?.inviter_id || '--'
+            })`}
           </Text>
           {reviewDialog.action === 'reject' ? (
             <div className='flex flex-col gap-2'>

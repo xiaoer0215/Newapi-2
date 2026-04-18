@@ -8,10 +8,6 @@ upload
 build
 *.db-journal
 logs
-*.log
-*.bak
-*.tar.gz
-*.zip
 web/dist
 .env
 one-api
@@ -26,9 +22,6 @@ tiktoken_cache
 web/bun.lock
 plans
 .claude
-release/
-web/node_modules/
-web/package-lock.json
 
 electron/node_modules
 electron/dist

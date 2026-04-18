@@ -105,6 +105,7 @@ func GetStatus(c *gin.Context) {
 		"usd_exchange_rate": operation_setting.USDExchangeRate,
 		"price":             operation_setting.Price,
 		"stripe_unit_price": setting.StripeUnitPrice,
+		"enable_stripe_topup": setting.IsStripeTopUpEnabled(),
 
 		// 面板启用开关
 		"api_info_enabled":      cs.ApiInfoEnabled,

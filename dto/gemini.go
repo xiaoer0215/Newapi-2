@@ -20,6 +20,7 @@ type GeminiChatRequest struct {
 	ToolConfig         *ToolConfig                `json:"toolConfig,omitempty"`
 	SystemInstructions *GeminiChatContent         `json:"systemInstruction,omitempty"`
 	CachedContent      string                     `json:"cachedContent,omitempty"`
+	Model              string                     `json:"model,omitempty"`
 }
 
 // UnmarshalJSON allows GeminiChatRequest to accept both snake_case and camelCase fields.
@@ -125,7 +126,9 @@ func (r *GeminiChatRequest) IsStream(c *gin.Context) bool {
 }
 
 func (r *GeminiChatRequest) SetModelName(modelName string) {
-	// GeminiChatRequest does not have a model field, so this method does nothing.
+	if modelName != "" {
+		r.Model = modelName
+	}
 }
 
 func (r *GeminiChatRequest) GetTools() []GeminiChatTool {

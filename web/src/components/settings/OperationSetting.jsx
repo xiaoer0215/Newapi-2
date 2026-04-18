@@ -27,6 +27,7 @@ import SettingsLog from '../../pages/Setting/Operation/SettingsLog';
 import SettingsMonitoring from '../../pages/Setting/Operation/SettingsMonitoring';
 import SettingsCreditLimit from '../../pages/Setting/Operation/SettingsCreditLimit';
 import SettingsCheckin from '../../pages/Setting/Operation/SettingsCheckin';
+import SettingsIPRestriction from '../../pages/Setting/Operation/SettingsIPRestriction';
 import { API, showError, toBoolean } from '../../helpers';
 
 const OperationSetting = () => {
@@ -89,12 +90,14 @@ const OperationSetting = () => {
     'checkin_setting.max_quota': 10000,
     'checkin_setting.turnstile_enabled': false,
     'checkin_setting.ip_limit_enabled': false,
-    'checkin_setting.block_vpn': false,
-    'checkin_setting.block_datacenter': false,
-    'checkin_setting.block_residential': false,
-    'checkin_setting.ip_check_provider': '',
-    'checkin_setting.ipinfo_token': '',
-    'checkin_setting.ip_api_key': '',
+    'ip_restriction_setting.configured': false,
+    'ip_restriction_setting.single_ip_limit_enabled': false,
+    'ip_restriction_setting.block_vpn': false,
+    'ip_restriction_setting.block_datacenter': false,
+    'ip_restriction_setting.block_residential': false,
+    'ip_restriction_setting.ip_check_provider': '',
+    'ip_restriction_setting.ipinfo_token': '',
+    'ip_restriction_setting.ip_api_key': '',
 
     /* 令牌设置 */
     'token_setting.max_user_tokens': 1000,
@@ -107,13 +110,36 @@ const OperationSetting = () => {
     const { success, message, data } = res.data;
     if (success) {
       let newInputs = { ...inputs };
+      const rawOptionMap = {};
       data.forEach((item) => {
+        rawOptionMap[item.key] = item.value;
         if (typeof inputs[item.key] === 'boolean') {
           newInputs[item.key] = toBoolean(item.value);
         } else {
           newInputs[item.key] = item.value;
         }
       });
+
+      if (!toBoolean(rawOptionMap['ip_restriction_setting.configured'] || 'false')) {
+        newInputs['ip_restriction_setting.single_ip_limit_enabled'] = toBoolean(
+          rawOptionMap['checkin_setting.ip_limit_enabled'] || 'false',
+        );
+        newInputs['ip_restriction_setting.block_vpn'] = toBoolean(
+          rawOptionMap['checkin_setting.block_vpn'] || 'false',
+        );
+        newInputs['ip_restriction_setting.block_datacenter'] = toBoolean(
+          rawOptionMap['checkin_setting.block_datacenter'] || 'false',
+        );
+        newInputs['ip_restriction_setting.block_residential'] = toBoolean(
+          rawOptionMap['checkin_setting.block_residential'] || 'false',
+        );
+        newInputs['ip_restriction_setting.ip_check_provider'] =
+          rawOptionMap['checkin_setting.ip_check_provider'] || '';
+        newInputs['ip_restriction_setting.ipinfo_token'] =
+          rawOptionMap['checkin_setting.ipinfo_token'] || '';
+        newInputs['ip_restriction_setting.ip_api_key'] =
+          rawOptionMap['checkin_setting.ip_api_key'] || '';
+      }
 
       setInputs(newInputs);
     } else {
@@ -166,6 +192,10 @@ const OperationSetting = () => {
         {/* 额度设置 */}
         <Card style={{ marginTop: '10px' }}>
           <SettingsCreditLimit options={inputs} refresh={onRefresh} />
+        </Card>
+        {/* IP 限制设置 */}
+        <Card style={{ marginTop: '10px' }}>
+          <SettingsIPRestriction options={inputs} refresh={onRefresh} />
         </Card>
         {/* 签到设置 */}
         <Card style={{ marginTop: '10px' }}>

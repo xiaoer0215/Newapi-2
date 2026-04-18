@@ -134,6 +134,7 @@ func buildInvitationIPMeta(ip string, cache map[string]gin.H) gin.H {
 
 func GetSelfInvitationRewards(c *gin.Context) {
 	userId := c.GetInt("id")
+	model.TriggerInvitationFirstTopupRewardSync()
 	records, err := model.GetSelfInvitationRewards(userId)
 	if err != nil {
 		common.ApiError(c, err)
@@ -162,6 +163,8 @@ func AdminListInvitationRewards(c *gin.Context) {
 	pageInfo := common.GetPageQuery(c)
 	keyword := strings.TrimSpace(c.Query("keyword"))
 	status := strings.TrimSpace(c.Query("status"))
+
+	model.TriggerInvitationFirstTopupRewardSync()
 
 	records, total, riskCounts, err := model.ListInvitationRewardsForAdmin(pageInfo, keyword, status)
 	if err != nil {

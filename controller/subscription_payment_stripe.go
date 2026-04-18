@@ -22,6 +22,11 @@ type SubscriptionStripePayRequest struct {
 }
 
 func SubscriptionRequestStripePay(c *gin.Context) {
+	if !setting.IsStripeTopUpEnabled() {
+		common.ApiErrorMsg(c, "\u7ba1\u7406\u5458\u672a\u5f00\u542fStripe\u5145\u503c\uff01")
+		return
+	}
+
 	var req SubscriptionStripePayRequest
 	if err := c.ShouldBindJSON(&req); err != nil || req.PlanId <= 0 {
 		common.ApiErrorMsg(c, "参数错误")

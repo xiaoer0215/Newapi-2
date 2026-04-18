@@ -80,6 +80,7 @@ func HasIPCheckedInToday(ip string, userId int) (bool, error) {
 // UserCheckin 执行用户签到（带 clientIP 参数）
 func UserCheckin(userId int, clientIP ...string) (*Checkin, error) {
 	setting := operation_setting.GetCheckinSetting()
+	ipRestrictionSetting := operation_setting.GetEffectiveIPRestrictionSetting()
 	if !setting.Enabled {
 		return nil, errors.New("签到功能未启用")
 	}
@@ -100,7 +101,7 @@ func UserCheckin(userId int, clientIP ...string) (*Checkin, error) {
 	}
 
 	// IP 限制检查
-	if setting.IPLimitEnabled && ip != "" {
+	if setting.IPLimitEnabled && ip != "" && ipRestrictionSetting.SingleIPLimitEnabled {
 		ipUsed, err := HasIPCheckedInToday(ip, userId)
 		if err != nil {
 			return nil, err
@@ -111,19 +112,20 @@ func UserCheckin(userId int, clientIP ...string) (*Checkin, error) {
 	}
 
 	// IP 类型检测（VPN / 数据中心 / 住宅代理屏蔽）
-	if ip != "" && setting.IPCheckProvider != "" && (setting.BlockVPN || setting.BlockDatacenter || setting.BlockResidential) {
-		result, err := ipcheck.CheckIP(ip, setting.IPCheckProvider, setting.IPApiKey, setting.IPInfoToken)
+	if setting.IPLimitEnabled && ip != "" && ipRestrictionSetting.IPCheckProvider != "" &&
+		(ipRestrictionSetting.BlockVPN || ipRestrictionSetting.BlockDatacenter || ipRestrictionSetting.BlockResidential) {
+		result, err := ipcheck.CheckIP(ip, ipRestrictionSetting.IPCheckProvider, ipRestrictionSetting.IPApiKey, ipRestrictionSetting.IPInfoToken)
 		if err != nil {
 			// 检测失败时记录日志但不阻断签到（避免服务不可用时完全无法签到）
 			common.SysLog("IP检测失败（" + ip + "）: " + err.Error())
 		} else if result != nil {
-			if setting.BlockVPN && result.IsProxy {
+			if ipRestrictionSetting.BlockVPN && result.IsProxy {
 				return nil, errors.New("检测到您使用了 VPN / 代理网络，暂不支持签到")
 			}
-			if setting.BlockDatacenter && result.IsDatacenter {
+			if ipRestrictionSetting.BlockDatacenter && result.IsDatacenter {
 				return nil, errors.New("检测到您使用了数据中心 / 服务器 IP，暂不支持签到")
 			}
-			if setting.BlockResidential && result.IsResidential {
+			if ipRestrictionSetting.BlockResidential && result.IsResidential {
 				return nil, errors.New("检测到您使用了住宅代理网络，暂不支持签到")
 			}
 		}

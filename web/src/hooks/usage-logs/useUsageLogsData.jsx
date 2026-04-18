@@ -17,13 +17,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Modal } from '@douyinfe/semi-ui';
 import {
   API,
   getTodayStartTimestamp,
   isAdmin,
+  isRoot,
   showError,
   showSuccess,
   timestamp2string,
@@ -76,6 +77,7 @@ export const useLogsData = () => {
 
   // User and admin
   const isAdminUser = isAdmin();
+  const isRootUser = isRoot();
   // Role-specific storage key to prevent different roles from overwriting each other
   const STORAGE_KEY = isAdminUser
     ? 'logs-table-columns-admin'
@@ -403,6 +405,20 @@ export const useLogsData = () => {
       return `${chain.join(' -> ')}`;
     };
 
+    const getAdminInfo = (other) => {
+      if (!other || typeof other !== 'object') {
+        return null;
+      }
+      return other?.admin_info && typeof other.admin_info === 'object'
+        ? other.admin_info
+        : null;
+    };
+
+    const getUseChannelChain = (other) => {
+      const useChannel = getAdminInfo(other)?.use_channel;
+      return Array.isArray(useChannel) ? useChannel.filter(Boolean) : [];
+    };
+
     let expandDatesLocal = {};
     for (let i = 0; i < logs.length; i++) {
       logs[i].timestamp2string = timestamp2string(logs[i].created_at);
@@ -412,7 +428,10 @@ export const useLogsData = () => {
 
       if (
         isAdminUser &&
-        (logs[i].type === 0 || logs[i].type === 2 || logs[i].type === 6)
+        (logs[i].type === 0 ||
+          logs[i].type === 2 ||
+          logs[i].type === 5 ||
+          logs[i].type === 6)
       ) {
         expandDataLocal.push({
           key: t('渠道信息'),
@@ -424,6 +443,62 @@ export const useLogsData = () => {
           key: t('Request ID'),
           value: logs[i].request_id,
         });
+      }
+      if (logs[i].type === 5) {
+        const adminInfo = getAdminInfo(other);
+        const useChannelChain = getUseChannelChain(other);
+
+        if (logs[i]?.content) {
+          expandDataLocal.push({
+            key: t('错误详情'),
+            value: (
+              <div
+                style={{
+                  maxWidth: 600,
+                  whiteSpace: 'normal',
+                  wordBreak: 'break-word',
+                  lineHeight: 1.6,
+                }}
+              >
+                {logs[i].content}
+              </div>
+            ),
+          });
+        }
+        if (other?.status_code !== undefined && other?.status_code !== null) {
+          expandDataLocal.push({
+            key: t('状态码'),
+            value: String(other.status_code),
+          });
+        }
+        if (other?.error_type) {
+          expandDataLocal.push({
+            key: t('错误类型'),
+            value: other.error_type,
+          });
+        }
+        if (other?.error_code) {
+          expandDataLocal.push({
+            key: t('错误代码'),
+            value: other.error_code,
+          });
+        }
+        if (isRootUser && useChannelChain.length > 0) {
+          expandDataLocal.push({
+            key: t('上游重试链路'),
+            value: useChannelChain.join(' -> '),
+          });
+        }
+        if (isRootUser && adminInfo?.is_multi_key) {
+          const multiKeyIndex = adminInfo?.multi_key_index;
+          expandDataLocal.push({
+            key: t('命中上游 Key'),
+            value:
+              multiKeyIndex !== undefined && multiKeyIndex !== null
+                ? `#${multiKeyIndex}`
+                : t('多 Key'),
+          });
+        }
       }
       if (other?.ws || other?.audio) {
         expandDataLocal.push({
@@ -643,6 +718,12 @@ export const useLogsData = () => {
           value: other.request_path,
         });
       }
+      if (isRootUser && other?.upstream_site) {
+        expandDataLocal.push({
+          key: t('上游站点'),
+          value: other.upstream_site,
+        });
+      }
       if (isAdminUser && other?.stream_status) {
         const ss = other.stream_status;
         const isOk = ss.status === 'ok';
@@ -747,12 +828,12 @@ export const useLogsData = () => {
           value: requestConversionDisplayValue(other?.request_conversion),
         });
       }
-      if (logs[i].type !== 6) {
+      if (isAdminUser && logs[i].type !== 6) {
         let localCountMode = '';
         if (other?.admin_info?.local_count_tokens) {
           localCountMode = t('本地计费');
         } else {
-          localCountMode = isAdminUser ? t('上游返回') : t('系统返回');
+          localCountMode = t('上游返回');
         }
         expandDataLocal.push({
           key: t('计费模式'),
@@ -833,7 +914,7 @@ export const useLogsData = () => {
   // Refresh function
   const refresh = async () => {
     setActivePage(1);
-    if (showStat) handleEyeClick();
+    handleEyeClick();
     await loadLogs(1, pageSize);
   };
 
@@ -858,15 +939,20 @@ export const useLogsData = () => {
         showError(reason);
       });
     // Load stats on mount unconditionally — don't rely on formApi being ready
-    handleEyeClick();
   }, []);
 
   // Check if any record has expandable content — memoized to avoid O(n) scan on every render
-  const hasExpandableRows = useMemo(() => {
+  useEffect(() => {
+    if (formApi) {
+      handleEyeClick();
+    }
+  }, [formApi]);
+
+  const hasExpandableRows = () => {
     return logs.some(
       (log) => expandData[log.key] && expandData[log.key].length > 0,
     );
-  }, [logs, expandData]);
+  };
 
   return {
     // Basic state

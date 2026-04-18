@@ -24,15 +24,13 @@ const formatCnyPrice = (value) => {
   return amount.toFixed(Number.isInteger(amount) ? 0 : 2);
 };
 
-// 过滤易支付方式
-function getEpayMethods(payMethods = []) {
+const getEpayMethods = (payMethods = []) => {
   return (payMethods || []).filter(
     (m) => m?.type && m.type !== 'stripe' && m.type !== 'creem',
   );
-}
+};
 
-// 提交易支付表单
-function submitEpayForm({ url, params }) {
+const submitEpayForm = ({ url, params }) => {
   const form = document.createElement('form');
   form.action = url;
   form.method = 'POST';
@@ -50,7 +48,9 @@ function submitEpayForm({ url, params }) {
   document.body.appendChild(form);
   form.submit();
   document.body.removeChild(form);
-}
+};
+
+
 
 const AutoDeliveryShop = ({ t, reloadUserQuota, payMethods = [], enableOnlineTopUp = false, enableStripeTopUp = false, enableCreemTopUp = false, products: propProducts = [] }) => {
   const [products, setProducts] = useState(propProducts);
@@ -62,7 +62,7 @@ const AutoDeliveryShop = ({ t, reloadUserQuota, payMethods = [], enableOnlineTop
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [paying, setPaying] = useState(false);
   const [selectedEpayMethod, setSelectedEpayMethod] = useState('');
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const epayMethods = useMemo(() => getEpayMethods(payMethods), [payMethods]);
 
@@ -70,14 +70,21 @@ const AutoDeliveryShop = ({ t, reloadUserQuota, payMethods = [], enableOnlineTop
     setProducts(propProducts);
   }, [propProducts]);
 
-  // 支付回跳后刷新库存（从父组件 reload）
   useEffect(() => {
-    const payStatus = searchParams.get('pay');
-    if (payStatus === 'success') {
-      setPurchasedModalVisible(true);
-      fetchPurchasedCards();
+    const shouldShowPurchasedHistory =
+      searchParams.get('show_auto_delivery_history') === 'true';
+    if (!shouldShowPurchasedHistory) {
+      return;
     }
-  }, [searchParams]);
+
+    setPurchasedModalVisible(true);
+    fetchPurchasedCards();
+
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('show_auto_delivery_history');
+    setSearchParams(nextParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -125,7 +132,7 @@ const AutoDeliveryShop = ({ t, reloadUserQuota, payMethods = [], enableOnlineTop
 
   const payStripe = async () => {
     if (!selectedProduct?.stripe_price_id) {
-      showError(t('该商品未配置 Stripe'));
+      showError(t('\u8be5\u5546\u54c1\u672a\u914d\u7f6e Stripe'));
       return;
     }
     setPaying(true);
@@ -135,17 +142,17 @@ const AutoDeliveryShop = ({ t, reloadUserQuota, payMethods = [], enableOnlineTop
       });
       if (res.data?.message === 'success') {
         window.open(res.data.data?.pay_link, '_blank');
-        showSuccess(t('已打开支付页面'));
+        showSuccess(t('\u5df2\u6253\u5f00\u652f\u4ed8\u9875\u9762'));
         closeBuy();
       } else {
         const errorMsg =
           typeof res.data?.data === 'string'
             ? res.data.data
-            : res.data?.message || t('支付失败');
+            : res.data?.message || t('\u652f\u4ed8\u5931\u8d25');
         showError(errorMsg);
       }
     } catch (e) {
-      showError(t('支付请求失败'));
+      showError(t('\u652f\u4ed8\u8bf7\u6c42\u5931\u8d25'));
     } finally {
       setPaying(false);
     }
@@ -153,7 +160,7 @@ const AutoDeliveryShop = ({ t, reloadUserQuota, payMethods = [], enableOnlineTop
 
   const payCreem = async () => {
     if (!selectedProduct?.creem_product_id) {
-      showError(t('该商品未配置 Creem'));
+      showError(t('\u8be5\u5546\u54c1\u672a\u914d\u7f6e Creem'));
       return;
     }
     setPaying(true);
@@ -163,17 +170,17 @@ const AutoDeliveryShop = ({ t, reloadUserQuota, payMethods = [], enableOnlineTop
       });
       if (res.data?.message === 'success') {
         window.open(res.data.data?.checkout_url, '_blank');
-        showSuccess(t('已打开支付页面'));
+        showSuccess(t('\u5df2\u6253\u5f00\u652f\u4ed8\u9875\u9762'));
         closeBuy();
       } else {
         const errorMsg =
           typeof res.data?.data === 'string'
             ? res.data.data
-            : res.data?.message || t('支付失败');
+            : res.data?.message || t('\u652f\u4ed8\u5931\u8d25');
         showError(errorMsg);
       }
     } catch (e) {
-      showError(t('支付请求失败'));
+      showError(t('\u652f\u4ed8\u8bf7\u6c42\u5931\u8d25'));
     } finally {
       setPaying(false);
     }
@@ -181,7 +188,7 @@ const AutoDeliveryShop = ({ t, reloadUserQuota, payMethods = [], enableOnlineTop
 
   const payEpay = async () => {
     if (!selectedEpayMethod) {
-      showError(t('请选择支付方式'));
+      showError(t('\u8bf7\u9009\u62e9\u652f\u4ed8\u65b9\u5f0f'));
       return;
     }
     setPaying(true);
@@ -192,17 +199,17 @@ const AutoDeliveryShop = ({ t, reloadUserQuota, payMethods = [], enableOnlineTop
       });
       if (res.data?.message === 'success') {
         submitEpayForm({ url: res.data.url, params: res.data.data });
-        showSuccess(t('已发起支付'));
+        showSuccess(t('\u5df2\u53d1\u8d77\u652f\u4ed8'));
         closeBuy();
       } else {
         const errorMsg =
           typeof res.data?.data === 'string'
             ? res.data.data
-            : res.data?.message || t('支付失败');
+            : res.data?.message || t('\u652f\u4ed8\u5931\u8d25');
         showError(errorMsg);
       }
     } catch (e) {
-      showError(t('支付请求失败'));
+      showError(t('\u652f\u4ed8\u8bf7\u6c42\u5931\u8d25'));
     } finally {
       setPaying(false);
     }
@@ -228,9 +235,9 @@ const AutoDeliveryShop = ({ t, reloadUserQuota, payMethods = [], enableOnlineTop
         }}
       >
         <Title heading={4}>
-          <IconGift style={{ marginRight: 8 }} /> 自动发货
+          <IconGift style={{ marginRight: 8 }} /> {t('\u81ea\u52a8\u53d1\u8d27')}
         </Title>
-        <Button onClick={openPurchasedModal}>我的购买记录</Button>
+        <Button onClick={openPurchasedModal}>{t('\u6211\u7684\u8d2d\u4e70\u8bb0\u5f55')}</Button>
       </div>
 
       <Spin spinning={loading}>
@@ -250,17 +257,17 @@ const AutoDeliveryShop = ({ t, reloadUserQuota, payMethods = [], enableOnlineTop
                   bodyStyle={{ padding: 0 }}
                 >
                   <div className='p-4 flex flex-col'>
-                    {/* 推荐标签 */}
+                    {/* 闂備浇顫夋禍浠嬪礉韫囨挾鏆︽慨妞诲亾鐎殿喕绮欏畷鍫曞煛婵犲倸袨 */}
                     {isPopular && (
                       <div className='mb-2'>
                         <Tag color='purple' shape='circle' size='small'>
                           <Sparkles size={10} className='mr-1' />
-                          {t('推荐')}
+                          {t('\u63a8\u8350')}
                         </Tag>
                       </div>
                     )}
 
-                    {/* 商品名称 */}
+                    {/* 闂備礁鎽滈崰搴∥涘Δ鍛鐟滄柨鐣烽妷銉悑闁?*/}
                     <div className='mb-3'>
                       <Typography.Title
                         heading={5}
@@ -281,33 +288,33 @@ const AutoDeliveryShop = ({ t, reloadUserQuota, payMethods = [], enableOnlineTop
                       )}
                     </div>
 
-                    {/* 价格区域 */}
+                    {/* 濠电偛顕繛鈧柡鈧柆宥嗗亱闁归棿绀佺粈宀勬煕濠靛棗顏柛?*/}
                     <div className='py-2'>
                       <Text type='tertiary' size='small'>
-                        {t('实付')}
+                        {t('\u5b9e\u4ed8')}
                       </Text>
                       <div className='flex items-baseline justify-start'>
-                        <span className='text-xl font-bold text-purple-600'>¥</span>
+                        <span className='text-xl font-bold text-purple-600'>\uFFE5</span>
                         <span className='text-3xl font-bold text-purple-600'>
                           {displayPrice}
                         </span>
                       </div>
                     </div>
 
-                    {/* 商品详情 */}
+                    {/* 闂備礁鎽滈崰搴∥涘Δ鍛鐟滃繘骞忛悩缁樻櫆闁芥ê顦竟?*/}
                     <div className='flex flex-col items-start gap-1 pb-2'>
                       {p.quota > 0 && (
                         <div className='flex items-center gap-2 text-xs text-gray-500'>
                           <Badge dot type='success' />
                           <span>
-                            {t('赠送额度')}: {renderQuota(p.quota)}
+                            {t('\u8d60\u9001\u989d\u5ea6')}: {renderQuota(p.quota)}
                           </span>
                         </div>
                       )}
                       <div className='flex items-center gap-2 text-xs text-gray-500'>
                         <Badge dot type='tertiary' />
                         <span>
-                          {t('剩余库存')}: {p.stock}
+                          {t('\u5269\u4f59\u5e93\u5b58')}: {p.stock}
                         </span>
                       </div>
                     </div>
@@ -321,7 +328,7 @@ const AutoDeliveryShop = ({ t, reloadUserQuota, payMethods = [], enableOnlineTop
                         disabled={p.stock <= 0}
                         onClick={() => handleBuy(p)}
                       >
-                        {p.stock > 0 ? t('立即购买') : t('库存不足')}
+                        {p.stock > 0 ? t('\u7acb\u5373\u8d2d\u4e70') : t('\u5e93\u5b58\u4e0d\u8db3')}
                       </Button>
                     </div>
                   </div>
@@ -332,14 +339,14 @@ const AutoDeliveryShop = ({ t, reloadUserQuota, payMethods = [], enableOnlineTop
         ) : (
           !loading && (
             <div className='text-center text-gray-400 text-sm py-4'>
-              <Text type='tertiary'>{t('暂无商品')}</Text>
+              <Text type='tertiary'>{t('\u6682\u65e0\u5546\u54c1')}</Text>
             </div>
           )
         )}
       </Spin>
 
       <Modal
-        title={t('我的购买记录')}
+        title={t('\u6211\u7684\u8d2d\u4e70\u8bb0\u5f55')}
         visible={purchasedModalVisible}
         onCancel={() => setPurchasedModalVisible(false)}
         footer={null}
@@ -367,7 +374,7 @@ const AutoDeliveryShop = ({ t, reloadUserQuota, payMethods = [], enableOnlineTop
                       marginBottom: 8,
                     }}
                   >
-                    <Text strong>{t('商品ID')}: {card.product_id}</Text>
+                    <Text strong>{t('\u5546\u54c1ID')}: {card.product_id}</Text>
                     <Text type='tertiary'>
                       {new Date(card.buy_time * 1000).toLocaleString()}
                     </Text>
@@ -396,7 +403,7 @@ const AutoDeliveryShop = ({ t, reloadUserQuota, payMethods = [], enableOnlineTop
                       }}
                     >
                       <Text strong style={{ display: 'block', marginBottom: 8 }}>
-                        {t('使用教程')}:
+                        {t('\u4f7f\u7528\u6559\u7a0b')}:
                       </Text>
                       {isUrl ? (
                         <a
@@ -419,14 +426,14 @@ const AutoDeliveryShop = ({ t, reloadUserQuota, payMethods = [], enableOnlineTop
             })}
             {purchasedCards.length === 0 && !purchasedLoading && (
               <div style={{ textAlign: 'center', padding: 40 }}>
-                <Text type='tertiary'>{t('暂无购买记录')}</Text>
+                <Text type='tertiary'>{t('\u6682\u65e0\u8d2d\u4e70\u8bb0\u5f55')}</Text>
               </div>
             )}
           </div>
         </Spin>
       </Modal>
 
-      {/* 购买确认弹窗 */}
+      {/* 闂佽崵濮甸崝锕傚储濞差亜绠弶鍫氭櫆閸忔粍銇勯弮鈧娆撳触閸モ斁鍋撳▓鍨灈婵犫偓闁秵鍋?*/}
       <AutoDeliveryPurchaseModal
         t={t}
         visible={open}

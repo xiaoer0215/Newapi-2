@@ -1,6 +1,8 @@
 package model_setting
 
 import (
+	"strings"
+
 	"github.com/QuantumNous/new-api/setting/config"
 )
 
@@ -67,10 +69,19 @@ func GetGeminiVersionSetting(key string) string {
 }
 
 func IsGeminiModelSupportImagine(model string) bool {
+	model = strings.ToLower(strings.TrimSpace(model))
+	if model == "" {
+		return false
+	}
 	for _, v := range geminiSettings.SupportedImagineModels {
-		if v == model {
+		if strings.EqualFold(strings.TrimSpace(v), model) {
 			return true
 		}
 	}
-	return false
+	if !strings.HasPrefix(model, "gemini-") {
+		return false
+	}
+	return strings.Contains(model, "-image") ||
+		strings.Contains(model, "image-preview") ||
+		strings.Contains(model, "exp-image-generation")
 }

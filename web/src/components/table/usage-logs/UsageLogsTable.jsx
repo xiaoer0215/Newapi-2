@@ -91,7 +91,7 @@ const LogsTable = (logsData) => {
   return (
     <CardTable
       columns={tableColumns}
-      {...(hasExpandableRows && {
+      {...(hasExpandableRows() && {
         expandedRowRender: expandRowRender,
         expandRowByClick: true,
         rowExpandable: (record) =>

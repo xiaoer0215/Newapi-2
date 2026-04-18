@@ -561,6 +561,8 @@ const TopUp = () => {
       }
     } catch (error) {
       showError(t('获取充值配置异常'));
+    } finally {
+      setStatusLoading(false);
     }
   };
 

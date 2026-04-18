@@ -1,12 +1,16 @@
 package gemini
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/relay/channel"
 	"github.com/QuantumNous/new-api/relay/channel/openai"
@@ -21,6 +25,153 @@ import (
 )
 
 type Adaptor struct {
+}
+
+func ShouldStripGeminiRequestModel(baseURL string) bool {
+	baseURL = strings.TrimSpace(baseURL)
+	if baseURL == "" {
+		return false
+	}
+
+	host := strings.ToLower(baseURL)
+	if parsed, err := url.Parse(baseURL); err == nil && parsed.Host != "" {
+		host = strings.ToLower(parsed.Host)
+	}
+
+	if colonIndex := strings.Index(host, ":"); colonIndex >= 0 {
+		host = host[:colonIndex]
+	}
+
+	return host == "generativelanguage.googleapis.com" ||
+		host == "generativelanguage.googleapis.cn" ||
+		strings.HasSuffix(host, ".googleapis.com") ||
+		strings.HasSuffix(host, ".googleapis.cn")
+}
+
+func ApplyGeminiRequestModelCompatibility(request *dto.GeminiChatRequest, info *relaycommon.RelayInfo) {
+	if request == nil || info == nil {
+		return
+	}
+
+	if ShouldStripGeminiRequestModel(info.ChannelBaseUrl) {
+		request.Model = ""
+		return
+	}
+
+	if request.Model == "" && strings.TrimSpace(info.UpstreamModelName) != "" {
+		request.Model = strings.TrimSpace(info.UpstreamModelName)
+	}
+}
+
+func EnsureGeminiRequestBodyModel(rawBody []byte, modelName string, baseURL string) ([]byte, error) {
+	modelName = strings.TrimSpace(modelName)
+	if len(rawBody) == 0 || modelName == "" || ShouldStripGeminiRequestModel(baseURL) {
+		return rawBody, nil
+	}
+
+	trimmedBody := bytes.TrimSpace(rawBody)
+	if len(trimmedBody) == 0 || trimmedBody[0] != '{' {
+		return rawBody, nil
+	}
+
+	var payload map[string]json.RawMessage
+	if err := common.Unmarshal(trimmedBody, &payload); err != nil {
+		return rawBody, nil
+	}
+
+	if modelValue, ok := payload["model"]; ok {
+		trimmedModelValue := bytes.TrimSpace(modelValue)
+		if len(trimmedModelValue) > 0 && string(trimmedModelValue) != `""` && string(trimmedModelValue) != "null" {
+			return rawBody, nil
+		}
+	}
+
+	modelRaw, err := common.Marshal(modelName)
+	if err != nil {
+		return nil, err
+	}
+	payload["model"] = modelRaw
+	return common.Marshal(payload)
+}
+
+func resolveGeminiImageAspectRatio(size string) string {
+	aspectRatio := "1:1"
+	size = strings.TrimSpace(size)
+	if size == "" {
+		return aspectRatio
+	}
+	if strings.Contains(size, ":") {
+		return size
+	}
+	switch size {
+	case "256x256", "512x512", "1024x1024":
+		return "1:1"
+	case "1536x1024":
+		return "3:2"
+	case "1024x1536":
+		return "2:3"
+	case "1024x1792":
+		return "9:16"
+	case "1792x1024":
+		return "16:9"
+	default:
+		return aspectRatio
+	}
+}
+
+func resolveGeminiImageSize(request dto.ImageRequest) string {
+	size := strings.TrimSpace(request.Size)
+	switch size {
+	case "1K", "2K", "4K":
+		return size
+	}
+
+	switch strings.ToLower(strings.TrimSpace(request.Quality)) {
+	case "4k":
+		return "4K"
+	case "hd", "high", "2k":
+		return "2K"
+	case "standard", "medium", "low", "auto", "1k":
+		return "1K"
+	default:
+		return ""
+	}
+}
+
+func buildGeminiNativeImageRequest(request dto.ImageRequest) (*dto.GeminiChatRequest, error) {
+	candidateCount := int(lo.FromPtrOr(request.N, uint(1)))
+	if candidateCount <= 0 {
+		candidateCount = 1
+	}
+
+	imageConfig := map[string]interface{}{
+		"aspectRatio": resolveGeminiImageAspectRatio(request.Size),
+	}
+	if imageSize := resolveGeminiImageSize(request); imageSize != "" {
+		imageConfig["imageSize"] = imageSize
+	}
+	imageConfigBytes, err := common.Marshal(imageConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal Gemini image config: %w", err)
+	}
+
+	return &dto.GeminiChatRequest{
+		Contents: []dto.GeminiChatContent{
+			{
+				Role: "user",
+				Parts: []dto.GeminiPart{
+					{
+						Text: request.Prompt,
+					},
+				},
+			},
+		},
+		GenerationConfig: dto.GeminiChatGenerationConfig{
+			CandidateCount:     common.GetPointer(candidateCount),
+			ResponseModalities: []string{"TEXT", "IMAGE"},
+			ImageConfig:        imageConfigBytes,
+		},
+	}, nil
 }
 
 func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeminiChatRequest) (any, error) {
@@ -40,6 +191,7 @@ func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayIn
 			}
 		}
 	}
+	ApplyGeminiRequestModelCompatibility(request, info)
 	return request, nil
 }
 
@@ -58,31 +210,24 @@ func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInf
 }
 
 func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) (any, error) {
+	if model_setting.IsGeminiModelSupportImagine(info.UpstreamModelName) {
+		if info.RelayMode == constant.RelayModeImagesEdits && len(request.Image) > 0 {
+			return nil, errors.New("gemini native image editing is not supported yet")
+		}
+		geminiRequest, err := buildGeminiNativeImageRequest(request)
+		if err != nil {
+			return nil, err
+		}
+		ApplyGeminiRequestModelCompatibility(geminiRequest, info)
+		return geminiRequest, nil
+	}
+
 	if !strings.HasPrefix(info.UpstreamModelName, "imagen") {
 		return nil, errors.New("not supported model for image generation, only imagen models are supported")
 	}
 
 	// convert size to aspect ratio but allow user to specify aspect ratio
-	aspectRatio := "1:1" // default aspect ratio
-	size := strings.TrimSpace(request.Size)
-	if size != "" {
-		if strings.Contains(size, ":") {
-			aspectRatio = size
-		} else {
-			switch size {
-			case "256x256", "512x512", "1024x1024":
-				aspectRatio = "1:1"
-			case "1536x1024":
-				aspectRatio = "3:2"
-			case "1024x1536":
-				aspectRatio = "2:3"
-			case "1024x1792":
-				aspectRatio = "9:16"
-			case "1792x1024":
-				aspectRatio = "16:9"
-			}
-		}
-	}
+	aspectRatio := resolveGeminiImageAspectRatio(request.Size)
 
 	// build gemini imagen request
 	geminiRequest := dto.GeminiImageRequest{
@@ -186,6 +331,7 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 		return nil, err
 	}
 
+	ApplyGeminiRequestModelCompatibility(geminiRequest, info)
 	return geminiRequest, nil
 }
 
@@ -257,6 +403,12 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 		} else {
 			return GeminiTextGenerationHandler(c, info, resp)
 		}
+	}
+
+	if (info.RelayMode == constant.RelayModeImagesGenerations ||
+		info.RelayMode == constant.RelayModeImagesEdits) &&
+		model_setting.IsGeminiModelSupportImagine(info.UpstreamModelName) {
+		return GeminiNativeImageHandler(c, info, resp)
 	}
 
 	if strings.HasPrefix(info.UpstreamModelName, "imagen") {

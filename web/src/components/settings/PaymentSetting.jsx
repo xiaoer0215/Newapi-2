@@ -50,6 +50,7 @@ const PaymentSetting = () => {
     StripePriceId: '',
     StripeUnitPrice: 8.0,
     StripeMinTopUp: 1,
+    StripeTopUpEnabled: true,
     StripePromotionCodesEnabled: false,
   });
 

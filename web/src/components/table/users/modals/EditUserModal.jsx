@@ -103,7 +103,7 @@ const EditUserModal = (props) => {
         (res.data.data || []).map((g) => ({ label: g, value: g })),
       );
     } catch (error) {
-      showError(error.message);
+      showError(error);
     }
   };
 

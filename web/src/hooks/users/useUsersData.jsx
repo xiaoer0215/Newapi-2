@@ -310,7 +310,7 @@ export const useUsersData = () => {
         })),
       );
     } catch (error) {
-      showError(error.message);
+      showError(error);
     }
   };
 

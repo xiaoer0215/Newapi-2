@@ -13,7 +13,8 @@ import (
 )
 
 const (
-	SystemDrawingTokenName = "system-drawing-token"
+	SystemDrawingTokenName       = "\u7cfb\u7edf\uff1a\u751f\u56fe\u4e13\u7528"
+	LegacySystemDrawingTokenName = "system-drawing-token"
 
 	DrawingRequestModeImageGeneration = "image_generation"
 	DrawingRequestModeGeminiNative    = "gemini_generate_content"
@@ -65,6 +66,22 @@ func GetDrawingModelsByGroup(group string) []string {
 	return []string{}
 }
 
+func GetAllModelsByGroup(group string) []string {
+	group = strings.TrimSpace(group)
+	if group == "" {
+		return []string{}
+	}
+
+	model.GetPricing()
+	models := uniqueStrings(model.GetGroupEnabledModels(group))
+	if len(models) == 0 {
+		return []string{}
+	}
+
+	sort.Strings(models)
+	return models
+}
+
 func GetDrawingModelRequestMode(modelName string) string {
 	modelName = strings.TrimSpace(modelName)
 	if modelName == "" {
@@ -107,7 +124,7 @@ func ResolveDrawingConfig() (DrawingConfig, error) {
 		return config, errors.New("请先在绘图设置中选择绘图分组")
 	}
 
-	availableModels := GetDrawingModelsByGroup(config.Group)
+	availableModels := GetAllModelsByGroup(config.Group)
 	if len(availableModels) == 0 {
 		return config, errors.New("当前绘图分组下没有可用模型")
 	}
@@ -138,6 +155,15 @@ func EnsureUserDrawingToken(userId int) (*model.Token, DrawingConfig, error) {
 	}
 
 	token, err := model.GetUserTokenByName(userId, SystemDrawingTokenName)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		legacyToken, legacyErr := model.GetUserTokenByName(userId, LegacySystemDrawingTokenName)
+		if legacyErr == nil {
+			token = legacyToken
+			err = nil
+		} else if !errors.Is(legacyErr, gorm.ErrRecordNotFound) {
+			return nil, config, legacyErr
+		}
+	}
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, config, err
 	}

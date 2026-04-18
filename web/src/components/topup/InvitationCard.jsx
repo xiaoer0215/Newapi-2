@@ -302,7 +302,9 @@ const InvitationCard = ({
     const loadInvitationRewards = async () => {
       setLoading(true);
       try {
-        const res = await API.get('/api/user/self/aff/rewards');
+        const res = await API.get('/api/user/self/aff/rewards', {
+          disableDuplicate: true,
+        });
         const { success, message, data } = res.data;
         if (!mounted) {
           return;

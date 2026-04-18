@@ -51,6 +51,8 @@ const MAX_REFERENCE_IMAGE_BYTES = 5 * 1024 * 1024;
 const DRAWING_HISTORY_LIMIT = 12;
 const DRAWING_HISTORY_DB = 'new-api-drawing-history';
 const DRAWING_HISTORY_STORE = 'records';
+const SYSTEM_DRAWING_TOKEN_NAME = '\u7cfb\u7edf\uff1a\u751f\u56fe\u4e13\u7528';
+const LEGACY_SYSTEM_DRAWING_TOKEN_NAME = 'system-drawing-token';
 
 const DEFAULT_FORM = {
   prompt: '',
@@ -63,6 +65,12 @@ const DEFAULT_FORM = {
 
 const DRAWING_REQUEST_MODE_IMAGE_GENERATION = 'image_generation';
 const DRAWING_REQUEST_MODE_GEMINI_NATIVE = 'gemini_generate_content';
+
+const getDrawingTokenName = (tokenName) =>
+  String(tokenName || '').trim() || SYSTEM_DRAWING_TOKEN_NAME;
+
+const getDrawingHistoryKey = (tokenName) =>
+  `drawing-history:${getDrawingTokenName(tokenName)}`;
 
 const ASPECT_RATIO_OPTIONS = [
   { label: '1:1 正方形', value: '1:1' },
@@ -130,7 +138,7 @@ const resolveDrawingRequestMode = (requestModes, defaultRequestMode, model) => {
   if (requestModes?.[model]) {
     return requestModes[model];
   }
-  if (defaultRequestMode) {
+  if (!model && defaultRequestMode) {
     return defaultRequestMode;
   }
   if (String(model || '').startsWith('gemini-')) {
@@ -280,6 +288,24 @@ const writeDrawingHistory = async (key, records) => {
     };
     transaction.onerror = () => reject(transaction.error);
   });
+};
+
+const readDrawingHistoryWithFallback = async (tokenName) => {
+  const primaryKey = getDrawingHistoryKey(tokenName);
+  const primaryRecords = await readDrawingHistory(primaryKey);
+  if (
+    primaryRecords.length > 0 ||
+    getDrawingTokenName(tokenName) !== SYSTEM_DRAWING_TOKEN_NAME
+  ) {
+    return primaryRecords;
+  }
+
+  const legacyKey = getDrawingHistoryKey(LEGACY_SYSTEM_DRAWING_TOKEN_NAME);
+  const legacyRecords = await readDrawingHistory(legacyKey);
+  if (legacyRecords.length > 0) {
+    await writeDrawingHistory(primaryKey, legacyRecords);
+  }
+  return legacyRecords;
 };
 
 const normalizeGeminiImageConfig = (imageConfig) => {
@@ -664,12 +690,9 @@ export default function Drawing() {
 
   useEffect(() => {
     let disposed = false;
-    const historyKey = `drawing-history:${
-      config.token_name || 'system-drawing-token'
-    }`;
 
     setHistoryReady(false);
-    readDrawingHistory(historyKey)
+    readDrawingHistoryWithFallback(config.token_name)
       .then((records) => {
         if (disposed) {
           return;
@@ -699,9 +722,7 @@ export default function Drawing() {
       return;
     }
 
-    const historyKey = `drawing-history:${
-      config.token_name || 'system-drawing-token'
-    }`;
+    const historyKey = getDrawingHistoryKey(config.token_name);
     writeDrawingHistory(historyKey, resultHistory).catch(() => {});
   }, [config.token_name, historyReady, resultHistory]);
 
@@ -987,7 +1008,7 @@ export default function Drawing() {
     resultHistory.find((item) => item.id === activeRecordId) ||
     resultHistory[0] ||
     null;
-  const tokenValue = config.token_name || 'system-drawing-token';
+  const tokenValue = getDrawingTokenName(config.token_name);
   const currentRequestMode = resolveDrawingRequestMode(
     config.model_request_modes,
     config.default_request_mode,

@@ -197,7 +197,7 @@ func AutoDeliveryEpayReturn(c *gin.Context) {
 			defer UnlockOrder(verifyInfo.ServiceTradeNo)
 			_ = model.CompleteAutoDeliveryOrder(verifyInfo.ServiceTradeNo, common.GetJsonString(verifyInfo), verifyInfo.TradeNo)
 		}()
-		c.Redirect(http.StatusFound, system_setting.ServerAddress+"/console/topup?pay=success")
+		c.Redirect(http.StatusFound, system_setting.ServerAddress+"/console/topup?pay=success&show_auto_delivery_history=true")
 		return
 	}
 	c.Redirect(http.StatusFound, system_setting.ServerAddress+"/console/topup?pay=pending")

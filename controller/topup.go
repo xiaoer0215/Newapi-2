@@ -24,10 +24,20 @@ import (
 
 func GetTopUpInfo(c *gin.Context) {
 	// Load configured payment methods.
-	payMethods := operation_setting.PayMethods
+	stripeEnabled := setting.IsStripeTopUpEnabled()
+	payMethods := make([]map[string]string, 0, len(operation_setting.PayMethods)+1)
+	for _, method := range operation_setting.PayMethods {
+		if method == nil {
+			continue
+		}
+		if method["type"] == "stripe" && !stripeEnabled {
+			continue
+		}
+		payMethods = append(payMethods, method)
+	}
 
 	// Append Stripe when it is enabled but missing from the list.
-	if setting.StripeApiSecret != "" && setting.StripeWebhookSecret != "" && setting.StripePriceId != "" {
+	if stripeEnabled {
 		// Avoid duplicate Stripe entries.
 		hasStripe := false
 		for _, method := range payMethods {
@@ -86,7 +96,7 @@ func GetTopUpInfo(c *gin.Context) {
 
 	data := gin.H{
 		"enable_online_topup": operation_setting.PayAddress != "" && operation_setting.EpayId != "" && operation_setting.EpayKey != "",
-		"enable_stripe_topup": setting.StripeApiSecret != "" && setting.StripeWebhookSecret != "" && setting.StripePriceId != "",
+		"enable_stripe_topup": stripeEnabled,
 		"enable_creem_topup":  setting.CreemApiKey != "" && setting.CreemProducts != "[]",
 		"enable_waffo_topup":  enableWaffo,
 		"waffo_pay_methods": func() interface{} {
@@ -350,6 +360,13 @@ func verifyEpayParams(params map[string]string) (*epay.VerifyRes, error) {
 func finalizeEpayTopUp(tradeNo string, paymentOrderNo string) error {
 	LockOrder(tradeNo)
 	defer UnlockOrder(tradeNo)
+	topUp := model.GetTopUpByTradeNo(tradeNo)
+	if topUp == nil {
+		return fmt.Errorf("topup order not found")
+	}
+	if topUp.PaymentMethod == "stripe" || topUp.PaymentMethod == "creem" || topUp.PaymentMethod == "waffo" {
+		return model.ErrPaymentMethodMismatch
+	}
 	return model.CompleteTopUpWithPaymentOrderNo(tradeNo, paymentOrderNo)
 }
 
@@ -484,6 +501,21 @@ func GetAllTopUps(c *gin.Context) {
 	pageInfo.SetTotal(int(total))
 	pageInfo.SetItems(topups)
 	common.ApiSuccess(c, pageInfo)
+}
+
+func GetTopUpSummaryStats(c *gin.Context) {
+	if c.GetInt("role") < common.RoleRootUser {
+		common.ApiErrorMsg(c, "仅超级管理员可查看")
+		return
+	}
+
+	stats, err := model.GetTopUpSummaryStats()
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+
+	common.ApiSuccess(c, stats)
 }
 
 type AdminCompleteTopupRequest struct {

@@ -14,7 +14,7 @@ func GetDrawingGroupModels(c *gin.Context) {
 		common.ApiSuccess(c, []string{})
 		return
 	}
-	common.ApiSuccess(c, service.GetDrawingModelsByGroup(group))
+	common.ApiSuccess(c, service.GetAllModelsByGroup(group))
 }
 
 func GetUserDrawingInit(c *gin.Context) {
