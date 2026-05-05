@@ -55,6 +55,7 @@
 ## 📝 Project Description
 
 > [!NOTE]
+<<<<<<< Updated upstream
 > - 本仓库为基于 `new-api` 的二次开发开源版本，保留上游项目标识、核心架构与主要文档结构
 > - 适合作为二开功能整理、部署实践与后续持续迭代的公开代码仓库
 > - 如需查看原版能力、更新记录与完整官方文档，请优先参考上游 `new-api` 项目与文档
@@ -64,6 +65,17 @@
 > - 如果你准备继续二次开发，建议定期与上游 `new-api` 保持对比，减少后续合并成本
 > - 当前二开仓库地址：`https://github.com/xiaoer0215/Newapi-2.git`
 > - 下方保留的官方仓库、镜像与文档链接主要用于上游说明与兼容参考；如果你希望完全通过当前仓库分发，还需要同步维护你自己的 Releases、镜像与文档页
+=======
+> - This repository is an open-source secondary-development edition based on `new-api`, with upstream attribution, core architecture, and the main documentation structure preserved.
+> - It is intended for public sharing of derivative work, deployment practice, and continued customization.
+> - For original capabilities, release notes, and full official documentation, please refer to the upstream `new-api` project and docs.
+>
+> [!TIP]
+> - If you plan to deploy this repository directly, start with the quick start and deployment sections below.
+> - If you plan to keep customizing it, regularly compare with upstream `new-api` to reduce future merge cost.
+> - Current fork repository: `https://github.com/xiaoer0215/Newapi-2.git`
+> - The upstream repository, image, and documentation links below are retained for attribution and reference. If you want distribution to be fully based on this fork, you should also maintain your own Releases, Docker images, and documentation pages.
+>>>>>>> Stashed changes
 
 > [!IMPORTANT]
 > - This project is for personal learning purposes only, with no guarantee of stability or technical support
@@ -126,6 +138,29 @@ cd Newapi-2
 - 钱包、支付与账单：钱包管理界面支持折扣、赠送额度、到账额度等可视化展示，并支持钱包 / 订阅扣费偏好切换；充值账单侧支持按用户名或支付号检索记录
 - 订阅与运营能力：补充订阅套餐、用户订阅实例管理、补时 / 赠送 / 作废等操作；兑换码支持后台搜索管理；自动发货支持商品上架、卡密导入与售卖
 - 日志与首页覆盖能力：支持启用额度消费日志、请求错误日志等记录；首页与页脚支持 HTML / Markdown / iframe 方式自定义覆盖，适合完整替换首页展示，但仍需保留项目版权信息
+
+---
+
+## 🧩 Fork-Specific Notes
+
+### Deploy This Fork
+
+If you want to deploy from this fork directly instead of starting from upstream, use:
+
+```bash
+git clone https://github.com/xiaoer0215/Newapi-2.git
+cd Newapi-2
+```
+
+> Notes:
+> - Upstream links are intentionally kept for attribution and compatibility reference.
+> - To make distribution fully go through this fork, you should additionally maintain your own release assets, Docker image repository, changelog, and docs landing page.
+
+### Confirmed Additions In This Fork
+
+- Invitation reward review flow with first-invite reward, first-topup reward, manual approval, rejection reason, invitation balance crediting, and basic anti-abuse signals based on IP, device fingerprint, and payment account.
+- A standalone user-side AI image generation page that reads drawing group/model settings from the backend and auto-creates a dedicated drawing token for each user.
+- Enhanced check-in risk controls on top of the base check-in feature, including Turnstile verification, same-IP daily limits, and VPN / proxy / datacenter / residential proxy IP checks.
 
 ---
 
