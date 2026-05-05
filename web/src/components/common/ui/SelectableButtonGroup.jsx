@@ -137,7 +137,7 @@ const SelectableButtonGroup = ({
 
   const renderSkeletonButtons = () => {
     const placeholder = (
-      <Row gutter={gutterSize} style={{ lineHeight: '32px', ...style }}>
+      <Row type="flex" gutter={gutterSize} style={{ lineHeight: '32px', ...style }}>
         {Array.from({ length: skeletonCount }).map((_, index) => (
           <Col span={getColSpan()} key={index}>
             <div
@@ -177,7 +177,7 @@ const SelectableButtonGroup = ({
   const contentElement = showSkeleton ? (
     renderSkeletonButtons()
   ) : (
-    <Row gutter={gutterSize} style={{ lineHeight: '32px', ...style }}>
+    <Row type="flex" gutter={gutterSize} style={{ lineHeight: '32px', ...style }}>
       {items.map((item) => {
         const isActive = Array.isArray(activeValue)
           ? activeValue.includes(item.value)
