@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -14,13 +15,53 @@ import (
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
-	"github.com/QuantumNous/new-api/setting/system_setting"
 
 	"github.com/Calcium-Ion/go-epay/epay"
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"
 	"github.com/shopspring/decimal"
 )
+
+func shouldIgnoreTopupAmountDiscount() bool {
+	return false
+}
+
+func getEffectiveTopupGroupRatio(group string) float64 {
+	topupGroupRatio := common.GetTopupGroupRatio(group)
+	if topupGroupRatio <= 0 {
+		return 1
+	}
+	return topupGroupRatio
+}
+
+func getEffectivePresetDiscountedAmount(amount int64, group string) float64 {
+	paymentSetting := operation_setting.GetPaymentSetting()
+	if discountedPrice, ok := paymentSetting.GetGroupDiscountedPrice(group, amount); ok {
+		return discountedPrice
+	}
+	if discountedPrice, ok := paymentSetting.GetPresetDiscountedPrice(amount); ok {
+		return discountedPrice
+	}
+	return float64(amount)
+}
+
+func normalizeTopupPayAmount(amount float64) float64 {
+	if operation_setting.GetQuotaDisplayType() == operation_setting.QuotaDisplayTypeTokens {
+		return amount / common.QuotaPerUnit
+	}
+	return amount
+}
+
+func getConfiguredTopupPayMoney(amount int64, group string, unitPrice float64) (float64, bool) {
+	paymentSetting := operation_setting.GetPaymentSetting()
+	if discountedPrice, ok := paymentSetting.GetGroupDiscountedPrice(group, amount); ok {
+		return normalizeTopupPayAmount(discountedPrice), true
+	}
+	if discountedPrice, ok := paymentSetting.GetPresetDiscountedPrice(amount); ok {
+		return normalizeTopupPayAmount(discountedPrice), true
+	}
+	return 0, false
+}
 
 func GetTopUpInfo(c *gin.Context) {
 	// Load configured payment methods.
@@ -94,6 +135,45 @@ func GetTopUpInfo(c *gin.Context) {
 		autoDeliveryProducts, _ = model.GetAutoDeliveryProducts(true)
 	}
 
+	userId := c.GetInt("id")
+	group, err := model.GetUserGroup(userId, true)
+	if err != nil {
+		group = "default"
+	}
+
+	paymentSetting := operation_setting.GetPaymentSetting()
+	effectiveAmountOptions := make([]int, 0, len(paymentSetting.AmountOptions))
+	effectiveDiscountMap := make(map[int]float64, len(paymentSetting.AmountOptions))
+	effectiveDiscountedPriceMap := make(map[int]float64, len(paymentSetting.AmountOptions))
+	effectiveGiftMap := make(map[int]int64, len(paymentSetting.AmountOptions))
+	seenAmounts := make(map[int]struct{}, len(paymentSetting.AmountOptions))
+	for _, amountOption := range paymentSetting.AmountOptions {
+		if amountOption <= 0 {
+			continue
+		}
+		effectiveAmount := paymentSetting.GetAmountForGroup(int64(amountOption), group)
+		if effectiveAmount <= 0 {
+			effectiveAmount = int64(amountOption)
+		}
+		groupOverride, hasGroupOverride := paymentSetting.GetGroupAmountOverride(group, int64(amountOption))
+		hasExplicitAmountOverride :=
+			hasGroupOverride && groupOverride.Amount != nil && *groupOverride.Amount > 0
+
+		effectiveDiscountedAmount := getEffectivePresetDiscountedAmount(effectiveAmount, group)
+		effectiveAmountInt := int(effectiveAmount)
+		if _, exists := seenAmounts[effectiveAmountInt]; exists && !hasExplicitAmountOverride {
+			continue
+		}
+		effectiveDiscountedPriceMap[effectiveAmountInt] = effectiveDiscountedAmount
+		effectiveDiscountMap[effectiveAmountInt] = effectiveDiscountedAmount / float64(effectiveAmount)
+		effectiveGiftMap[effectiveAmountInt] = paymentSetting.GetGiftForGroup(effectiveAmount, group)
+		if _, exists := seenAmounts[effectiveAmountInt]; !exists {
+			seenAmounts[effectiveAmountInt] = struct{}{}
+			effectiveAmountOptions = append(effectiveAmountOptions, effectiveAmountInt)
+		}
+	}
+	sort.Ints(effectiveAmountOptions)
+
 	data := gin.H{
 		"enable_online_topup": operation_setting.PayAddress != "" && operation_setting.EpayId != "" && operation_setting.EpayKey != "",
 		"enable_stripe_topup": stripeEnabled,
@@ -105,16 +185,21 @@ func GetTopUpInfo(c *gin.Context) {
 			}
 			return nil
 		}(),
-		"creem_products":         setting.CreemProducts,
-		"pay_methods":            payMethods,
-		"min_topup":              operation_setting.MinTopUp,
-		"stripe_min_topup":       setting.StripeMinTopUp,
-		"waffo_min_topup":        setting.WaffoMinTopUp,
-		"amount_options":         operation_setting.GetPaymentSetting().AmountOptions,
-		"discount":               operation_setting.GetPaymentSetting().AmountDiscount,
-		"gift":                   operation_setting.GetPaymentSetting().AmountGift,
-		"custom_discount":        operation_setting.GetPaymentSetting().GetCustomDiscount(),
-		"auto_delivery_products": autoDeliveryProducts,
+		"creem_products":           setting.CreemProducts,
+		"pay_methods":              payMethods,
+		"min_topup":                getMinTopup(group),
+		"stripe_min_topup":         setting.StripeMinTopUp,
+		"waffo_min_topup":          setting.WaffoMinTopUp,
+		"amount_options":           effectiveAmountOptions,
+		"discount":                 effectiveDiscountMap,
+		"discounted_price":         effectiveDiscountedPriceMap,
+		"gift":                     effectiveGiftMap,
+		"custom_discount":          paymentSetting.GetCustomDiscount(),
+		"ignore_amount_discount":   shouldIgnoreTopupAmountDiscount(),
+		"topup_group_ratio":        getEffectiveTopupGroupRatio(group),
+		"topup_group_credit_ratio": common.GetTopupGroupCreditRatio(group),
+		"user_group":               group,
+		"auto_delivery_products":   autoDeliveryProducts,
 	}
 	common.ApiSuccess(c, data)
 }
@@ -152,18 +237,13 @@ func getPayMoney(amount int64, group string) float64 {
 		dAmount = dAmount.Div(dQuotaPerUnit)
 	}
 
-	topupGroupRatio := common.GetTopupGroupRatio(group)
-	if topupGroupRatio == 0 {
-		topupGroupRatio = 1
+	if payMoney, ok := getConfiguredTopupPayMoney(amount, group, operation_setting.Price); ok {
+		return payMoney
 	}
 
-	dTopupGroupRatio := decimal.NewFromFloat(topupGroupRatio)
+	dTopupGroupRatio := decimal.NewFromFloat(getEffectiveTopupGroupRatio(group))
 	dPrice := decimal.NewFromFloat(operation_setting.Price)
-	// apply optional preset discount by the original request amount (if configured), default 1.0
-	discount := operation_setting.GetPaymentSetting().GetDiscount(amount)
-	dDiscount := decimal.NewFromFloat(discount)
-
-	payMoney := dAmount.Mul(dPrice).Mul(dTopupGroupRatio).Mul(dDiscount)
+	payMoney := dAmount.Mul(dPrice).Mul(dTopupGroupRatio)
 
 	return payMoney.InexactFloat64()
 }
@@ -180,22 +260,61 @@ func normalizeTopUpStoredAmount(amount int64) int64 {
 	return amount
 }
 
-func getStoredGiftAmount(amount int64) int64 {
-	giftAmount := operation_setting.GetPaymentSetting().GetGift(amount)
+func getStoredGiftAmount(amount int64, group string) int64 {
+	giftAmount := operation_setting.GetPaymentSetting().GetGiftForGroup(amount, group)
 	if giftAmount <= 0 {
 		return 0
 	}
 	return normalizeTopUpStoredAmount(giftAmount)
 }
 
-func getMinTopup() int64 {
-	minTopup := operation_setting.MinTopUp
-	if operation_setting.GetQuotaDisplayType() == operation_setting.QuotaDisplayTypeTokens {
-		dMinTopup := decimal.NewFromInt(int64(minTopup))
-		dQuotaPerUnit := decimal.NewFromFloat(common.QuotaPerUnit)
-		minTopup = int(dMinTopup.Mul(dQuotaPerUnit).IntPart())
+func buildTopupStoredCredit(amount int64, giftAmount int64) (int64, int64) {
+	if amount <= 0 {
+		return 0, 0
 	}
-	return int64(minTopup)
+	if giftAmount < 0 {
+		giftAmount = 0
+	}
+	return giftAmount, amount + giftAmount
+}
+
+func adjustTopupStoredCredit(amount int64, giftAmount int64, group string) (int64, int64) {
+	if amount <= 0 {
+		return 0, 0
+	}
+	if giftAmount <= 0 {
+		return 0, amount
+	}
+
+	creditRatio := common.GetTopupGroupCreditRatio(group)
+	if creditRatio <= 0 {
+		creditRatio = 1
+	}
+	if creditRatio == 1 {
+		return giftAmount, amount + giftAmount
+	}
+
+	baseCredit := decimal.NewFromInt(amount + giftAmount)
+	adjustedCredit := baseCredit.Mul(decimal.NewFromFloat(creditRatio)).Round(0).IntPart()
+	if adjustedCredit < amount {
+		adjustedCredit = amount
+	}
+
+	adjustedGift := adjustedCredit - amount
+	if adjustedGift < 0 {
+		adjustedGift = 0
+	}
+	return adjustedGift, adjustedCredit
+}
+
+func getMinTopup(group string) int64 {
+	minTopup := operation_setting.GetPaymentSetting().GetMinTopupForGroup(group, int64(operation_setting.MinTopUp))
+	if operation_setting.GetQuotaDisplayType() == operation_setting.QuotaDisplayTypeTokens {
+		dMinTopup := decimal.NewFromInt(minTopup)
+		dQuotaPerUnit := decimal.NewFromFloat(common.QuotaPerUnit)
+		minTopup = dMinTopup.Mul(dQuotaPerUnit).IntPart()
+	}
+	return minTopup
 }
 
 func RequestEpay(c *gin.Context) {
@@ -205,15 +324,16 @@ func RequestEpay(c *gin.Context) {
 		c.JSON(200, gin.H{"message": "error", "data": "\u53c2\u6570\u9519\u8bef"})
 		return
 	}
-	if req.Amount < getMinTopup() {
-		c.JSON(200, gin.H{"message": "error", "data": fmt.Sprintf("\u5145\u503c\u6570\u91cf\u4e0d\u80fd\u5c0f\u4e8e %d", getMinTopup())})
-		return
-	}
 
 	id := c.GetInt("id")
 	group, err := model.GetUserGroup(id, true)
 	if err != nil {
 		c.JSON(200, gin.H{"message": "error", "data": "\u83b7\u53d6\u7528\u6237\u5206\u7ec4\u5931\u8d25"})
+		return
+	}
+	minTopup := getMinTopup(group)
+	if req.Amount < minTopup {
+		c.JSON(200, gin.H{"message": "error", "data": fmt.Sprintf("\u5145\u503c\u6570\u91cf\u4e0d\u80fd\u5c0f\u4e8e %d", minTopup)})
 		return
 	}
 	payMoney := getPayMoney(req.Amount, group)
@@ -251,15 +371,16 @@ func RequestEpay(c *gin.Context) {
 		return
 	}
 	amount := normalizeTopUpStoredAmount(req.Amount)
-	giftAmount := getStoredGiftAmount(req.Amount)
+	giftAmount, creditAmount := buildTopupStoredCredit(amount, getStoredGiftAmount(req.Amount, group))
 	topUp := &model.TopUp{
 		UserId:            id,
 		Amount:            amount,
 		GiftAmount:        giftAmount,
-		CreditAmount:      amount + giftAmount,
+		CreditAmount:      creditAmount,
 		Money:             payMoney,
 		TradeNo:           tradeNo,
 		PaymentMethod:     req.PaymentMethod,
+		GroupSnapshot:     group,
 		ClientIP:          c.ClientIP(),
 		DeviceFingerprint: getRequestDeviceFingerprint(c),
 		CreateTime:        time.Now().Unix(),
@@ -357,7 +478,7 @@ func verifyEpayParams(params map[string]string) (*epay.VerifyRes, error) {
 	return verifyInfo, nil
 }
 
-func finalizeEpayTopUp(tradeNo string, paymentOrderNo string) error {
+func finalizeEpayTopUp(tradeNo string, paymentOrderNo string, paidMoney string) error {
 	LockOrder(tradeNo)
 	defer UnlockOrder(tradeNo)
 	topUp := model.GetTopUpByTradeNo(tradeNo)
@@ -367,7 +488,7 @@ func finalizeEpayTopUp(tradeNo string, paymentOrderNo string) error {
 	if topUp.PaymentMethod == "stripe" || topUp.PaymentMethod == "creem" || topUp.PaymentMethod == "waffo" {
 		return model.ErrPaymentMethodMismatch
 	}
-	return model.CompleteTopUpWithPaymentOrderNo(tradeNo, paymentOrderNo)
+	return model.CompleteTopUpWithPaymentOrderNoAndPaidMoney(tradeNo, paymentOrderNo, paidMoney)
 }
 
 func EpayNotify(c *gin.Context) {
@@ -390,7 +511,7 @@ func EpayNotify(c *gin.Context) {
 		return
 	}
 
-	if err := finalizeEpayTopUp(verifyInfo.ServiceTradeNo, verifyInfo.TradeNo); err != nil {
+	if err := finalizeEpayTopUp(verifyInfo.ServiceTradeNo, verifyInfo.TradeNo, verifyInfo.Money); err != nil {
 		log.Printf("failed to complete epay topup %s: %v", verifyInfo.ServiceTradeNo, err)
 		_, _ = c.Writer.Write([]byte("fail"))
 		return
@@ -403,28 +524,28 @@ func EpayReturn(c *gin.Context) {
 	params, err := getEpayParams(c)
 	if err != nil {
 		log.Println("failed to parse epay return params:", err)
-		c.Redirect(http.StatusFound, system_setting.ServerAddress+"/console/topup?pay=fail&show_history=true")
+		c.Redirect(http.StatusFound, consoleTopupRedirect("pay=fail&show_history=true"))
 		return
 	}
 
 	verifyInfo, err := verifyEpayParams(params)
 	if err != nil {
 		log.Println("failed to verify epay return:", err)
-		c.Redirect(http.StatusFound, system_setting.ServerAddress+"/console/topup?pay=fail&show_history=true")
+		c.Redirect(http.StatusFound, consoleTopupRedirect("pay=fail&show_history=true"))
 		return
 	}
 	if verifyInfo.TradeStatus != epay.StatusTradeSuccess {
-		c.Redirect(http.StatusFound, system_setting.ServerAddress+"/console/topup?pay=pending&show_history=true")
+		c.Redirect(http.StatusFound, consoleTopupRedirect("pay=pending&show_history=true"))
 		return
 	}
 
-	if err := finalizeEpayTopUp(verifyInfo.ServiceTradeNo, verifyInfo.TradeNo); err != nil {
+	if err := finalizeEpayTopUp(verifyInfo.ServiceTradeNo, verifyInfo.TradeNo, verifyInfo.Money); err != nil {
 		log.Printf("failed to complete epay return topup %s: %v", verifyInfo.ServiceTradeNo, err)
-		c.Redirect(http.StatusFound, system_setting.ServerAddress+"/console/topup?pay=fail&show_history=true")
+		c.Redirect(http.StatusFound, consoleTopupRedirect("pay=fail&show_history=true"))
 		return
 	}
 
-	c.Redirect(http.StatusFound, system_setting.ServerAddress+"/console/topup?pay=success&show_history=true")
+	c.Redirect(http.StatusFound, consoleTopupRedirect("pay=success&show_history=true"))
 }
 
 func RequestAmount(c *gin.Context) {
@@ -434,15 +555,15 @@ func RequestAmount(c *gin.Context) {
 		c.JSON(200, gin.H{"message": "error", "data": "\u53c2\u6570\u9519\u8bef"})
 		return
 	}
-
-	if req.Amount < getMinTopup() {
-		c.JSON(200, gin.H{"message": "error", "data": fmt.Sprintf("\u5145\u503c\u6570\u91cf\u4e0d\u80fd\u5c0f\u4e8e %d", getMinTopup())})
-		return
-	}
 	id := c.GetInt("id")
 	group, err := model.GetUserGroup(id, true)
 	if err != nil {
 		c.JSON(200, gin.H{"message": "error", "data": "\u83b7\u53d6\u7528\u6237\u5206\u7ec4\u5931\u8d25"})
+		return
+	}
+	minTopup := getMinTopup(group)
+	if req.Amount < minTopup {
+		c.JSON(200, gin.H{"message": "error", "data": fmt.Sprintf("\u5145\u503c\u6570\u91cf\u4e0d\u80fd\u5c0f\u4e8e %d", minTopup)})
 		return
 	}
 	payMoney := getPayMoney(req.Amount, group)
