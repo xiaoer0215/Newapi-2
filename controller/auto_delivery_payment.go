@@ -12,7 +12,6 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
-	"github.com/QuantumNous/new-api/setting/system_setting"
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"
 )
@@ -160,7 +159,7 @@ func AutoDeliveryEpayReturn(c *gin.Context) {
 
 	if c.Request.Method == "POST" {
 		if err := c.Request.ParseForm(); err != nil {
-			c.Redirect(http.StatusFound, system_setting.ServerAddress+"/console/topup?pay=fail")
+			c.Redirect(http.StatusFound, consoleTopupRedirect("pay=fail"))
 			return
 		}
 		params = lo.Reduce(lo.Keys(c.Request.PostForm), func(r map[string]string, t string, i int) map[string]string {
@@ -175,18 +174,18 @@ func AutoDeliveryEpayReturn(c *gin.Context) {
 	}
 
 	if len(params) == 0 {
-		c.Redirect(http.StatusFound, system_setting.ServerAddress+"/console/topup?pay=fail")
+		c.Redirect(http.StatusFound, consoleTopupRedirect("pay=fail"))
 		return
 	}
 
 	client := GetEpayClient()
 	if client == nil {
-		c.Redirect(http.StatusFound, system_setting.ServerAddress+"/console/topup?pay=fail")
+		c.Redirect(http.StatusFound, consoleTopupRedirect("pay=fail"))
 		return
 	}
 	verifyInfo, err := client.Verify(params)
 	if err != nil || !verifyInfo.VerifyStatus {
-		c.Redirect(http.StatusFound, system_setting.ServerAddress+"/console/topup?pay=fail")
+		c.Redirect(http.StatusFound, consoleTopupRedirect("pay=fail"))
 		return
 	}
 	if verifyInfo.TradeStatus == epay.StatusTradeSuccess {
@@ -197,8 +196,8 @@ func AutoDeliveryEpayReturn(c *gin.Context) {
 			defer UnlockOrder(verifyInfo.ServiceTradeNo)
 			_ = model.CompleteAutoDeliveryOrder(verifyInfo.ServiceTradeNo, common.GetJsonString(verifyInfo), verifyInfo.TradeNo)
 		}()
-		c.Redirect(http.StatusFound, system_setting.ServerAddress+"/console/topup?pay=success&show_auto_delivery_history=true")
+		c.Redirect(http.StatusFound, consoleTopupRedirect("pay=success&show_auto_delivery_history=true"))
 		return
 	}
-	c.Redirect(http.StatusFound, system_setting.ServerAddress+"/console/topup?pay=pending")
+	c.Redirect(http.StatusFound, consoleTopupRedirect("pay=pending"))
 }
