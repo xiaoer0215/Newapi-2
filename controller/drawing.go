@@ -8,6 +8,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type drawingCDNUploadRequest struct {
+	Image    string `json:"image"`
+	Filename string `json:"filename"`
+}
+
 func GetDrawingGroupModels(c *gin.Context) {
 	group := strings.TrimSpace(c.Query("group"))
 	if group == "" {
@@ -39,6 +44,7 @@ func GetUserDrawingInit(c *gin.Context) {
 			"token_key":            "",
 			"authorization":        "",
 			"endpoint":             "/v1/images/generations",
+			"responses_endpoint":   "/v1/responses",
 			"edit_endpoint":        "/v1/images/edits",
 		})
 		return
@@ -55,6 +61,45 @@ func GetUserDrawingInit(c *gin.Context) {
 		"token_key":            token.GetFullKey(),
 		"authorization":        "Bearer sk-" + token.GetFullKey(),
 		"endpoint":             "/v1/images/generations",
+		"responses_endpoint":   "/v1/responses",
 		"edit_endpoint":        "/v1/images/edits",
+	})
+}
+
+func UploadUserDrawingImage(c *gin.Context) {
+	var req drawingCDNUploadRequest
+	if err := common.DecodeJson(c.Request.Body, &req); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	result, err := service.UploadDrawingImageToConfiguredCDN(c.Request.Context(), req.Image, req.Filename)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, gin.H{
+		"url":        result.URL,
+		"provider":   result.Provider,
+		"elapsed_ms": result.Elapsed,
+	})
+}
+
+func ResolveUserDrawingImage(c *gin.Context) {
+	var req drawingCDNUploadRequest
+	if err := common.DecodeJson(c.Request.Body, &req); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	base64Data, mimeType, size, err := service.ResolveDrawingImageAsBase64(c.Request.Context(), req.Image)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, gin.H{
+		"base64":    base64Data,
+		"mimeType":  mimeType,
+		"mime_type": mimeType,
+		"data_url":  "data:" + mimeType + ";base64," + base64Data,
+		"size":      size,
 	})
 }
