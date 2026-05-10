@@ -2,6 +2,7 @@ package common
 
 import (
 	"crypto/tls"
+	"strings"
 	//"os"
 	//"strconv"
 	"sync"
@@ -13,8 +14,10 @@ import (
 var StartTime = time.Now().Unix() // unit: second
 var Version = "v0.0.0"            // this hard coding will be replaced automatically when building, no need to manually change
 var SystemName = "New API"
+var SystemSubtitle = ""
 var Footer = ""
 var Logo = ""
+var SEODescription = ""
 var TopUpLink = ""
 
 // var ChatLink = ""
@@ -37,6 +40,18 @@ var CryptoSecret = uuid.New().String()
 
 var OptionMap map[string]string
 var OptionMapRWMutex sync.RWMutex
+
+func GetSystemTitle() string {
+	name := strings.TrimSpace(SystemName)
+	if name == "" {
+		name = "New API"
+	}
+	subtitle := strings.TrimSpace(SystemSubtitle)
+	if subtitle != "" {
+		return name + " - " + subtitle
+	}
+	return name
+}
 
 var ItemsPerPage = 10
 var MaxRecentItems = 1000
@@ -107,6 +122,12 @@ var TelegramBotName = ""
 var QuotaForNewUser = 0
 var QuotaForInviter = 0
 var QuotaForInvitee = 0
+var AffiliateCommissionPercentage = 0.0
+var AffiliateTransferEnabled = true
+var AffiliateWithdrawEnabled = true
+var AffiliateMinWithdrawQuota = 500000
+var AffiliateBackfillHistoricalTopupEnabled = false
+var AffiliateLeaderboardEnabled = true
 var ChannelDisableThreshold = 5.0
 var AutomaticDisableChannelEnabled = false
 var AutomaticEnableChannelEnabled = false
