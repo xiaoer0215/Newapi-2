@@ -53,9 +53,15 @@ export const normalizeLanguage = (language) => {
     return 'zh-TW';
   }
 
+  if (lower === 'en' || lower.startsWith('en-')) return 'en';
+  if (lower === 'fr' || lower.startsWith('fr-')) return 'fr';
+  if (lower === 'ru' || lower.startsWith('ru-')) return 'ru';
+  if (lower === 'ja' || lower.startsWith('ja-')) return 'ja';
+  if (lower === 'vi' || lower.startsWith('vi-')) return 'vi';
+
   const matchedLanguage = supportedLanguages.find(
     (supportedLanguage) => supportedLanguage.toLowerCase() === lower,
   );
 
-  return matchedLanguage || normalized;
+  return matchedLanguage || null;
 };

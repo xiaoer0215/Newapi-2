@@ -64,16 +64,16 @@ const About = () => {
       <p>{t('可在设置页面设置关于内容，支持 HTML & Markdown')}</p>
       {t('New API项目仓库地址：')}
       <a
-        href='https://github.com/QuantumNous/new-api'
+        href='https://github.com/xiaoer0215/Newapi-2'
         target='_blank'
         rel='noopener noreferrer'
         className='!text-semi-color-primary'
       >
-        https://github.com/QuantumNous/new-api
+        https://github.com/xiaoer0215/Newapi-2
       </a>
       <p>
         <a
-          href='https://github.com/QuantumNous/new-api'
+          href='https://github.com/xiaoer0215/Newapi-2'
           target='_blank'
           rel='noopener noreferrer'
           className='!text-semi-color-primary'

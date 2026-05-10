@@ -1,4 +1,4 @@
-/*
+﻿/*
 Copyright (C) 2025 QuantumNous
 
 This program is free software: you can redistribute it and/or modify
@@ -192,7 +192,7 @@ const EditTokenModal = (props) => {
       if (localInputs.expired_time !== -1) {
         let time = Date.parse(localInputs.expired_time);
         if (isNaN(time)) {
-          showError(t('过期时间格式错误！'));
+          showError(t('过期时间格式不正确'));
           setLoading(false);
           return;
         }
@@ -206,7 +206,7 @@ const EditTokenModal = (props) => {
       });
       const { success, message } = res.data;
       if (success) {
-        showSuccess(t('令牌更新成功！'));
+        showSuccess(t('令牌更新成功'));
         props.refresh();
         props.handleClose();
       } else {
@@ -229,7 +229,7 @@ const EditTokenModal = (props) => {
         if (localInputs.expired_time !== -1) {
           let time = Date.parse(localInputs.expired_time);
           if (isNaN(time)) {
-            showError(t('过期时间格式错误！'));
+            showError(t('过期时间格式不正确'));
             setLoading(false);
             break;
           }
@@ -264,14 +264,16 @@ const EditTokenModal = (props) => {
       headerStyle={{ display: 'none' }}
       bodyStyle={{ padding: 0, background: 'transparent', display: 'flex', flexDirection: 'column', height: '100%' }}
       style={{
-        background: 'rgba(241,245,249,0.97)',
-        backdropFilter: 'blur(24px) saturate(180%)',
-        WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+        background: '#ffffff',
+        backdropFilter: 'none',
+        WebkitBackdropFilter: 'none',
       }}
+      maskClassName='token-glass-edit-mask'
       maskStyle={{
-        background: 'rgba(15,23,42,0.30)',
-        backdropFilter: 'blur(8px) saturate(180%)',
-        WebkitBackdropFilter: 'blur(8px) saturate(180%)',
+        background: 'rgba(255,255,255,0.34)',
+        backgroundColor: 'rgba(255,255,255,0.34)',
+        backdropFilter: 'blur(10px) saturate(125%)',
+        WebkitBackdropFilter: 'blur(10px) saturate(125%)',
       }}
       visible={props.visiable}
       maskClosable={true}
@@ -297,7 +299,6 @@ const EditTokenModal = (props) => {
               justifyContent: 'space-between',
               alignItems: 'center',
               background: 'rgba(255,255,255,0.6)',
-              backdropFilter: 'blur(8px)',
               flexShrink: 0,
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -318,7 +319,7 @@ const EditTokenModal = (props) => {
                     {isEdit ? t('更新令牌信息') : t('创建新的令牌')}
                   </h2>
                   <p style={{ fontSize: 13, color: 'var(--text-tertiary)', margin: 0 }}>
-                    {isEdit ? t('修改令牌的配置信息') : t('配置并创建新令牌')}
+                    {isEdit ? t('调整令牌名称、分组、额度与访问限制') : t('创建用于 API 调用的新令牌')}
                   </p>
                 </div>
               </div>
@@ -348,15 +349,15 @@ const EditTokenModal = (props) => {
                   </div>
                   <div>
                     <h3>{t('基本信息')}</h3>
-                    <p>{t('设置令牌的基本信息')}</p>
+                    <p>{t('\u8bbe\u7f6e\u4ee4\u724c\u540d\u79f0\u3001\u5206\u7ec4\u4e0e\u6709\u6548\u671f')}</p>
                   </div>
                 </div>
                 <div className='edt-card-body'>
                   <Form.Input
                     field='name'
                     label={t('名称')}
-                    placeholder={t('请输入名称')}
-                    rules={[{ required: true, message: t('请输入名称') }]}
+                    placeholder={t('请输入令牌名称')}
+                    rules={[{ required: true, message: t('请输入令牌名称') }]}
                     showClear
                     style={{ width: '100%' }}
                   />
@@ -388,7 +389,7 @@ const EditTokenModal = (props) => {
                     />
                   ) : (
                     <Form.Select
-                      placeholder={t('管理员未设置用户可选分组')}
+                      placeholder={t('暂无可用令牌分组')}
                       disabled
                       label={t('令牌分组')}
                       style={{ width: '100%' }}
@@ -415,8 +416,8 @@ const EditTokenModal = (props) => {
                         validator: (rule, value) => {
                           if (value === -1 || !value) return Promise.resolve();
                           const time = Date.parse(value);
-                          if (isNaN(time)) return Promise.reject(t('过期时间格式错误！'));
-                          if (time <= Date.now()) return Promise.reject(t('过期时间不能早于当前时间！'));
+                          if (isNaN(time)) return Promise.reject(t('过期时间格式不正确'));
+                          if (time <= Date.now()) return Promise.reject(t('过期时间必须晚于当前时间'));
                           return Promise.resolve();
                         },
                       },
@@ -452,7 +453,7 @@ const EditTokenModal = (props) => {
                       label={t('新建数量')}
                       min={1}
                       extraText={t('批量创建时会在名称后自动添加随机后缀')}
-                      rules={[{ required: true, message: t('请输入新建数量') }]}
+                      rules={[{ required: true, message: t('\u8bf7\u8f93\u5165\u65b0\u5efa\u6570\u91cf') }]}
                       style={{ width: '100%' }}
                     />
                   )}
@@ -469,18 +470,18 @@ const EditTokenModal = (props) => {
                   </div>
                   <div>
                     <h3>{t('额度设置')}</h3>
-                    <p>{t('设置令牌可用额度和数量')}</p>
+                    <p>{t('设置令牌可用额度，或开启无限额度')}</p>
                   </div>
                 </div>
                 <div className='edt-card-body'>
                   <Form.AutoComplete
                     field='remain_quota'
                     label={t('额度')}
-                    placeholder={t('请输入额度')}
+                    placeholder={t('\u8bf7\u8f93\u5165\u989d\u5ea6')}
                     type='number'
                     disabled={values.unlimited_quota}
                     extraText={renderQuotaWithPrompt(values.remain_quota)}
-                    rules={values.unlimited_quota ? [] : [{ required: true, message: t('请输入额度') }]}
+                    rules={values.unlimited_quota ? [] : [{ required: true, message: t('\u8bf7\u8f93\u5165\u989d\u5ea6') }]}
                     data={[
                       { value: 500000, label: '1$' },
                       { value: 5000000, label: '10$' },
@@ -495,7 +496,7 @@ const EditTokenModal = (props) => {
                     field='unlimited_quota'
                     label={t('无限额度')}
                     size='default'
-                    extraText={t('令牌的额度仅用于限制令牌本身的最大额度使用量，实际的使用受到账户的剩余额度限制')}
+                    extraText={t('开启后该令牌不限制自身额度，仍会受账户余额、订阅额度和系统策略限制')}
                   />
                 </div>
               </div>
@@ -510,14 +511,14 @@ const EditTokenModal = (props) => {
                   </div>
                   <div>
                     <h3>{t('访问限制')}</h3>
-                    <p>{t('设置令牌的访问限制')}</p>
+                    <p>{t('限制可调用模型和来源 IP')}</p>
                   </div>
                 </div>
                 <div className='edt-card-body'>
                   <Form.Select
                     field='model_limits'
                     label={t('模型限制列表')}
-                    placeholder={t('请选择该令牌支持的模型，留空支持所有模型')}
+                    placeholder={t('请选择允许该令牌调用的模型')}
                     multiple
                     optionList={models}
                     extraText={
@@ -533,10 +534,10 @@ const EditTokenModal = (props) => {
                   <Form.TextArea
                     field='allow_ips'
                     label={t('IP白名单（支持CIDR表达式）')}
-                    placeholder={t('允许的IP，一行一个，不填写则不限制')}
+                    placeholder={t('每行一个 IP 或 CIDR，例如 127.0.0.1 或 10.0.0.0/24')}
                     autosize
                     rows={1}
-                    extraText={t('请勿过度信任此功能，IP可能被伪造，请配合nginx和cdn等网关使用')}
+                    extraText={t('如开启反代，请确保后端能获取真实 IP，例如正确配置 nginx 或 CDN 的转发头')}
                     showClear
                     style={{ width: '100%' }}
                   />
@@ -553,7 +554,6 @@ const EditTokenModal = (props) => {
               justifyContent: 'flex-end',
               gap: 12,
               background: 'rgba(248,250,252,0.97)',
-              backdropFilter: 'blur(8px)',
               flexShrink: 0,
             }}>
               <button

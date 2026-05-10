@@ -327,6 +327,48 @@ export const useApiRequest = (
       let responseData = '';
       let hasReceivedFirstResponse = false;
       let isStreamComplete = false; // 添加标志位跟踪流是否正常完成
+      let hasHandledTerminalError = false;
+
+      const finishSSEError = (errorMessage, errorCode = null, debugText = '') => {
+        if (hasHandledTerminalError || isStreamComplete) {
+          return;
+        }
+        hasHandledTerminalError = true;
+        isStreamComplete = true;
+
+        try {
+          source.close();
+        } catch (_) {
+          // ignore close errors
+        }
+        sseSourceRef.current = null;
+
+        setDebugData((prev) => ({
+          ...prev,
+          response: responseData + debugText,
+          isStreaming: false,
+        }));
+        setActiveDebugTab(DEBUG_TABS.RESPONSE);
+
+        setMessage((prevMessage) => {
+          const newMessages = [...prevMessage];
+          const lastMessage = newMessages[newMessages.length - 1];
+          if (
+            lastMessage &&
+            lastMessage.status !== MESSAGE_STATUS.COMPLETE &&
+            lastMessage.status !== MESSAGE_STATUS.ERROR
+          ) {
+            newMessages[newMessages.length - 1] = {
+              ...lastMessage,
+              content: errorMessage,
+              errorCode,
+              status: MESSAGE_STATUS.ERROR,
+            };
+            setTimeout(() => saveMessages(newMessages), 0);
+          }
+          return newMessages;
+        });
+      };
 
       source.addEventListener('message', (e) => {
         if (e.data === '[DONE]') {
@@ -409,30 +451,11 @@ export const useApiRequest = (
           const errorInfo = handleApiError(new Error(errorMessage));
           errorInfo.readyState = source.readyState;
 
-          setDebugData((prev) => ({
-            ...prev,
-            response:
-              responseData +
-              '\n\nSSE Error:\n' +
-              JSON.stringify(errorInfo, null, 2),
-          }));
-          setActiveDebugTab(DEBUG_TABS.RESPONSE);
-
-          setMessage((prevMessage) => {
-            const newMessages = [...prevMessage];
-            const lastMessage = newMessages[newMessages.length - 1];
-            if (lastMessage && lastMessage.status !== MESSAGE_STATUS.COMPLETE && lastMessage.status !== MESSAGE_STATUS.ERROR) {
-              newMessages[newMessages.length - 1] = {
-                ...lastMessage,
-                content: (lastMessage.content || '') + errorMessage,
-                errorCode: errorCode,
-                status: MESSAGE_STATUS.ERROR,
-              };
-            }
-            return newMessages;
-          });
-          sseSourceRef.current = null;
-          source.close();
+          finishSSEError(
+            errorMessage,
+            errorCode,
+            '\n\nSSE Error:\n' + JSON.stringify(errorInfo, null, 2),
+          );
         }
       });
 
@@ -444,22 +467,18 @@ export const useApiRequest = (
           source.status !== 200 &&
           !isStreamComplete
         ) {
-          const errorInfo = handleApiError(new Error('HTTP状态错误'));
+          const errorInfo = handleApiError(new Error('HTTP\u72b6\u6001\u9519\u8bef'));
           errorInfo.status = source.status;
           errorInfo.readyState = source.readyState;
 
-          setDebugData((prev) => ({
-            ...prev,
-            response:
-              responseData +
-              '\n\nHTTP Error:\n' +
-              JSON.stringify(errorInfo, null, 2),
-          }));
-          setActiveDebugTab(DEBUG_TABS.RESPONSE);
-
-          source.close();
-          streamMessageUpdate(t('连接已断开'), 'content');
-          completeMessage(MESSAGE_STATUS.ERROR);
+          const statusText = source.status
+            ? `HTTP ${source.status}`
+            : t('\u8fde\u63a5\u5df2\u65ad\u5f00');
+          finishSSEError(
+            statusText + ': ' + t('\u8bf7\u6c42\u53d1\u751f\u9519\u8bef'),
+            null,
+            '\n\nHTTP Error:\n' + JSON.stringify(errorInfo, null, 2),
+          );
         }
       });
 
@@ -487,6 +506,7 @@ export const useApiRequest = (
       completeMessage,
       t,
       applyAutoCollapseLogic,
+      saveMessages,
     ],
   );
 

@@ -37,7 +37,7 @@ import {
 } from '@douyinfe/semi-illustrations';
 import { IconSearch } from '@douyinfe/semi-icons';
 import { useNavigate } from 'react-router-dom';
-import { API, renderQuotaWithAmount, timestamp2string } from '../../../helpers';
+import { API, renderGroup, renderQuotaWithAmount, timestamp2string } from '../../../helpers';
 import { isAdmin, isRoot } from '../../../helpers/utils';
 import { useIsMobile } from '../../../hooks/common/useIsMobile';
 
@@ -89,12 +89,16 @@ const TopupHistoryModal = ({ visible, onCancel, t }) => {
     }
     return Math.min(window.innerWidth - 40, userIsAdmin ? 1280 : 1120);
   }, [isMobile, userIsAdmin]);
-  const tableScrollY = useMemo(() => {
-    if (isMobile || typeof window === 'undefined') {
-      return undefined;
-    }
-    return Math.max(360, Math.min(620, window.innerHeight - 320));
-  }, [isMobile]);
+  const modalBodyStyle = useMemo(
+    () => ({
+      paddingTop: 10,
+      paddingBottom: 8,
+      maxHeight: isMobile ? 'calc(100vh - 120px)' : 'calc(100vh - 180px)',
+      overflowY: 'auto',
+      overflowX: 'hidden',
+    }),
+    [isMobile],
+  );
 
   const formatMoney = (value) => Number(value || 0).toFixed(2);
 
@@ -203,6 +207,23 @@ const TopupHistoryModal = ({ visible, onCancel, t }) => {
     return <Text>{PAYMENT_METHOD_MAP[value] || value || '-'}</Text>;
   };
 
+  const renderTopupGroup = (record) => {
+    const group = record?.group_snapshot || record?.user_group || record?.group || '';
+    if (!group) {
+      return <Text type='tertiary'>-</Text>;
+    }
+    if (group === 'default') {
+      return (
+        <span className='topup-history-group-tag'>
+          <Tag color='blue' type='light' shape='square'>
+            {t('普通用户')}
+          </Tag>
+        </span>
+      );
+    }
+    return <span className='topup-history-group-tag'>{renderGroup(group)}</span>;
+  };
+
   const navigateToUserSearch = (keyword) => {
     if (!keyword) {
       return;
@@ -230,27 +251,33 @@ const TopupHistoryModal = ({ visible, onCancel, t }) => {
       title: t('支付号'),
       dataIndex: 'payment_order_no',
       key: 'payment_order_no',
-      width: 250,
+      width: 220,
       render: (_, record) => {
         const displayValue = getDisplayedPaymentOrderNo(record);
         if (!displayValue) {
           return <Text type='tertiary'>-</Text>;
         }
-        return <Text copyable>{displayValue}</Text>;
+        return <Text copyable ellipsis={{ showTooltip: true, rows: 1 }}>{displayValue}</Text>;
       },
+    },
+    {
+      title: t('用户组'),
+      key: 'group_snapshot',
+      width: 92,
+      render: (_, record) => renderTopupGroup(record),
     },
     {
       title: t('支付方式'),
       dataIndex: 'payment_method',
       key: 'payment_method',
-      width: 108,
+      width: 88,
       render: renderMethod,
     },
     {
       title: t('原金额'),
       dataIndex: 'amount',
       key: 'amount',
-      width: 104,
+      width: 88,
       render: (amount, record) => {
         if (isSubscriptionTopup(record)) {
           return <Tag color='purple'>{t('订阅套餐')}</Tag>;
@@ -262,7 +289,7 @@ const TopupHistoryModal = ({ visible, onCancel, t }) => {
       title: t('赠送'),
       dataIndex: 'gift_amount',
       key: 'gift_amount',
-      width: 110,
+      width: 88,
       render: (giftAmount, record) => {
         if (isSubscriptionTopup(record) || !giftAmount) {
           return <Text type='tertiary'>-</Text>;
@@ -277,7 +304,7 @@ const TopupHistoryModal = ({ visible, onCancel, t }) => {
     {
       title: t('到账'),
       key: 'credit_amount',
-      width: 110,
+      width: 92,
       render: (_, record) => {
         if (isSubscriptionTopup(record)) {
           return <Text type='tertiary'>-</Text>;
@@ -293,7 +320,7 @@ const TopupHistoryModal = ({ visible, onCancel, t }) => {
       title: t('支付金额'),
       dataIndex: 'money',
       key: 'money',
-      width: 96,
+      width: 86,
       render: (money) => (
         <Text type='danger'>{Number(money || 0).toFixed(2)}</Text>
       ),
@@ -302,14 +329,14 @@ const TopupHistoryModal = ({ visible, onCancel, t }) => {
       title: t('状态'),
       dataIndex: 'status',
       key: 'status',
-      width: 98,
+      width: 84,
       render: renderStatus,
     },
     {
       title: t('创建时间'),
       dataIndex: 'create_time',
       key: 'create_time',
-      width: 168,
+      width: 180,
       render: (value) => timestamp2string(value),
     },
   ];
@@ -319,7 +346,7 @@ const TopupHistoryModal = ({ visible, onCancel, t }) => {
       title: t('用户名'),
       dataIndex: 'username',
       key: 'username',
-      width: 130,
+      width: 112,
       render: (text) => {
         if (!text) {
           return <Text>-</Text>;
@@ -337,10 +364,10 @@ const TopupHistoryModal = ({ visible, onCancel, t }) => {
       },
     });
 
-    columns.splice(7, 0, {
+    columns.splice(8, 0, {
       title: t('操作'),
       key: 'action',
-      width: 96,
+      width: 76,
       render: (_, record) => {
         if (record.status !== 'pending') {
           return null;
@@ -458,12 +485,7 @@ const TopupHistoryModal = ({ visible, onCancel, t }) => {
       size={isMobile ? 'full-width' : 'large'}
       width={modalWidth}
       className='topup-history-modal'
-      bodyStyle={{
-        paddingTop: 10,
-        paddingBottom: 8,
-        maxHeight: isMobile ? 'calc(100vh - 120px)' : 'calc(100vh - 180px)',
-        overflow: 'hidden',
-      }}
+      bodyStyle={modalBodyStyle}
     >
       <Tabs
         activeKey={activeTab}
@@ -503,10 +525,10 @@ const TopupHistoryModal = ({ visible, onCancel, t }) => {
             dataSource={topups}
             loading={loading}
             rowKey='id'
-            size={isMobile ? 'small' : 'middle'}
+            size='small'
             className='topup-history-table'
             tableLayout='fixed'
-            scroll={{ x: userIsAdmin ? 1320 : 1120, y: tableScrollY }}
+            scroll={{ x: userIsAdmin ? 1280 : 1020 }}
             pagination={{
               currentPage: page,
               pageSize,
@@ -540,7 +562,7 @@ const TopupHistoryModal = ({ visible, onCancel, t }) => {
             rowKey='id'
             size={isMobile ? 'small' : 'middle'}
             tableLayout='fixed'
-            scroll={{ x: 1030, y: tableScrollY }}
+            scroll={{ x: 1030 }}
             pagination={{
               pageSize: 10,
               showSizeChanger: true,

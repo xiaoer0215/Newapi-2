@@ -103,6 +103,7 @@ const AccountManagement = ({
     React.useState(false);
   const [customOAuthBindings, setCustomOAuthBindings] = React.useState([]);
   const [customOAuthLoading, setCustomOAuthLoading] = React.useState({});
+  const [activeTabKey, setActiveTabKey] = React.useState('binding');
 
   // Fetch custom OAuth bindings
   const loadCustomOAuthBindings = async () => {
@@ -197,7 +198,42 @@ const AccountManagement = ({
         </div>
       </div>
 
-      <Tabs type='card' defaultActiveKey='binding'>
+      <div className='ps-wallet-tabs' role='tablist' aria-label={t('账户设置切换')}>
+        {[
+          {
+            key: 'binding',
+            label: t('账户绑定'),
+            icon: <UserPlus size={16} />,
+          },
+          {
+            key: 'security',
+            label: t('安全设置'),
+            icon: <ShieldCheck size={16} />,
+          },
+        ].map((item) => {
+          const selected = activeTabKey === item.key;
+          return (
+            <button
+              key={item.key}
+              type='button'
+              role='tab'
+              aria-selected={selected}
+              className={`ps-wallet-tab${selected ? ' is-active' : ''}`}
+              onClick={() => setActiveTabKey(item.key)}
+            >
+              <span className='ps-wallet-tab__icon'>{item.icon}</span>
+              <span className='ps-wallet-tab__label'>{item.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <Tabs
+        type='line'
+        activeKey={activeTabKey}
+        onChange={setActiveTabKey}
+        className='ps-line-tabs ps-tabs-hidden-bar'
+      >
         {/* 账户绑定 Tab */}
         <TabPane
           tab={

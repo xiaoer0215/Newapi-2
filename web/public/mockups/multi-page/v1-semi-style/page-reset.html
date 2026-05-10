@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>系统控制台 - 找回密码</title>
+    <style>
+        :root {
+            --primary: #1677ff;
+            --primary-hover: #4096ff;
+            --primary-active: #0958d9;
+            --text-main: #1f1f1f;
+            --text-secondary: #8c8c8c;
+            --border-color: rgba(0, 0, 0, 0.08);
+            --card-bg: rgba(255, 255, 255, 0.75);
+            --card-border: rgba(255, 255, 255, 0.6);
+            --input-bg: rgba(255, 255, 255, 0.6);
+            --input-bg-focus: #ffffff;
+            --shadow-color: rgba(0, 0, 0, 0.08);
+            --shadow-primary: rgba(22, 119, 255, 0.25);
+            --btn-outline-bg: rgba(255, 255, 255, 0.5);
+            --divider-color: rgba(0, 0, 0, 0.06);
+            --glass-blur: 32px;
+            --radius-card: 24px;
+            --radius-btn: 12px;
+            --radius-input: 12px;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --primary: #1668dc;
+                --primary-hover: #3c89e8;
+                --primary-active: #1554ad;
+                --text-main: #e5e5e5;
+                --text-secondary: #a3a3a3;
+                --border-color: rgba(255, 255, 255, 0.12);
+                --card-bg: rgba(20, 20, 20, 0.65);
+                --card-border: rgba(255, 255, 255, 0.08);
+                --input-bg: rgba(0, 0, 0, 0.2);
+                --input-bg-focus: rgba(0, 0, 0, 0.4);
+                --shadow-color: rgba(0, 0, 0, 0.5);
+                --shadow-primary: rgba(22, 119, 255, 0.15);
+                --btn-outline-bg: rgba(0, 0, 0, 0.2);
+                --divider-color: rgba(255, 255, 255, 0.08);
+            }
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+
+        body {
+            background: linear-gradient(-45deg, #f0f2f5, #e6f7ff, #f0f5ff, #f6ffed);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-main);
+            padding: 20px;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            body {
+                background: linear-gradient(-45deg, #141414, #0b1a2e, #112240, #141414);
+                background-size: 400% 400%;
+            }
+        }
+
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .auth-wrapper {
+            width: 100%;
+            max-width: 420px;
+            perspective: 1000px;
+        }
+
+        .auth-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(var(--glass-blur));
+            -webkit-backdrop-filter: blur(var(--glass-blur));
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius-card);
+            padding: 40px 32px 32px; /* 去除logo后调整上边距 */
+            box-shadow: 0 24px 48px var(--shadow-color), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            text-align: center;
+            animation: slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        @keyframes slideUpFade {
+            from { opacity: 0; transform: translateY(30px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        h1 {
+            font-size: 26px;
+            font-weight: 600;
+            color: var(--text-main);
+            margin-bottom: 8px;
+            letter-spacing: -0.5px;
+        }
+
+        .subtitle { font-size: 14px; color: var(--text-secondary); margin-bottom: 28px; }
+
+        .btn {
+            width: 100%; height: 44px; border-radius: var(--radius-btn);
+            font-size: 15px; font-weight: 500; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.25s cubic-bezier(0.2, 0, 0, 1); border: 1px solid transparent;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), #2f54eb);
+            color: #ffffff;
+            box-shadow: 0 4px 16px var(--shadow-primary);
+        }
+        .btn-primary:hover {
+            background: linear-gradient(135deg, var(--primary-hover), #597ef7);
+            transform: translateY(-2px); box-shadow: 0 8px 24px var(--shadow-primary);
+        }
+        .btn-primary:active { transform: translateY(0); box-shadow: 0 2px 8px var(--shadow-primary); }
+
+        .form-group { margin-bottom: 32px; text-align: left; }
+        .form-input-wrapper {
+            position: relative; display: flex; align-items: center;
+            border: 1px solid var(--border-color); border-radius: var(--radius-input);
+            padding: 0 14px; background: var(--input-bg); transition: all 0.3s ease;
+        }
+        .form-input-wrapper:focus-within {
+            border-color: var(--primary); background: var(--input-bg-focus);
+            box-shadow: 0 4px 12px rgba(22, 119, 255, 0.08), 0 0 0 4px rgba(22, 119, 255, 0.15);
+            transform: translateY(-1px);
+        }
+        .input-icon { color: var(--text-secondary); width: 18px; height: 18px; transition: all 0.3s cubic-bezier(0.2, 0, 0, 1); }
+        .form-input-wrapper:focus-within .input-icon { color: var(--primary); transform: scale(1.1); }
+        .form-input {
+            flex: 1; border: none; outline: none;
+            padding: 14px 10px; font-size: 14px;
+            color: var(--text-main); background: transparent;
+        }
+        .form-input::placeholder { color: var(--text-secondary); opacity: 0.8; }
+
+        .link { color: var(--primary); text-decoration: none; transition: color 0.2s; font-weight: 500; }
+        .link:hover { color: var(--primary-hover); text-decoration: underline; }
+
+        .bottom-action {
+            margin-top: 28px;
+            padding-top: 20px;
+            font-size: 14px;
+            color: var(--text-secondary);
+            border-top: 1px dashed var(--divider-color);
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-wrapper">
+        <div class="auth-card">
+            <h1>找回密码</h1>
+            <p class="subtitle">请输入您的注册邮箱</p>
+
+            <div class="form-group">
+                <div class="form-input-wrapper">
+                    <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                    <input type="email" class="form-input" placeholder="邮箱地址">
+                </div>
+            </div>
+
+            <button class="btn btn-primary">发送重置链接</button>
+
+            <!-- 全局底部入口 -->
+            <div class="bottom-action">
+                记起密码了？ <a href="page-login.html" class="link">直接登录</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

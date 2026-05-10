@@ -29,7 +29,7 @@ type LoginRequest struct {
 	Password string `json:"password"`
 }
 
-const invalidUsernameMessage = "账号仅支持英文、数字、下划线，或邮箱地址"
+const invalidUsernameMessage = "账号支持中文、英文、数字、符号和邮箱格式，不能包含空格，最多50个字符"
 
 func normalizeUsername(username string) string {
 	return strings.TrimSpace(username)
@@ -399,6 +399,10 @@ type TransferAffQuotaRequest struct {
 }
 
 func TransferAffQuota(c *gin.Context) {
+	if !common.AffiliateTransferEnabled {
+		common.ApiErrorMsg(c, "affiliate transfer is disabled")
+		return
+	}
 	id := c.GetInt("id")
 	user, err := model.GetUserById(id, true)
 	if err != nil {
@@ -695,6 +699,15 @@ func UpdateUser(c *gin.Context) {
 	if updatedUser.Password == "$I_LOVE_U" {
 		updatedUser.Password = "" // rollback to what it should be
 	}
+	groupChanged := strings.TrimSpace(originUser.Group) != strings.TrimSpace(updatedUser.Group)
+	autoScaledQuota := false
+	if groupChanged && updatedUser.Quota == originUser.Quota {
+		scaledQuota := common.ScaleQuotaByTopupGroupCreditRatio(originUser.Quota, originUser.Group, updatedUser.Group)
+		if scaledQuota != updatedUser.Quota {
+			updatedUser.Quota = scaledQuota
+			autoScaledQuota = true
+		}
+	}
 	updatePassword := updatedUser.Password != ""
 	if err := updatedUser.Edit(updatePassword); err != nil {
 		common.ApiError(c, err)
@@ -706,6 +719,14 @@ func UpdateUser(c *gin.Context) {
 			model.RecordLog(originUser.Id, model.LogTypeManage, fmt.Sprintf("管理员 %s 将用户额度从 %s 修改为 %s", adminUsername, logger.LogQuota(originUser.Quota), logger.LogQuota(updatedUser.Quota)))
 		} else {
 			model.RecordLog(originUser.Id, model.LogTypeManage, fmt.Sprintf("管理员将用户额度从 %s 修改为 %s", logger.LogQuota(originUser.Quota), logger.LogQuota(updatedUser.Quota)))
+		}
+	}
+	if groupChanged && autoScaledQuota {
+		adminUsername := c.GetString("username")
+		if adminUsername != "" {
+			model.RecordLog(originUser.Id, model.LogTypeManage, fmt.Sprintf("\u7ba1\u7406\u5458 %s \u5c06\u7528\u6237\u5206\u7ec4\u4ece %s \u8c03\u6574\u4e3a %s\uff0c\u5e76\u6309\u5230\u8d26\u500d\u7387\u81ea\u52a8\u6362\u7b97\u4f59\u989d %s -> %s", adminUsername, originUser.Group, updatedUser.Group, logger.LogQuota(originUser.Quota), logger.LogQuota(updatedUser.Quota)))
+		} else {
+			model.RecordLog(originUser.Id, model.LogTypeManage, fmt.Sprintf("\u7ba1\u7406\u5458\u5c06\u7528\u6237\u5206\u7ec4\u4ece %s \u8c03\u6574\u4e3a %s\uff0c\u5e76\u6309\u5230\u8d26\u500d\u7387\u81ea\u52a8\u6362\u7b97\u4f59\u989d %s -> %s", originUser.Group, updatedUser.Group, logger.LogQuota(originUser.Quota), logger.LogQuota(updatedUser.Quota)))
 		}
 	}
 	c.JSON(http.StatusOK, gin.H{

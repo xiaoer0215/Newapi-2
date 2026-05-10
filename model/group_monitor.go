@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -29,6 +30,7 @@ type BucketStat struct {
 	ErrorCount   int64   `json:"error_count"`
 	TotalCount   int64   `json:"total_count"`
 	SuccessRate  float64 `json:"success_rate"`
+	AvgUseTime   float64 `json:"avg_use_time"`
 	Status       string  `json:"status"` // green / orange / red
 }
 
@@ -39,6 +41,7 @@ type GroupMonitorStats struct {
 	ErrorCount   int64        `json:"error_count"`
 	TotalCount   int64        `json:"total_count"`
 	SuccessRate  float64      `json:"success_rate"`
+	AvgUseTime   float64      `json:"avg_use_time"`
 	Status       string       `json:"status"`
 	Buckets      []BucketStat `json:"buckets"`
 	UpdatedAt    int64        `json:"updated_at"`
@@ -51,6 +54,7 @@ type ModelBucketStats struct {
 	ErrorCount   int64        `json:"error_count"`
 	TotalCount   int64        `json:"total_count"`
 	SuccessRate  float64      `json:"success_rate"`
+	AvgUseTime   float64      `json:"avg_use_time"`
 	Status       string       `json:"status"`
 	Buckets      []BucketStat `json:"buckets"`
 }
@@ -82,6 +86,29 @@ func gmStatus(rate float64, total int64) string {
 	return "green"
 }
 
+func newGreenBuckets(numBuckets int) []BucketStat {
+	buckets := make([]BucketStat, numBuckets)
+	for i := range buckets {
+		buckets[i] = BucketStat{Index: i, SuccessRate: 100, Status: "green"}
+	}
+	return buckets
+}
+
+func getGroupEnabledModelSet(groups []string) map[string]map[string]struct{} {
+	result := make(map[string]map[string]struct{}, len(groups))
+	for _, group := range groups {
+		modelSet := make(map[string]struct{})
+		for _, modelName := range GetGroupEnabledModels(group) {
+			if modelName == "" {
+				continue
+			}
+			modelSet[modelName] = struct{}{}
+		}
+		result[group] = modelSet
+	}
+	return result
+}
+
 func cacheKey(window, group string) string {
 	return window + ":" + group
 }
@@ -101,6 +128,7 @@ func RefreshGroupMonitorStats(groups []string, window string) error {
 	numBuckets, bucketSecs, lookback := windowParams(window)
 	since := time.Now().Add(-lookback).Unix()
 	now := time.Now().Unix()
+	enabledModelSet := getGroupEnabledModelSet(groups)
 
 	var bucketExpr string
 	if common.UsingMySQL {
@@ -110,23 +138,26 @@ func RefreshGroupMonitorStats(groups []string, window string) error {
 	}
 
 	query := fmt.Sprintf(
-		`SELECT %s AS group_name, %s AS bucket_idx,`+
+		`SELECT %s AS group_name, model_name, %s AS bucket_idx,`+
 			` COUNT(CASE WHEN type = %d THEN 1 END) AS success_count,`+
-			` COUNT(CASE WHEN type = %d THEN 1 END) AS error_count`+
+			` COUNT(CASE WHEN type = %d THEN 1 END) AS error_count,`+
+			` SUM(CASE WHEN type = %d THEN use_time ELSE 0 END) AS use_time_sum`+
 			` FROM logs`+
 			` WHERE created_at >= %d AND %s IN ?`+
-			` GROUP BY %s, %s`,
+			` GROUP BY %s, model_name, %s`,
 		logGroupCol, bucketExpr,
-		LogTypeConsume, LogTypeError,
+		LogTypeConsume, LogTypeError, LogTypeConsume,
 		since, logGroupCol,
 		logGroupCol, bucketExpr,
 	)
 
 	type bucketRow struct {
 		GroupName    string `gorm:"column:group_name"`
+		ModelName    string `gorm:"column:model_name"`
 		BucketIdx    int    `gorm:"column:bucket_idx"`
 		SuccessCount int64  `gorm:"column:success_count"`
 		ErrorCount   int64  `gorm:"column:error_count"`
+		UseTimeSum   int64  `gorm:"column:use_time_sum"`
 	}
 	var rows []bucketRow
 	if err := LOG_DB.Raw(query, groups).Scan(&rows).Error; err != nil {
@@ -137,13 +168,11 @@ func RefreshGroupMonitorStats(groups []string, window string) error {
 		buckets      []BucketStat
 		totalSuccess int64
 		totalError   int64
+		useTimeSum   int64
 	}
 	aggs := make(map[string]*groupAgg, len(groups))
 	for _, g := range groups {
-		a := &groupAgg{buckets: make([]BucketStat, numBuckets)}
-		for i := range a.buckets {
-			a.buckets[i] = BucketStat{Index: i, SuccessRate: 100, Status: "green"}
-		}
+		a := &groupAgg{buckets: newGreenBuckets(numBuckets)}
 		aggs[g] = a
 	}
 
@@ -152,21 +181,31 @@ func RefreshGroupMonitorStats(groups []string, window string) error {
 		if !ok || r.BucketIdx < 0 || r.BucketIdx >= numBuckets {
 			continue
 		}
+		if _, ok := enabledModelSet[r.GroupName][r.ModelName]; !ok {
+			continue
+		}
 		total := r.SuccessCount + r.ErrorCount
 		rate := float64(100)
 		if total > 0 {
 			rate = float64(r.SuccessCount) / float64(total) * 100
 		}
-		a.buckets[r.BucketIdx] = BucketStat{
-			Index:        r.BucketIdx,
-			SuccessCount: r.SuccessCount,
-			ErrorCount:   r.ErrorCount,
-			TotalCount:   total,
-			SuccessRate:  rate,
-			Status:       gmStatus(rate, total),
+		bucket := a.buckets[r.BucketIdx]
+		bucket.SuccessCount += r.SuccessCount
+		bucket.ErrorCount += r.ErrorCount
+		bucket.TotalCount += total
+		if bucket.TotalCount > 0 {
+			bucket.SuccessRate = float64(bucket.SuccessCount) / float64(bucket.TotalCount) * 100
+		} else {
+			bucket.SuccessRate = rate
 		}
+		if bucket.SuccessCount > 0 {
+			bucket.AvgUseTime = (bucket.AvgUseTime*float64(bucket.SuccessCount-r.SuccessCount) + float64(r.UseTimeSum)) / float64(bucket.SuccessCount)
+		}
+		bucket.Status = gmStatus(bucket.SuccessRate, bucket.TotalCount)
+		a.buckets[r.BucketIdx] = bucket
 		a.totalSuccess += r.SuccessCount
 		a.totalError += r.ErrorCount
+		a.useTimeSum += r.UseTimeSum
 	}
 
 	groupMonitorCacheMu.Lock()
@@ -177,6 +216,10 @@ func RefreshGroupMonitorStats(groups []string, window string) error {
 		if total > 0 {
 			rate = float64(a.totalSuccess) / float64(total) * 100
 		}
+		avgUseTime := float64(0)
+		if a.totalSuccess > 0 {
+			avgUseTime = float64(a.useTimeSum) / float64(a.totalSuccess)
+		}
 		buckets := make([]BucketStat, numBuckets)
 		copy(buckets, a.buckets)
 		groupMonitorCache[cacheKey(window, g)] = &GroupMonitorStats{
@@ -185,6 +228,7 @@ func RefreshGroupMonitorStats(groups []string, window string) error {
 			ErrorCount:   a.totalError,
 			TotalCount:   total,
 			SuccessRate:  rate,
+			AvgUseTime:   avgUseTime,
 			Status:       gmStatus(rate, total),
 			Buckets:      buckets,
 			UpdatedAt:    now,
@@ -203,6 +247,7 @@ func RefreshModelDetailStats(groups []string, window string) error {
 
 	numBuckets, bucketSecs, lookback := windowParams(window)
 	since := time.Now().Add(-lookback).Unix()
+	enabledModelSet := getGroupEnabledModelSet(groups)
 
 	var bucketExpr string
 	if common.UsingMySQL {
@@ -214,12 +259,13 @@ func RefreshModelDetailStats(groups []string, window string) error {
 	query := fmt.Sprintf(
 		`SELECT %s AS group_name, model_name, %s AS bucket_idx,`+
 			` COUNT(CASE WHEN type = %d THEN 1 END) AS success_count,`+
-			` COUNT(CASE WHEN type = %d THEN 1 END) AS error_count`+
+			` COUNT(CASE WHEN type = %d THEN 1 END) AS error_count,`+
+			` SUM(CASE WHEN type = %d THEN use_time ELSE 0 END) AS use_time_sum`+
 			` FROM logs`+
 			` WHERE created_at >= %d AND %s IN ?`+
 			` GROUP BY %s, model_name, %s`,
 		logGroupCol, bucketExpr,
-		LogTypeConsume, LogTypeError,
+		LogTypeConsume, LogTypeError, LogTypeConsume,
 		since, logGroupCol,
 		logGroupCol, bucketExpr,
 	)
@@ -230,6 +276,7 @@ func RefreshModelDetailStats(groups []string, window string) error {
 		BucketIdx    int    `gorm:"column:bucket_idx"`
 		SuccessCount int64  `gorm:"column:success_count"`
 		ErrorCount   int64  `gorm:"column:error_count"`
+		UseTimeSum   int64  `gorm:"column:use_time_sum"`
 	}
 	var rows []modelRow
 	if err := LOG_DB.Raw(query, groups).Scan(&rows).Error; err != nil {
@@ -241,12 +288,16 @@ func RefreshModelDetailStats(groups []string, window string) error {
 		buckets      []BucketStat
 		totalSuccess int64
 		totalError   int64
+		useTimeSum   int64
 	}
 	// groupModels: group_name -> model_name -> *modelAgg
 	groupModels := make(map[string]map[string]*modelAgg)
 
 	for _, r := range rows {
 		if r.BucketIdx < 0 || r.BucketIdx >= numBuckets {
+			continue
+		}
+		if _, ok := enabledModelSet[r.GroupName][r.ModelName]; !ok {
 			continue
 		}
 		models, ok := groupModels[r.GroupName]
@@ -256,10 +307,7 @@ func RefreshModelDetailStats(groups []string, window string) error {
 		}
 		ma, ok := models[r.ModelName]
 		if !ok {
-			ma = &modelAgg{buckets: make([]BucketStat, numBuckets)}
-			for i := range ma.buckets {
-				ma.buckets[i] = BucketStat{Index: i, SuccessRate: 100, Status: "green"}
-			}
+			ma = &modelAgg{buckets: newGreenBuckets(numBuckets)}
 			models[r.ModelName] = ma
 		}
 		total := r.SuccessCount + r.ErrorCount
@@ -273,10 +321,17 @@ func RefreshModelDetailStats(groups []string, window string) error {
 			ErrorCount:   r.ErrorCount,
 			TotalCount:   total,
 			SuccessRate:  rate,
+			AvgUseTime: func() float64 {
+				if r.SuccessCount <= 0 {
+					return 0
+				}
+				return float64(r.UseTimeSum) / float64(r.SuccessCount)
+			}(),
 			Status:       gmStatus(rate, total),
 		}
 		ma.totalSuccess += r.SuccessCount
 		ma.totalError += r.ErrorCount
+		ma.useTimeSum += r.UseTimeSum
 	}
 
 	modelDetailCacheMu.Lock()
@@ -284,8 +339,13 @@ func RefreshModelDetailStats(groups []string, window string) error {
 		key := cacheKey(window, g)
 		models, ok := groupModels[g]
 		if !ok {
-			modelDetailCache[key] = nil
-			continue
+			models = make(map[string]*modelAgg)
+			groupModels[g] = models
+		}
+		for modelName := range enabledModelSet[g] {
+			if _, exists := models[modelName]; !exists {
+				models[modelName] = &modelAgg{buckets: newGreenBuckets(numBuckets)}
+			}
 		}
 		stats := make([]*ModelBucketStats, 0, len(models))
 		for modelName, ma := range models {
@@ -293,6 +353,10 @@ func RefreshModelDetailStats(groups []string, window string) error {
 			rate := float64(100)
 			if total > 0 {
 				rate = float64(ma.totalSuccess) / float64(total) * 100
+			}
+			avgUseTime := float64(0)
+			if ma.totalSuccess > 0 {
+				avgUseTime = float64(ma.useTimeSum) / float64(ma.totalSuccess)
 			}
 			buckets := make([]BucketStat, numBuckets)
 			copy(buckets, ma.buckets)
@@ -302,10 +366,17 @@ func RefreshModelDetailStats(groups []string, window string) error {
 				ErrorCount:   ma.totalError,
 				TotalCount:   total,
 				SuccessRate:  rate,
+				AvgUseTime:   avgUseTime,
 				Status:       gmStatus(rate, total),
 				Buckets:      buckets,
 			})
 		}
+		sort.Slice(stats, func(i, j int) bool {
+			if stats[i].TotalCount != stats[j].TotalCount {
+				return stats[i].TotalCount > stats[j].TotalCount
+			}
+			return stats[i].ModelName < stats[j].ModelName
+		})
 		modelDetailCache[key] = stats
 	}
 	modelDetailRefreshTs[window] = time.Now().Unix()

@@ -37,13 +37,15 @@ const PaymentSetting = () => {
     Price: 7.3,
     MinTopUp: 1,
     TopupGroupRatio: '',
+    TopupGroupCreditRatio: '',
     CustomCallbackAddress: '',
     AllowedCallbackDomains: '',
     PayMethods: '',
     AmountOptions: '',
     AmountDiscount: '',
     AmountGift: '',
-    AmountCustomDiscount: '1',
+    GroupAmountOverrides: '',
+    AmountCustomDiscount: '0',
 
     StripeApiSecret: '',
     StripeWebhookSecret: '',
@@ -64,6 +66,7 @@ const PaymentSetting = () => {
       data.forEach((item) => {
         switch (item.key) {
           case 'TopupGroupRatio':
+          case 'TopupGroupCreditRatio':
             try {
               newInputs[item.key] = JSON.stringify(
                 JSON.parse(item.value),
@@ -107,8 +110,19 @@ const PaymentSetting = () => {
               newInputs['AmountGift'] = item.value;
             }
             break;
+          case 'payment_setting.group_amount_overrides':
+            try {
+              newInputs['GroupAmountOverrides'] = JSON.stringify(
+                JSON.parse(item.value),
+                null,
+                2,
+              );
+            } catch (error) {
+              newInputs['GroupAmountOverrides'] = item.value;
+            }
+            break;
           case 'payment_setting.custom_discount':
-            newInputs['AmountCustomDiscount'] = item.value;
+            newInputs['AmountCustomDiscount'] = '0';
             break;
           // Skip legacy keys that have been migrated to payment_setting namespace
           case 'AmountOptions':

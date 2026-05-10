@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Badge,
   Button,
@@ -86,6 +86,9 @@ const SubscriptionPlansCard = ({
   activeSubscriptions = [],
   allSubscriptions = [],
   reloadSubscriptionSelf,
+  quickOpenPlanSignal = 0,
+  quickOpenPlanId = '',
+  modalOnly = false,
   withCard = true,
 }) => {
   const [open, setOpen] = useState(false);
@@ -95,6 +98,23 @@ const SubscriptionPlansCard = ({
   const [refreshing, setRefreshing] = useState(false);
 
   const epayMethods = useMemo(() => getEpayMethods(payMethods), [payMethods]);
+
+  useEffect(() => {
+    if (!quickOpenPlanSignal || loading || plans.length === 0) {
+      return;
+    }
+    const targetPlan =
+      (quickOpenPlanId &&
+        plans.find((item) => item?.plan?.id === quickOpenPlanId)) ||
+      plans[0];
+    if (!targetPlan) {
+      return;
+    }
+    setSelectedPlan(targetPlan);
+    setSelectedEpayMethod(epayMethods?.[0]?.type || '');
+    setPaying(false);
+    setOpen(true);
+  }, [quickOpenPlanSignal, quickOpenPlanId, loading, plans, epayMethods]);
 
   const openBuy = (p) => {
     setSelectedPlan(p);
@@ -231,7 +251,7 @@ const SubscriptionPlansCard = ({
     (plans || []).forEach((p) => {
       const plan = p?.plan;
       if (!plan?.id) return;
-      map.set(plan.id, plan.title || '');
+      map.set(plan.id, p?.planMeta?.title || plan.title || '');
     });
     return map;
   }, [plans]);
@@ -649,11 +669,12 @@ const SubscriptionPlansCard = ({
 
   return (
     <>
-      {withCard ? (
-        <Card className='!rounded-2xl shadow-sm border-0'>{cardContent}</Card>
-      ) : (
-        <div className='space-y-3'>{cardContent}</div>
-      )}
+      {!modalOnly &&
+        (withCard ? (
+          <Card className='!rounded-2xl shadow-sm border-0'>{cardContent}</Card>
+        ) : (
+          <div className='space-y-3'>{cardContent}</div>
+        ))}
 
       {/* 购买确认弹窗 */}
       <SubscriptionPurchaseModal

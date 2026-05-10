@@ -10,6 +10,7 @@ import (
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/types"
@@ -75,6 +76,21 @@ func isLegacyClaudeDerivedOpenAIUsage(relayInfo *relaycommon.RelayInfo, usage *d
 		return false
 	}
 	return usage.ClaudeCacheCreation5mTokens > 0 || usage.ClaudeCacheCreation1hTokens > 0
+}
+
+// composeTieredTextQuota ?? tiered_expr ???????????????????
+func composeTieredTextQuota(summary textQuotaSummary, tieredQuota int, tieredResult *billingexpr.TieredResult) int {
+	if tieredResult == nil {
+		return tieredQuota
+	}
+
+	// ??????/??/???????????? summary.Quota?
+	// tiered_expr ????? token ??????????????????????????
+	extraQuota := summary.Quota - tieredQuota
+	if extraQuota < 0 {
+		extraQuota = 0
+	}
+	return tieredQuota + extraQuota
 }
 
 func calculateTextQuotaSummary(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usage *dto.Usage) textQuotaSummary {
@@ -305,6 +321,21 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 	adminRejectReason := common.GetContextKeyString(ctx, constant.ContextKeyAdminRejectReason)
 	summary := calculateTextQuotaSummary(ctx, relayInfo, usage)
 
+	var tieredResult *billingexpr.TieredResult
+	tieredBillingApplied := false
+	if snap := relayInfo.TieredBillingSnapshot; snap != nil && usage != nil {
+		usedVars := map[string]bool(nil)
+		if snap.ExprString != "" {
+			usedVars = billingexpr.UsedVars(snap.ExprString)
+		}
+		tieredOk, tieredQuota, tieredRes := TryTieredSettle(relayInfo, BuildTieredTokenParams(usage, summary.IsClaudeUsageSemantic, usedVars))
+		if tieredOk {
+			tieredBillingApplied = true
+			tieredResult = tieredRes
+			summary.Quota = composeTieredTextQuota(summary, tieredQuota, tieredRes)
+		}
+	}
+
 	if summary.WebSearchCallCount > 0 {
 		extraContent = append(extraContent, fmt.Sprintf("Web Search 调用 %d 次，调用花费 %s", summary.WebSearchCallCount, decimal.NewFromFloat(summary.WebSearchPrice).Mul(decimal.NewFromInt(int64(summary.WebSearchCallCount))).Div(decimal.NewFromInt(1000)).Mul(decimal.NewFromFloat(summary.GroupRatio)).Mul(decimal.NewFromFloat(common.QuotaPerUnit)).String()))
 	}
@@ -413,6 +444,9 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 		// reliable total input value and tagged the usage source. Do not infer it from
 		// prompt/cache fields here, otherwise old upstream payloads may be double-counted.
 		other["input_tokens_total"] = usage.InputTokens
+	}
+	if tieredBillingApplied {
+		InjectTieredBillingInfo(other, relayInfo, tieredResult)
 	}
 
 	model.RecordConsumeLog(ctx, relayInfo.UserId, model.RecordConsumeLogParams{

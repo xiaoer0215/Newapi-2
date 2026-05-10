@@ -56,7 +56,7 @@ i18n
       order: ['querystring', 'localStorage'],
       caches: ['localStorage'],
       lookupLocalStorage: 'i18nextLng',
-      convertDetectedLanguage: (lng) => normalizeLanguage(lng),
+      convertDetectedLanguage: (lng) => normalizeLanguage(lng) || 'zh-CN',
     },
     resources: {
       en: enTranslation,

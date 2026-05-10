@@ -28,6 +28,9 @@ const DrawingSetting = () => {
     DrawingTokenGroup: '',
     DrawingTokenModels: '',
     DrawingDefaultModel: '',
+    DrawingCDNMode: 'fastest',
+    DrawingCDNProviders:
+      'skyimg,litterbox_72h,scdn_cn,scdn_edgeone,scdn_anycast,tuchuang_xqd,wzapi_360',
     MjNotifyEnabled: false,
     MjAccountFilterEnabled: false,
     MjForwardUrlEnabled: false,

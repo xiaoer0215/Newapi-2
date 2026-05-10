@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>分组监控 (Group Monitor) Mockup</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 0;
+            display: flex;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 250px;
+            background-color: #001529;
+            color: white;
+            min-height: 100vh;
+            padding-top: 20px;
+        }
+        .sidebar-item {
+            padding: 15px 24px;
+            cursor: pointer;
+            color: #a6adb4;
+        }
+        .sidebar-item:hover { color: white; }
+        .sidebar-item.active {
+            background-color: #1890ff;
+            color: white;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            padding: 24px;
+            background-color: #f0f2f5;
+        }
+
+        .header {
+            background: white;
+            padding: 16px 24px;
+            margin: -24px -24px 24px -24px;
+            box-shadow: 0 1px 4px rgba(0,21,41,.08);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Stats Cards */
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        .stat-title {
+            color: #8c8c8c;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 600;
+            color: #262626;
+        }
+
+        /* Chart Area */
+        .chart-section {
+            background: white;
+            padding: 24px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .chart-placeholder {
+            height: 300px;
+            background: #fafafa;
+            border: 1px dashed #d9d9d9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #bfbfbf;
+            border-radius: 4px;
+        }
+
+        /* Table Controls */
+        .controls-bar {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            background: white;
+            padding: 16px;
+            border-radius: 8px 8px 0 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .left-controls { display: flex; gap: 16px; align-items: center; }
+
+        input, select, button {
+            padding: 8px 12px;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #1890ff;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover { background-color: #40a9ff; }
+        button.secondary {
+            background-color: white;
+            color: #595959;
+            border: 1px solid #d9d9d9;
+        }
+        button.secondary:hover { color: #1890ff; border-color: #1890ff; }
+
+        /* Table */
+        .table-container {
+            background: white;
+            border-radius: 0 0 8px 8px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 16px;
+            text-align: left;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        th {
+            background-color: #fafafa;
+            font-weight: 500;
+            color: #262626;
+        }
+
+        tr:hover { background-color: #fafafa; }
+
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .status-active { background: #f6ffed; color: #52c41a; border: 1px solid #b7eb8f; }
+        .status-warning { background: #fffbe6; color: #faad14; border: 1px solid #ffe58f; }
+        .status-error { background: #fff2f0; color: #ff4d4f; border: 1px solid #ffccc7; }
+
+        /* Pagination */
+        .pagination {
+            display: flex;
+            justify-content: flex-end;
+            padding: 16px;
+            gap: 8px;
+            align-items: center;
+        }
+        .page-btn {
+            padding: 4px 12px;
+            border: 1px solid #d9d9d9;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .page-btn.active {
+            border-color: #1890ff;
+            color: #1890ff;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div style="padding: 0 24px 20px; font-size: 18px; font-weight: bold;">API 控制台</div>
+        <div class="sidebar-item">仪表盘</div>
+        <div class="sidebar-item">渠道管理</div>
+        <div class="sidebar-item">令牌管理</div>
+        <div class="sidebar-item active">分组监控</div>
+        <div class="sidebar-item">日志监控</div>
+        <div class="sidebar-item">系统设置</div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="header">
+            <h2>分组监控</h2>
+            <div style="display: flex; align-items: center; gap: 16px;">
+                <span style="color: #8c8c8c; font-size: 14px;">上次更新: 2026-04-07 10:30:00</span>
+                <button>手动刷新</button>
+            </div>
+        </div>
+
+        <!-- Overview Stats -->
+        <div class="stats-container">
+            <div class="stat-card">
+                <div class="stat-title">总分组数</div>
+                <div class="stat-value">24</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-title">异常分组</div>
+                <div class="stat-value" style="color: #ff4d4f;">2</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-title">今日总请求数</div>
+                <div class="stat-value">1,245,678</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-title">今日消耗额度</div>
+                <div class="stat-value">$ 3,450.25</div>
+            </div>
+        </div>
+
+        <!-- Chart Section -->
+        <div class="chart-section">
+            <div class="chart-header">
+                <h3 style="margin: 0;">各分组流量趋势 (过去 24 小时)</h3>
+                <select>
+                    <option>请求数</option>
+                    <option>消耗额度</option>
+                    <option>平均延迟</option>
+                </select>
+            </div>
+            <div class="chart-placeholder">
+                [这里是折线图：显示 top 5 分组的流量变化趋势]
+            </div>
+        </div>
+
+        <!-- Data Table -->
+        <div style="background: white; border-radius: 8px;">
+            <div class="controls-bar">
+                <div class="left-controls">
+                    <input type="text" placeholder="搜索分组名称..." style="width: 200px;">
+                    <select>
+                        <option value="">所有状态</option>
+                        <option value="active">正常</option>
+                        <option value="warning">告警</option>
+                        <option value="error">异常</option>
+                    </select>
+                </div>
+                <div>
+                    <button class="secondary">导出数据</button>
+                    <button>新建监控策略</button>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>分组名称</th>
+                            <th>状态</th>
+                            <th>包含渠道数</th>
+                            <th>今日请求</th>
+                            <th>今日消耗</th>
+                            <th>成功率 (24h)</th>
+                            <th>平均延迟</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>VIP_Group_1</strong></td>
+                            <td><span class="status-badge status-active">正常</span></td>
+                            <td>8</td>
+                            <td>450,123</td>
+                            <td>$ 1,250.00</td>
+                            <td>99.8%</td>
+                            <td>450ms</td>
+                            <td>
+                                <a href="#" style="color: #1890ff; margin-right: 8px;">详情</a>
+                                <a href="#" style="color: #1890ff;">设置</a>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>Default_Free</strong></td>
+                            <td><span class="status-badge status-warning">高负载</span></td>
+                            <td>12</td>
+                            <td>650,441</td>
+                            <td>$ 320.50</td>
+                            <td>95.2%</td>
+                            <td>1250ms</td>
+                            <td>
+                                <a href="#" style="color: #1890ff; margin-right: 8px;">详情</a>
+                                <a href="#" style="color: #1890ff;">设置</a>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>Test_Group_A</strong></td>
+                            <td><span class="status-badge status-active">正常</span></td>
+                            <td>3</td>
+                            <td>12,005</td>
+                            <td>$ 45.20</td>
+                            <td>100%</td>
+                            <td>320ms</td>
+                            <td>
+                                <a href="#" style="color: #1890ff; margin-right: 8px;">详情</a>
+                                <a href="#" style="color: #1890ff;">设置</a>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>Backup_Node</strong></td>
+                            <td><span class="status-badge status-error">渠道失效</span></td>
+                            <td>2</td>
+                            <td>4,502</td>
+                            <td>$ 12.00</td>
+                            <td>45.5%</td>
+                            <td>3500ms</td>
+                            <td>
+                                <a href="#" style="color: #1890ff; margin-right: 8px;">详情</a>
+                                <a href="#" style="color: #1890ff;">设置</a>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>Internal_Dev</strong></td>
+                            <td><span class="status-badge status-active">正常</span></td>
+                            <td>5</td>
+                            <td>85,420</td>
+                            <td>$ 150.80</td>
+                            <td>99.9%</td>
+                            <td>280ms</td>
+                            <td>
+                                <a href="#" style="color: #1890ff; margin-right: 8px;">详情</a>
+                                <a href="#" style="color: #1890ff;">设置</a>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="pagination">
+                <span style="margin-right: 16px; color: #8c8c8c;">共 24 条记录</span>
+                <button class="page-btn"><</button>
+                <button class="page-btn active">1</button>
+                <button class="page-btn">2</button>
+                <button class="page-btn">3</button>
+                <button class="page-btn">></button>
+            </div>
+        </div>
+
+    </div>
+</body>
+</html>

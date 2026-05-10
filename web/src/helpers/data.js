@@ -17,11 +17,15 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
+import { applySiteBranding } from './utils';
+
 export function setStatusData(data) {
   localStorage.setItem('status', JSON.stringify(data));
   localStorage.setItem('system_name', data.system_name);
+  localStorage.setItem('system_subtitle', data.system_subtitle || '');
   localStorage.setItem('logo', data.logo);
   localStorage.setItem('footer_html', data.footer_html);
+  localStorage.setItem('seo_description', data.seo_description || '');
   localStorage.setItem('quota_per_unit', data.quota_per_unit);
   // 兼容：保留旧字段，同时写入新的额度展示类型
   localStorage.setItem('display_in_currency', data.display_in_currency);
@@ -30,8 +34,12 @@ export function setStatusData(data) {
   localStorage.setItem('enable_task', data.enable_task);
   localStorage.setItem('enable_data_export', data.enable_data_export);
   localStorage.setItem('auto_delivery_enabled', data.auto_delivery_enabled);
-  localStorage.setItem('group_monitor_public_visible', data.group_monitor_public_visible);
+  localStorage.setItem(
+    'group_monitor_public_visible',
+    data.group_monitor_public_visible,
+  );
   localStorage.setItem('chats', JSON.stringify(data.chats));
+  applySiteBranding();
   localStorage.setItem(
     'data_export_default_time',
     data.data_export_default_time,

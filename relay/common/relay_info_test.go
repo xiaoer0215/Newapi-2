@@ -7,6 +7,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
+	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 )
@@ -61,4 +62,30 @@ func TestGenRelayInfoOpenAI_SetsIsStreamContextKey(t *testing.T) {
 func TestTestRelayRequestSatisfiesRequestInterface(t *testing.T) {
 	var _ dto.Request = (*testRelayRequest)(nil)
 	var _ *types.TokenCountMeta = (&testRelayRequest{}).GetTokenCountMeta()
+}
+
+func TestGenRelayInfoOpenAI_ImageRequestUsesImageMode(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Request = httptest.NewRequest("POST", "/v1/chat/completions", nil)
+	common.SetContextKey(ctx, constant.ContextKeyUserId, 1)
+	common.SetContextKey(ctx, constant.ContextKeyUsingGroup, "default")
+	common.SetContextKey(ctx, constant.ContextKeyUserGroup, "default")
+	common.SetContextKey(ctx, constant.ContextKeyTokenGroup, "default")
+
+	info := GenRelayInfoOpenAI(ctx, &dto.ImageRequest{
+		Model:  "gpt-image-1",
+		Prompt: "draw a cat",
+	})
+
+	if info.RelayFormat != types.RelayFormatOpenAIImage {
+		t.Fatalf("expected relay format %s, got %s", types.RelayFormatOpenAIImage, info.RelayFormat)
+	}
+	if info.RelayMode != relayconstant.RelayModeImagesGenerations {
+		t.Fatalf("expected relay mode %d, got %d", relayconstant.RelayModeImagesGenerations, info.RelayMode)
+	}
+	if info.RequestURLPath != "/v1/images/generations" {
+		t.Fatalf("expected bridged request path to be /v1/images/generations, got %s", info.RequestURLPath)
+	}
 }

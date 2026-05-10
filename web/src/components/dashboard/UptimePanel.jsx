@@ -18,15 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
-import {
-  Card,
-  Button,
-  Spin,
-  Tabs,
-  TabPane,
-  Tag,
-  Empty,
-} from '@douyinfe/semi-ui';
+import { Card, Button, Spin, Tabs, TabPane, Tag, Empty } from '@douyinfe/semi-ui';
 import { Gauge, RefreshCw } from 'lucide-react';
 import {
   IllustrationConstruction,
@@ -49,13 +41,14 @@ const UptimePanel = ({
   return (
     <Card
       {...CARD_PROPS}
-      className='shadow-sm !rounded-2xl lg:col-span-1'
-      style={{ background: 'rgba(255, 255, 255, 0.75)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(148, 163, 184, 0.2)', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)' }}
+      className='dashboard-glass-card shadow-sm !rounded-2xl lg:col-span-1'
       title={
         <div className='flex items-center justify-between w-full gap-2'>
           <div className='flex items-center gap-2'>
-            <Gauge size={16} />
-            {t('服务可用性')}
+            <span className='dashboard-title-icon cyan'>
+              <Gauge size={16} />
+            </span>
+            {t('\u670d\u52a1\u53ef\u7528\u6027')}
           </div>
           <Button
             icon={<RefreshCw size={14} />}
@@ -70,7 +63,6 @@ const UptimePanel = ({
       }
       bodyStyle={{ padding: 0 }}
     >
-      {/* 内容区域 */}
       <div className='relative'>
         <Spin spinning={uptimeLoading}>
           {uptimeData.length > 0 ? (
@@ -93,11 +85,7 @@ const UptimePanel = ({
                         <Gauge size={14} />
                         {group.categoryName}
                         <Tag
-                          color={
-                            activeUptimeTab === group.categoryName
-                              ? 'red'
-                              : 'grey'
-                          }
+                          color={activeUptimeTab === group.categoryName ? 'red' : 'grey'}
                           size='small'
                           shape='circle'
                         >
@@ -122,17 +110,16 @@ const UptimePanel = ({
                 darkModeImage={
                   <IllustrationConstructionDark style={ILLUSTRATION_SIZE} />
                 }
-                title={t('暂无监控数据')}
-                description={t('请联系管理员在系统设置中配置Uptime')}
+                title={t('\u6682\u65e0\u76d1\u63a7\u6570\u636e')}
+                description={t('\u8bf7\u8054\u7cfb\u7ba1\u7406\u5458\u5728\u7cfb\u7edf\u8bbe\u7f6e\u4e2d\u914d\u7f6eUptime')}
               />
             </div>
           )}
         </Spin>
       </div>
 
-      {/* 图例 */}
       {uptimeData.length > 0 && (
-        <div className='p-3 bg-gray-50 rounded-b-2xl'>
+        <div className='p-3 bg-gray-50 rounded-b-2xl dashboard-glass-card-footer'>
           <div className='flex flex-wrap gap-3 text-xs justify-center'>
             {uptimeLegendData.map((legend, index) => (
               <div key={index} className='flex items-center gap-1'>

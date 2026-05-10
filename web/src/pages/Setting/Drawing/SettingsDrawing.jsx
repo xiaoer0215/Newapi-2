@@ -33,6 +33,9 @@ const getInitialInputs = () => ({
   DrawingTokenGroup: '',
   DrawingTokenModels: [],
   DrawingDefaultModel: '',
+  DrawingCDNMode: 'fastest',
+  DrawingCDNProviders:
+    'skyimg,litterbox_72h,scdn_cn,scdn_edgeone,scdn_anycast,tuchuang_xqd,wzapi_360',
   MjNotifyEnabled: false,
   MjAccountFilterEnabled: false,
   MjForwardUrlEnabled: false,
@@ -58,6 +61,24 @@ const serializeValue = (value) => {
   }
   return value;
 };
+
+const DRAWING_CDN_PROVIDERS = [
+  { label: 'SKY Image', value: 'skyimg' },
+  { label: 'Litterbox 72h', value: 'litterbox_72h' },
+  { label: 'SCDN CN优选', value: 'scdn_cn' },
+  { label: 'SCDN EdgeOne', value: 'scdn_edgeone' },
+  { label: 'SCDN Anycast', value: 'scdn_anycast' },
+  { label: '是图床 游客', value: 'tuchuang_xqd' },
+  { label: '360图床', value: 'wzapi_360' },
+];
+
+const DEFAULT_CDN_PROVIDERS = DRAWING_CDN_PROVIDERS.map((item) => item.value).join(',');
+
+const splitProviderIds = (raw) =>
+  String(raw || DEFAULT_CDN_PROVIDERS)
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
 
 export default function SettingsDrawing(props) {
   const { t } = useTranslation();
@@ -215,6 +236,10 @@ export default function SettingsDrawing(props) {
     currentInputs.DrawingTokenGroup = props.options.DrawingTokenGroup || '';
     currentInputs.DrawingTokenModels = splitModels(props.options.DrawingTokenModels);
     currentInputs.DrawingDefaultModel = props.options.DrawingDefaultModel || '';
+    currentInputs.DrawingCDNMode = props.options.DrawingCDNMode || 'fastest';
+    currentInputs.DrawingCDNProviders = splitProviderIds(
+      props.options.DrawingCDNProviders,
+    );
 
     localStorage.setItem(
       'mj_notify_enabled',
@@ -465,6 +490,84 @@ export default function SettingsDrawing(props) {
                   }));
                 }}
               />
+            </Col>
+          </Row>
+
+          <div
+            style={{
+              margin: '22px 0 14px',
+              fontWeight: 600,
+              color: 'var(--semi-color-text-0)',
+            }}
+          >
+            {t('生图图床配置')}
+          </div>
+
+          <div
+            style={{
+              marginBottom: 14,
+              padding: '12px 14px',
+              borderRadius: 12,
+              background: 'var(--semi-color-fill-0)',
+              color: 'var(--semi-color-text-1)',
+              lineHeight: 1.7,
+              fontSize: 13,
+            }}
+          >
+            {t(
+              '启用多个图床后，最快可用模式会并发上传，谁先成功就使用谁。免费图床可能限流或跨域失败，建议保留多个备用。',
+            )}
+          </div>
+
+          <Row gutter={16}>
+            <Col xs={24} sm={12} md={8} lg={8} xl={8}>
+              <Form.Select
+                field='DrawingCDNMode'
+                label={t('上传策略')}
+                optionList={[
+                  { label: t('最快可用'), value: 'fastest' },
+                  ...DRAWING_CDN_PROVIDERS,
+                ]}
+                filter={selectFilter}
+                searchable
+                onChange={(value) =>
+                  setInputs((prev) => ({
+                    ...prev,
+                    DrawingCDNMode: value || 'fastest',
+                  }))
+                }
+              />
+            </Col>
+
+            <Col xs={24} sm={12} md={16} lg={16} xl={16}>
+              <Form.Select
+                field='DrawingCDNProviders'
+                label={t('启用图床')}
+                placeholder={t('请选择启用的免费图床')}
+                optionList={DRAWING_CDN_PROVIDERS}
+                filter={selectFilter}
+                searchable
+                multiple
+                showClear
+                onChange={(value) =>
+                  setInputs((prev) => ({
+                    ...prev,
+                    DrawingCDNProviders:
+                      Array.isArray(value) && value.length > 0
+                        ? value
+                        : splitProviderIds(DEFAULT_CDN_PROVIDERS),
+                  }))
+                }
+              />
+              <div
+                style={{
+                  marginTop: 6,
+                  fontSize: 12,
+                  color: 'var(--semi-color-text-2)',
+                }}
+              >
+                {t('保存时会写入 DrawingCDNMode 和 DrawingCDNProviders；用户生成图片后会上传到这里配置的图床。')}
+              </div>
             </Col>
           </Row>
 

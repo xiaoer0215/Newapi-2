@@ -29,7 +29,7 @@ const NotificationButton = ({ unreadCount, onNoticeOpen, t }) => {
     theme: 'borderless',
     type: 'tertiary',
     className:
-      '!p-1.5 !text-current focus:!bg-semi-color-fill-1 !rounded-full !bg-semi-color-fill-0 hover:!bg-semi-color-fill-1',
+      'app-icon-btn-v2 !p-1.5 !text-current focus:!bg-semi-color-fill-1 !rounded-full !bg-semi-color-fill-0 hover:!bg-semi-color-fill-1',
   };
 
   if (unreadCount > 0) {

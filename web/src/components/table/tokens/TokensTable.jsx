@@ -97,7 +97,14 @@ const ChatSplitBtn = ({ record, onOpenLink, t }) => {
   }, [open]);
 
   const handleArrow = (e) => {
+    e.preventDefault();
     e.stopPropagation();
+
+    if (chatsArray.length === 0) {
+      showError(t('请联系管理员配置聊天链接'));
+      return;
+    }
+
     if (!open && arrowRef.current) {
       const r = arrowRef.current.getBoundingClientRect();
       setStyle({ top: r.bottom + 4, left: r.left + r.width / 2, transform: 'translateX(-50%)' });
@@ -198,6 +205,12 @@ const MobileTokenCard = ({
           <span className='tk-mcard__lbl'>{t('创建时间')}</span>
           <span className='tk-mcard__val tk-time'>{timestamp2string(record.created_time)}</span>
         </div>
+        <div className='tk-mcard__row'>
+          <span className='tk-mcard__lbl'>{t('最后访问时间')}</span>
+          <span className='tk-mcard__val tk-time'>
+            {record.accessed_time ? timestamp2string(record.accessed_time) : '-'}
+          </span>
+        </div>
         <div className='tk-mcard__row tk-mcard__row--last'>
           <span className='tk-mcard__lbl'>{t('过期时间')}</span>
           <span className='tk-mcard__val tk-time'>
@@ -268,6 +281,7 @@ const TokenRow = ({
         </button>
       </td>
       <td><div className='tk-time'>{timestamp2string(record.created_time)}</div></td>
+      <td><div className='tk-time'>{record.accessed_time ? timestamp2string(record.accessed_time) : '-'}</div></td>
       <td><div className='tk-time'>{record.expired_time === -1 ? t('永不过期') : timestamp2string(record.expired_time)}</div></td>
       <td>
         <div className='tk-actions'>
@@ -378,6 +392,7 @@ const TokensTable = (tokensData) => {
               <th>{t('分组')}</th>
               <th>{t('密钥')}</th>
               <th>{t('创建时间')}</th>
+              <th>{t('最后使用时间')}</th>
               <th>{t('过期时间')}</th>
               <th>{t('操作')}</th>
             </tr>

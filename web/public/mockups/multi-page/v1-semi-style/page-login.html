@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>系统控制台 - 登录</title>
+    <style>
+        :root {
+            --primary: #1677ff;
+            --primary-hover: #4096ff;
+            --primary-active: #0958d9;
+            --text-main: #1f1f1f;
+            --text-secondary: #8c8c8c;
+            --border-color: rgba(0, 0, 0, 0.08);
+            --card-bg: rgba(255, 255, 255, 0.75);
+            --card-border: rgba(255, 255, 255, 0.6);
+            --input-bg: rgba(255, 255, 255, 0.6);
+            --input-bg-focus: #ffffff;
+            --shadow-color: rgba(0, 0, 0, 0.08);
+            --shadow-primary: rgba(22, 119, 255, 0.25);
+            --btn-outline-bg: rgba(255, 255, 255, 0.5);
+            --divider-color: rgba(0, 0, 0, 0.06);
+            --glass-blur: 32px;
+            --radius-card: 24px;
+            --radius-btn: 12px;
+            --radius-input: 12px;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --primary: #1668dc;
+                --primary-hover: #3c89e8;
+                --primary-active: #1554ad;
+                --text-main: #e5e5e5;
+                --text-secondary: #a3a3a3;
+                --border-color: rgba(255, 255, 255, 0.12);
+                --card-bg: rgba(20, 20, 20, 0.65);
+                --card-border: rgba(255, 255, 255, 0.08);
+                --input-bg: rgba(0, 0, 0, 0.2);
+                --input-bg-focus: rgba(0, 0, 0, 0.4);
+                --shadow-color: rgba(0, 0, 0, 0.5);
+                --shadow-primary: rgba(22, 119, 255, 0.15);
+                --btn-outline-bg: rgba(0, 0, 0, 0.2);
+                --divider-color: rgba(255, 255, 255, 0.08);
+            }
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+
+        body {
+            background: linear-gradient(-45deg, #f0f2f5, #e6f7ff, #f0f5ff, #f6ffed);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-main);
+            padding: 20px;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            body {
+                background: linear-gradient(-45deg, #141414, #0b1a2e, #112240, #141414);
+                background-size: 400% 400%;
+            }
+        }
+
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .auth-wrapper {
+            width: 100%;
+            max-width: 420px;
+            perspective: 1000px;
+        }
+
+        .auth-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(var(--glass-blur));
+            -webkit-backdrop-filter: blur(var(--glass-blur));
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius-card);
+            padding: 40px 32px 32px; /* 去除logo后适当调整上边距 */
+            box-shadow: 0 24px 48px var(--shadow-color), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            text-align: center;
+            animation: slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        @keyframes slideUpFade {
+            from { opacity: 0; transform: translateY(30px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        h1 {
+            font-size: 26px;
+            font-weight: 600;
+            color: var(--text-main);
+            margin-bottom: 8px;
+            letter-spacing: -0.5px;
+        }
+
+        .subtitle { font-size: 14px; color: var(--text-secondary); margin-bottom: 28px; }
+
+        .btn {
+            width: 100%; height: 44px; border-radius: var(--radius-btn);
+            font-size: 15px; font-weight: 500; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.25s cubic-bezier(0.2, 0, 0, 1); border: 1px solid transparent;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), #2f54eb);
+            color: #ffffff;
+            box-shadow: 0 4px 16px var(--shadow-primary);
+        }
+        .btn-primary:hover {
+            background: linear-gradient(135deg, var(--primary-hover), #597ef7);
+            transform: translateY(-2px); box-shadow: 0 8px 24px var(--shadow-primary);
+        }
+        .btn-primary:active { transform: translateY(0); box-shadow: 0 2px 8px var(--shadow-primary); }
+
+        .btn-outline {
+            background-color: var(--btn-outline-bg);
+            border-color: var(--border-color);
+            color: var(--text-main);
+            backdrop-filter: blur(8px);
+        }
+        .btn-outline:hover {
+            background-color: var(--input-bg-focus);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px var(--shadow-color);
+            color: var(--primary); border-color: var(--primary);
+        }
+        .btn-outline svg { width: 20px; height: 20px; margin-right: 8px; transition: color 0.3s; }
+
+        /* 快捷登录卡片：智能自适应布局 (CSS :has 魔法) */
+        .quick-cards {
+            display: grid;
+            gap: 12px;
+            margin-bottom: 20px;
+            /* 默认情况：1个 或 >=3个，使用单列横向长卡片 */
+            grid-template-columns: 1fr;
+        }
+        .quick-card {
+            border: 1px solid var(--border-color);
+            background: var(--btn-outline-bg);
+            border-radius: var(--radius-btn);
+            padding: 12px 20px;
+            display: flex; flex-direction: row; align-items: center; justify-content: center;
+            cursor: pointer; transition: all 0.3s cubic-bezier(0.2, 0, 0, 1);
+            color: var(--text-main); backdrop-filter: blur(8px);
+        }
+        .quick-card svg {
+            width: 20px; height: 20px; margin-bottom: 0; margin-right: 10px;
+            transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1);
+        }
+        .quick-card span { font-size: 14px; font-weight: 500; }
+        .quick-card:hover {
+            background: var(--input-bg-focus);
+            transform: translateY(-2px); box-shadow: 0 6px 16px var(--shadow-color);
+        }
+        .quick-card:hover svg { transform: scale(1.1); }
+        .quick-card.wechat:hover { border-color: #07C160; color: #07C160; }
+        .quick-card.wechat:hover svg { color: #07C160; }
+        .quick-card.github:hover { border-color: var(--text-main); }
+
+        /* 智能触发：当且仅当有 2 个子元素时，切换为方块并排布局 */
+        .quick-cards:has(> :nth-child(2):last-child) {
+            grid-template-columns: 1fr 1fr;
+        }
+        .quick-cards:has(> :nth-child(2):last-child) .quick-card {
+            flex-direction: column;
+            padding: 20px 16px;
+            border-radius: 16px;
+        }
+        .quick-cards:has(> :nth-child(2):last-child) .quick-card svg {
+            width: 32px; height: 32px; margin-right: 0; margin-bottom: 12px;
+        }
+        .quick-cards:has(> :nth-child(2):last-child) .quick-card:hover {
+            transform: translateY(-4px); box-shadow: 0 12px 28px var(--shadow-color);
+        }
+        .quick-cards:has(> :nth-child(2):last-child) .quick-card:hover svg {
+            transform: scale(1.1) translateY(-2px);
+        }
+
+        .divider {
+            display: flex; align-items: center; margin: 20px 0;
+            color: var(--text-secondary); font-size: 13px; font-weight: 500;
+        }
+        .divider::before, .divider::after { content: ''; flex: 1; border-top: 1px solid var(--divider-color); }
+        .divider span { padding: 0 16px; text-transform: uppercase; letter-spacing: 1px; }
+
+        .form-group { margin-bottom: 16px; text-align: left; }
+        .form-input-wrapper {
+            position: relative; display: flex; align-items: center;
+            border: 1px solid var(--border-color); border-radius: var(--radius-input);
+            padding: 0 14px; background: var(--input-bg); transition: all 0.3s ease;
+        }
+        .form-input-wrapper:focus-within {
+            border-color: var(--primary); background: var(--input-bg-focus);
+            box-shadow: 0 4px 12px rgba(22, 119, 255, 0.08), 0 0 0 4px rgba(22, 119, 255, 0.15);
+            transform: translateY(-1px);
+        }
+        .input-icon { color: var(--text-secondary); width: 18px; height: 18px; transition: all 0.3s cubic-bezier(0.2, 0, 0, 1); }
+        .form-input-wrapper:focus-within .input-icon { color: var(--primary); transform: scale(1.1); }
+        .form-input {
+            flex: 1; border: none; outline: none;
+            padding: 14px 10px; font-size: 14px;
+            color: var(--text-main); background: transparent;
+        }
+        .form-input::placeholder { color: var(--text-secondary); opacity: 0.8; }
+
+        .login-actions-row {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 20px; margin-top: 4px;
+        }
+        .login-actions-row .terms-label {
+            margin-bottom: 0;
+        }
+        .forgot-pwd-link {
+            font-size: 13px; white-space: nowrap; margin-left: 12px;
+            flex-shrink: 0;
+        }
+
+        .link { color: var(--primary); text-decoration: none; transition: color 0.2s; font-weight: 500; }
+        .link:hover { color: var(--primary-hover); text-decoration: underline; }
+
+        .terms-label {
+            display: flex; align-items: flex-start; gap: 8px;
+            margin-bottom: 20px; text-align: left; cursor: pointer;
+            user-select: none;
+        }
+        .terms-label input[type="checkbox"] { display: none; }
+        .custom-checkbox {
+            width: 16px; height: 16px; border: 2px solid var(--text-secondary);
+            border-radius: 5px; display: inline-flex; align-items: center; justify-content: center;
+            transition: all 0.2s cubic-bezier(0.2, 0, 0, 1); margin-top: 2px; flex-shrink: 0;
+            background: transparent;
+        }
+        .terms-label input[type="checkbox"]:checked + .custom-checkbox {
+            background: var(--primary); border-color: var(--primary);
+            box-shadow: 0 2px 8px var(--shadow-primary);
+        }
+        .custom-checkbox svg {
+            width: 10px; height: 10px; fill: none; stroke: white;
+            stroke-width: 3; stroke-linecap: round; stroke-linejoin: round;
+            stroke-dasharray: 18; stroke-dashoffset: 18; transition: stroke-dashoffset 0.3s ease;
+        }
+        .terms-label input[type="checkbox"]:checked + .custom-checkbox svg {
+            stroke-dashoffset: 0;
+        }
+        .terms-text { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+
+        .view-container { display: none; animation: scaleIn 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+        .view-container.active { display: block; }
+
+        @keyframes scaleIn {
+            from { opacity: 0; transform: scale(0.98) translateY(15px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        .bottom-action {
+            margin-top: 28px;
+            padding-top: 20px;
+            font-size: 14px;
+            color: var(--text-secondary);
+            border-top: 1px dashed var(--divider-color);
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-wrapper">
+        <div class="auth-card">
+            <h1>欢迎使用系统控制台</h1>
+            <p class="subtitle">请登录以继续操作</p>
+
+            <!-- 视图 1：快捷登录 -->
+            <div id="view-quick" class="view-container active">
+                <div class="quick-cards">
+                    <!-- 智能布局测试节点 -->
+                    <div class="quick-card wechat">
+                        <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg"><path d="M685.226667 360.106667c-17.066667 0-35.84 1.706667-52.906667 3.413333-15.36-93.866667-100.693333-167.253333-206.506667-167.253333-116.053333 0-209.92 78.506667-209.92 177.493333 0 54.613333 29.013333 104.106667 76.8 139.946667l-20.48 61.44 68.266667-34.133334c25.6 6.826667 52.906667 11.946667 83.626667 11.946667 13.653333 0 25.6-1.706667 39.253333-3.413334 32.426667 75.093333 107.52 127.146667 197.973334 127.146667 117.76 0 213.333333-78.506667 213.333333-177.493333 0.853333-76.8-98.986667-139.093333-189.44-139.093334z" fill="currentColor"/></svg>
+                        <span>微信登录</span>
+                    </div>
+                    <div class="quick-card github">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" fill="currentColor"/></svg>
+                        <span>GitHub</span>
+                    </div>
+                </div>
+
+                <label class="terms-label" for="login-terms-quick">
+                    <input type="checkbox" id="login-terms-quick">
+                    <div class="custom-checkbox">
+                        <svg viewBox="0 0 12 10"><polyline points="1.5 6 4.5 9 10.5 1"></polyline></svg>
+                    </div>
+                    <span class="terms-text">我已阅读并同意 <a href="#" class="link" onclick="event.stopPropagation()">服务条款</a> 和 <a href="#" class="link" onclick="event.stopPropagation()">隐私政策</a></span>
+                </label>
+
+                <div class="divider"><span>或</span></div>
+
+                <button class="btn btn-outline" onclick="toggleView('password')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                    使用账号密码登录
+                </button>
+            </div>
+
+            <!-- 视图 2：账号密码登录 -->
+            <div id="view-password" class="view-container">
+                <div class="form-group">
+                    <div class="form-input-wrapper">
+                        <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                        <input type="text" class="form-input" placeholder="请输入邮箱或用户名">
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 8px;">
+                    <div class="form-input-wrapper">
+                        <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                        <input type="password" class="form-input" placeholder="请输入密码">
+                    </div>
+                </div>
+
+                <div class="login-actions-row">
+                    <label class="terms-label" for="login-terms-pwd">
+                        <input type="checkbox" id="login-terms-pwd">
+                        <div class="custom-checkbox">
+                            <svg viewBox="0 0 12 10"><polyline points="1.5 6 4.5 9 10.5 1"></polyline></svg>
+                        </div>
+                        <span class="terms-text">同意 <a href="#" class="link" onclick="event.stopPropagation()">服务条款</a></span>
+                    </label>
+
+                    <a href="page-reset.html" class="link forgot-pwd-link">忘记密码？</a>
+                </div>
+
+                <button class="btn btn-primary">登 录</button>
+
+                <div class="divider"><span>或</span></div>
+
+                <button class="btn btn-outline" onclick="toggleView('quick')">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                    返回快捷登录
+                </button>
+            </div>
+
+            <!-- 全局底部入口 -->
+            <div class="bottom-action">
+                没有账号？ <a href="page-register.html" class="link">免费注册</a>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        function toggleView(view) {
+            document.querySelectorAll('.view-container').forEach(el => el.classList.remove('active'));
+            document.getElementById('view-' + view).classList.add('active');
+        }
+    </script>
+</body>
+</html>

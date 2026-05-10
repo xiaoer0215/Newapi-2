@@ -30,11 +30,10 @@ import { AuthCheckbox } from './AuthCheckbox';
 import { UserIcon, LockIcon, EmailIcon, CodeIcon } from './AuthIcons';
 import { AuthMainButton } from './AuthButton';
 
-const USERNAME_RULE_TEXT = '用户名长度至少6位，只能包含字母、数字、下划线(_)和短横线(-)，不能包含中文或特殊符号。';
+const USERNAME_RULE_TEXT = '账号支持中文、英文、数字、符号和邮箱格式，不能包含空格，最多50个字符。';
 
 function isValidUsername(username) {
-  // Min 6 chars, only letters/digits/underscore/hyphen, no Chinese or special punctuation
-  return /^[a-zA-Z0-9_-]{6,}$/.test(username);
+  return /^\S{1,50}$/u.test(username);
 }
 
 function normalizeUsername(username) {
@@ -197,7 +196,7 @@ const RegisterForm = () => {
           <div className='auth-portal-field animated-item'>
             <AuthTextField
               autoComplete='username'
-              placeholder={t('用户名')}
+              placeholder={t('用户名 / 邮箱')}
               value={inputs.username}
               onChange={(value) => setInputs({ ...inputs, username: value })}
               prefixIcon={<UserIcon />}

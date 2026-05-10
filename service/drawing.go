@@ -18,6 +18,8 @@ const (
 
 	DrawingRequestModeImageGeneration = "image_generation"
 	DrawingRequestModeGeminiNative    = "gemini_generate_content"
+	DrawingRequestModeResponsesImage  = "responses_image_generation"
+	DrawingRequestModeOpenAIImageEdit = "openai_image_edit"
 )
 
 type DrawingConfig struct {
@@ -91,18 +93,65 @@ func GetDrawingModelRequestMode(modelName string) string {
 	if model_setting.IsGeminiModelSupportImagine(modelName) {
 		return DrawingRequestModeGeminiNative
 	}
+	if supportsOpenAIImageEditModelName(modelName) {
+		return DrawingRequestModeOpenAIImageEdit
+	}
+
+	endpointTypes := model.GetModelSupportEndpointTypes(modelName)
+	if supportsResponsesImageGenerationModelName(modelName) {
+		if len(endpointTypes) == 0 {
+			return DrawingRequestModeResponsesImage
+		}
+		for _, endpointType := range endpointTypes {
+			if endpointType == constant.EndpointTypeOpenAIResponse {
+				return DrawingRequestModeResponsesImage
+			}
+		}
+	}
 
 	if strings.HasPrefix(modelName, "imagen") {
 		return DrawingRequestModeImageGeneration
 	}
 
-	for _, endpointType := range model.GetModelSupportEndpointTypes(modelName) {
+	for _, endpointType := range endpointTypes {
 		if endpointType == constant.EndpointTypeImageGeneration {
 			return DrawingRequestModeImageGeneration
 		}
 	}
 
 	return ""
+}
+
+func supportsOpenAIImageEditModelName(modelName string) bool {
+	name := strings.ToLower(strings.TrimSpace(modelName))
+	if name == "" {
+		return false
+	}
+
+	return strings.HasPrefix(name, "gpt-image-") || name == "chatgpt-image-latest"
+}
+
+func supportsResponsesImageGenerationModelName(modelName string) bool {
+	name := strings.ToLower(strings.TrimSpace(modelName))
+	if name == "" {
+		return false
+	}
+
+	supportedPrefixes := []string{
+		"gpt-4o",
+		"chatgpt-4o",
+		"gpt-4.1",
+		"gpt-4.5",
+		"gpt-5",
+	}
+
+	for _, prefix := range supportedPrefixes {
+		if strings.HasPrefix(name, prefix) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func GetDrawingModelRequestModes(models []string) map[string]string {

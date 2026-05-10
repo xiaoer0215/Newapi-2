@@ -35,25 +35,7 @@ import {
   renderModelPriceSimple,
 } from '../../../helpers';
 import { IconHelpCircle } from '@douyinfe/semi-icons';
-import { CircleAlert, Route, Sparkles } from 'lucide-react';
-
-const colors = [
-  'amber',
-  'blue',
-  'cyan',
-  'green',
-  'grey',
-  'indigo',
-  'light-blue',
-  'lime',
-  'orange',
-  'pink',
-  'purple',
-  'red',
-  'teal',
-  'violet',
-  'yellow',
-];
+import { CircleAlert, Route } from 'lucide-react';
 
 function formatRatio(ratio) {
   if (ratio === undefined || ratio === null) {
@@ -63,34 +45,6 @@ function formatRatio(ratio) {
     return ratio.toFixed(4);
   }
   return String(ratio);
-}
-
-function buildChannelAffinityTooltip(affinity, t) {
-  if (!affinity) {
-    return null;
-  }
-
-  const keySource = affinity.key_source || '-';
-  const keyPath = affinity.key_path || affinity.key_key || '-';
-  const keyHint = affinity.key_hint || '';
-  const keyFp = affinity.key_fp ? `#${affinity.key_fp}` : '';
-  const keyText = `${keySource}:${keyPath}${keyFp}`;
-
-  const lines = [
-    t('渠道亲和性'),
-    `${t('规则')}：${affinity.rule_name || '-'}`,
-    `${t('分组')}：${affinity.selected_group || '-'}`,
-    `${t('Key')}：${keyText}`,
-    ...(keyHint ? [`${t('Key 摘要')}：${keyHint}`] : []),
-  ];
-
-  return (
-    <div style={{ lineHeight: 1.6, display: 'flex', flexDirection: 'column' }}>
-      {lines.map((line, i) => (
-        <div key={i}>{line}</div>
-      ))}
-    </div>
-  );
 }
 
 // Render functions
@@ -104,7 +58,17 @@ function renderType(type, t) {
       );
     case 2:
       return (
-        <Tag color='lime' shape='circle'>
+        <Tag
+          color='light-green'
+          type='light'
+          shape='square'
+          className='usage-log-tag usage-log-tag-consume'
+          style={{
+            background: 'rgba(34, 197, 94, 0.12)',
+            color: '#15803d',
+            border: 0,
+          }}
+        >
           {t('消费')}
         </Tag>
       );
@@ -139,6 +103,21 @@ function renderType(type, t) {
         </Tag>
       );
   }
+}
+
+function renderUserGroupTag(group, t) {
+  const rawGroup = String(group || '').trim();
+  if (!rawGroup) {
+    return <Tag color='grey' type='light' shape='square'>-</Tag>;
+  }
+  if (rawGroup === 'default') {
+    return (
+      <Tag color='blue' type='light' shape='square'>
+        {t('普通用户')}
+      </Tag>
+    );
+  }
+  return renderGroup(rawGroup);
 }
 
 function buildStreamStatusTooltip(ss, t) {
@@ -193,7 +172,17 @@ function renderIsStream(bool, t, streamStatus) {
     );
   } else {
     return (
-      <Tag color='purple' shape='circle'>
+      <Tag
+        color='purple'
+        type='light'
+        shape='square'
+        className='usage-log-tag usage-log-tag-nonstream'
+        style={{
+          background: 'rgba(147, 51, 234, 0.13)',
+          color: '#7e22ce',
+          border: 0,
+        }}
+      >
         {t('非流')}
       </Tag>
     );
@@ -270,6 +259,9 @@ function renderBillingTag(record, t) {
 }
 
 function renderModelName(record, copyText, t) {
+  const modelTagOptions = {
+    className: 'usage-log-model-name-tag',
+  };
   let other = getLogOther(record.other);
   let modelMapped =
     other?.is_model_mapped &&
@@ -277,6 +269,7 @@ function renderModelName(record, copyText, t) {
     other?.upstream_model_name !== '';
   if (!modelMapped) {
     return renderModelTag(record.model_name, {
+      ...modelTagOptions,
       onClick: (event) => {
         copyText(event, record.model_name).then((r) => {});
       },
@@ -294,6 +287,7 @@ function renderModelName(record, copyText, t) {
                       {t('请求并计费模型')}:
                     </Typography.Text>
                     {renderModelTag(record.model_name, {
+                      ...modelTagOptions,
                       onClick: (event) => {
                         copyText(event, record.model_name).then((r) => {});
                       },
@@ -304,6 +298,7 @@ function renderModelName(record, copyText, t) {
                       {t('实际模型')}:
                     </Typography.Text>
                     {renderModelTag(other.upstream_model_name, {
+                      ...modelTagOptions,
                       onClick: (event) => {
                         copyText(event, other.upstream_model_name).then(
                           (r) => {},
@@ -316,6 +311,7 @@ function renderModelName(record, copyText, t) {
             }
           >
             {renderModelTag(record.model_name, {
+              ...modelTagOptions,
               onClick: (event) => {
                 copyText(event, record.model_name).then((r) => {});
               },
@@ -427,6 +423,23 @@ function renderCompactDetailSummary(summarySegments) {
 function getUsageLogDetailSummary(record, text, billingDisplayMode, t) {
   const other = getLogOther(record.other);
 
+  if (record.type === 5) {
+    return {
+      segments: [
+        { text: text || other?.error_message || other?.message || t('错误日志'), tone: 'primary' },
+        other?.status_code !== undefined && other?.status_code !== null
+          ? { text: `HTTP ${other.status_code}`, tone: 'secondary' }
+          : null,
+        other?.error_type
+          ? { text: other.error_type, tone: 'secondary' }
+          : null,
+        other?.error_code
+          ? { text: other.error_code, tone: 'secondary' }
+          : null,
+      ].filter(Boolean),
+    };
+  }
+
   if (record.type === 6) {
     return {
       segments: [{ text: t('异步任务退款'), tone: 'primary' }],
@@ -461,48 +474,72 @@ function getUsageLogDetailSummary(record, text, billingDisplayMode, t) {
     };
   }
 
+  const affinityInfo = other?.admin_info?.channel_affinity;
+  const fromGroup = String(affinityInfo?.using_group || '').trim();
+  const toGroup = String(affinityInfo?.selected_group || '').trim();
+  const hasGroupSwitch = fromGroup && toGroup && fromGroup !== toGroup;
+  const conversionChain = Array.isArray(other?.request_conversion)
+    ? other.request_conversion.filter(Boolean)
+    : [];
+  const conversionText =
+    conversionChain.length > 1 ? conversionChain.join(' -> ') : '';
+
+  const billingPrefixSegments = [
+    other?.billing_source === 'subscription'
+      ? { text: t('订阅换算抵扣'), tone: 'secondary' }
+      : null,
+    hasGroupSwitch
+      ? { text: `${t('分组切换')} ${fromGroup} -> ${toGroup}`, tone: 'secondary' }
+      : null,
+    conversionText
+      ? { text: `${t('请求转换')} ${conversionText}`, tone: 'secondary' }
+      : null,
+  ].filter(Boolean);
+
+  const baseSegments = other?.claude
+    ? renderModelPriceSimple(
+        other.model_ratio,
+        other.model_price,
+        other.group_ratio,
+        other?.user_group_ratio,
+        other.cache_tokens || 0,
+        other.cache_ratio || 1.0,
+        other.cache_creation_tokens || 0,
+        other.cache_creation_ratio || 1.0,
+        other.cache_creation_tokens_5m || 0,
+        other.cache_creation_ratio_5m || other.cache_creation_ratio || 1.0,
+        other.cache_creation_tokens_1h || 0,
+        other.cache_creation_ratio_1h || other.cache_creation_ratio || 1.0,
+        false,
+        1.0,
+        other?.is_system_prompt_overwritten,
+        'claude',
+        billingDisplayMode,
+        'segments',
+      )
+    : renderModelPriceSimple(
+        other.model_ratio,
+        other.model_price,
+        other.group_ratio,
+        other?.user_group_ratio,
+        other.cache_tokens || 0,
+        other.cache_ratio || 1.0,
+        0,
+        1.0,
+        0,
+        1.0,
+        0,
+        1.0,
+        false,
+        1.0,
+        other?.is_system_prompt_overwritten,
+        'openai',
+        billingDisplayMode,
+        'segments',
+      );
+
   return {
-    segments: other?.claude
-      ? renderModelPriceSimple(
-          other.model_ratio,
-          other.model_price,
-          other.group_ratio,
-          other?.user_group_ratio,
-          other.cache_tokens || 0,
-          other.cache_ratio || 1.0,
-          other.cache_creation_tokens || 0,
-          other.cache_creation_ratio || 1.0,
-          other.cache_creation_tokens_5m || 0,
-          other.cache_creation_ratio_5m || other.cache_creation_ratio || 1.0,
-          other.cache_creation_tokens_1h || 0,
-          other.cache_creation_ratio_1h || other.cache_creation_ratio || 1.0,
-          false,
-          1.0,
-          other?.is_system_prompt_overwritten,
-          'claude',
-          billingDisplayMode,
-          'segments',
-        )
-      : renderModelPriceSimple(
-          other.model_ratio,
-          other.model_price,
-          other.group_ratio,
-          other?.user_group_ratio,
-          other.cache_tokens || 0,
-          other.cache_ratio || 1.0,
-          0,
-          1.0,
-          0,
-          1.0,
-          0,
-          1.0,
-          false,
-          1.0,
-          other?.is_system_prompt_overwritten,
-          'openai',
-          billingDisplayMode,
-          'segments',
-        ),
+    segments: [...billingPrefixSegments, ...(baseSegments || [])],
   };
 }
 
@@ -523,96 +560,21 @@ export const getLogsColumns = ({
     },
     {
       key: COLUMN_KEYS.CHANNEL,
-      title: t('渠道'),
-      dataIndex: 'channel',
+      title: t('用户组'),
+      dataIndex: 'user_group',
       render: (text, record, index) => {
-        let isMultiKey = false;
-        let multiKeyIndex = -1;
-        let content = t('渠道') + `：${record.channel}`;
-        let affinity = null;
-        let showMarker = false;
-        let other = getLogOther(record.other);
-        if (other?.admin_info) {
-          let adminInfo = other.admin_info;
-          if (adminInfo?.is_multi_key) {
-            isMultiKey = true;
-            multiKeyIndex = adminInfo.multi_key_index;
-          }
-          if (
-            Array.isArray(adminInfo.use_channel) &&
-            adminInfo.use_channel.length > 0
-          ) {
-            content = t('渠道') + `：${adminInfo.use_channel.join('->')}`;
-          }
-          if (adminInfo.channel_affinity) {
-            affinity = adminInfo.channel_affinity;
-            showMarker = true;
-          }
-        }
-
-        return isAdminUser &&
-          (record.type === 0 ||
+        if (
+          !isAdminUser ||
+          !(
+            record.type === 0 ||
             record.type === 2 ||
             record.type === 5 ||
-            record.type === 6) ? (
-          <Space>
-            <span style={{ position: 'relative', display: 'inline-block' }}>
-              <Tooltip content={record.channel_name || t('未知渠道')}>
-                <span>
-                  <Tag
-                    color={colors[parseInt(text) % colors.length]}
-                    shape='circle'
-                  >
-                    {text}
-                  </Tag>
-                </span>
-              </Tooltip>
-              {showMarker && (
-                <Tooltip
-                  content={
-                    <div style={{ lineHeight: 1.6 }}>
-                      <div>{content}</div>
-                      {affinity ? (
-                        <div style={{ marginTop: 6 }}>
-                          {buildChannelAffinityTooltip(affinity, t)}
-                        </div>
-                      ) : null}
-                    </div>
-                  }
-                >
-                  <span
-                    style={{
-                      position: 'absolute',
-                      right: -4,
-                      top: -4,
-                      lineHeight: 1,
-                      fontWeight: 600,
-                      color: '#f59e0b',
-                      cursor: 'pointer',
-                      userSelect: 'none',
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openChannelAffinityUsageCacheModal?.(affinity);
-                    }}
-                  >
-                    <Sparkles
-                      size={14}
-                      strokeWidth={2}
-                      color='currentColor'
-                      fill='currentColor'
-                    />
-                  </span>
-                </Tooltip>
-              )}
-            </span>
-            {isMultiKey && (
-              <Tag color='white' shape='circle'>
-                {multiKeyIndex}
-              </Tag>
-            )}
-          </Space>
-        ) : null;
+            record.type === 6
+          )
+        ) {
+          return null;
+        }
+        return renderUserGroupTag(text || record.user_group, t);
       },
     },
     {
@@ -668,7 +630,7 @@ export const getLogsColumns = ({
     },
     {
       key: COLUMN_KEYS.GROUP,
-      title: t('分组'),
+      title: t('请求分组'),
       dataIndex: 'group',
       render: (text, record, index) => {
         if (

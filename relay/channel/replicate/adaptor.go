@@ -325,6 +325,12 @@ func mapOpenAISizeToFlux(size string) (aspect string, width int, height int, ok 
 		return "", 0, 0, false
 	}
 
+	if isExplicitHighResolutionSize(w, h) {
+		width = normalizeFluxDimension(w)
+		height = normalizeFluxDimension(h)
+		return "custom", width, height, true
+	}
+
 	switch {
 	case w == h:
 		return "1:1", 0, 0, true
@@ -350,6 +356,14 @@ func mapOpenAISizeToFlux(size string) (aspect string, width int, height int, ok 
 	return "custom", width, height, true
 }
 
+func isExplicitHighResolutionSize(w, h int) bool {
+	const (
+		maxPreset1KDim  = 1792
+		maxPreset1KArea = 1792 * 1024
+	)
+	return w > maxPreset1KDim || h > maxPreset1KDim || w*h > maxPreset1KArea
+}
+
 func reduceRatio(w, h int) (int, int) {
 	g := gcd(w, h)
 	if g == 0 {
@@ -371,7 +385,7 @@ func gcd(a, b int) int {
 func normalizeFluxDimension(value int) int {
 	const (
 		minDim = 256
-		maxDim = 1440
+		maxDim = 4096
 		step   = 32
 	)
 	if value < minDim {

@@ -53,7 +53,7 @@ const ModelEndpoints = ({ modelData, endpointMap = {}, t }) => {
   };
 
   return (
-    <Card className='pricing-model-modal-card !rounded-2xl' style={{ background: 'rgba(255, 255, 255, 0.75)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(148, 163, 184, 0.2)', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)' }}>
+    <Card className='pricing-model-modal-card rounded-xl border border-slate-200 bg-white shadow-sm' style={{ background: '#fff', border: '1px solid rgba(148, 163, 184, 0.2)', boxShadow: 'none' }}>
       <div className='pricing-model-modal-card-head'>
         <Avatar size='small' color='purple' className='shadow-sm'>
           <IconLink size={16} />

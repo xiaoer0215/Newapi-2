@@ -19,7 +19,12 @@ For commercial licensing, please contact support@quantumnous.com
 
 import { useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { API, processModelsData, processGroupsData } from '../../helpers';
+import {
+  API,
+  processModelsData,
+  processGroupsData,
+  showError,
+} from '../../helpers';
 import { API_ENDPOINTS } from '../../constants/playground.constants';
 
 export const useDataLoader = (
@@ -33,7 +38,13 @@ export const useDataLoader = (
 
   const loadModels = useCallback(async () => {
     try {
-      const res = await API.get(API_ENDPOINTS.USER_MODELS);
+      const selectedGroup = inputs.group || '';
+      const res = await API.get(API_ENDPOINTS.USER_MODELS, {
+        params:
+          selectedGroup && selectedGroup !== 'auto'
+            ? { group: selectedGroup }
+            : {},
+      });
       const { success, message, data } = res.data;
 
       if (success) {
@@ -52,7 +63,7 @@ export const useDataLoader = (
     } catch (error) {
       showError(t('加载模型失败'));
     }
-  }, [inputs.model, handleInputChange, setModels, t]);
+  }, [inputs.group, inputs.model, handleInputChange, setModels, t]);
 
   const loadGroups = useCallback(async () => {
     try {
@@ -83,10 +94,15 @@ export const useDataLoader = (
   // 自动加载数据
   useEffect(() => {
     if (userState?.user) {
-      loadModels();
       loadGroups();
     }
-  }, [userState?.user, loadModels, loadGroups]);
+  }, [userState?.user, loadGroups]);
+
+  useEffect(() => {
+    if (userState?.user) {
+      loadModels();
+    }
+  }, [userState?.user, inputs.group, loadModels]);
 
   return {
     loadModels,

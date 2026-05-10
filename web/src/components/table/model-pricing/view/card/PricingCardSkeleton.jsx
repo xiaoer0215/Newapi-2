@@ -32,7 +32,7 @@ const PricingCardSkeleton = ({
           <Card
             key={index}
             className='!rounded-2xl border border-gray-200'
-            style={{ background: 'rgba(255, 255, 255, 0.75)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(148, 163, 184, 0.2)', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)' }}
+            style={{ background: '#fff', border: '1px solid rgba(148, 163, 184, 0.2)', boxShadow: 'none' }}
             bodyStyle={{ padding: '24px' }}
           >
             {/* 头部：图标 + 模型名称 + 操作按钮 */}

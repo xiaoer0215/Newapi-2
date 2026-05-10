@@ -65,6 +65,11 @@ const ModelDetailSideSheet = ({
       width={isMobile ? 'calc(100vw - 16px)' : 720}
       centered
       onCancel={onClose}
+      maskStyle={{
+        background: 'rgba(255, 255, 255, 0.34)',
+        backdropFilter: 'blur(10px) saturate(125%)',
+        WebkitBackdropFilter: 'blur(10px) saturate(125%)',
+      }}
       bodyStyle={{
         padding: 0,
         maxHeight: isMobile ? 'calc(100vh - 24px)' : '82vh',
@@ -92,7 +97,7 @@ const ModelDetailSideSheet = ({
 
         {!modelData && (
           <div className='flex justify-center items-center py-10'>
-            <Text type='secondary'>{t('加载中...')}</Text>
+            <Text type='secondary'>{t('������...')}</Text>
           </div>
         )}
 
@@ -103,7 +108,7 @@ const ModelDetailSideSheet = ({
                 key={tag}
                 color='blue'
                 type='light'
-                shape='circle'
+                shape='square'
                 size='small'
               >
                 {tag}

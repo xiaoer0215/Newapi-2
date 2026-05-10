@@ -56,6 +56,8 @@ func InitOptionMap() {
 	common.OptionMap["DrawingTokenGroup"] = ""
 	common.OptionMap["DrawingTokenModels"] = ""
 	common.OptionMap["DrawingDefaultModel"] = ""
+	common.OptionMap["DrawingCDNMode"] = "fastest"
+	common.OptionMap["DrawingCDNProviders"] = "skyimg,litterbox_72h,scdn_cn,scdn_edgeone,scdn_anycast,tuchuang_xqd,wzapi_360"
 	common.OptionMap["TaskEnabled"] = strconv.FormatBool(common.TaskEnabled)
 	common.OptionMap["DataExportEnabled"] = strconv.FormatBool(common.DataExportEnabled)
 	common.OptionMap["ChannelDisableThreshold"] = strconv.FormatFloat(common.ChannelDisableThreshold, 'f', -1, 64)
@@ -74,7 +76,9 @@ func InitOptionMap() {
 	common.OptionMap["HomePageHtml"] = ""
 	common.OptionMap["Footer"] = common.Footer
 	common.OptionMap["SystemName"] = common.SystemName
+	common.OptionMap["SystemSubtitle"] = common.SystemSubtitle
 	common.OptionMap["Logo"] = common.Logo
+	common.OptionMap["SEODescription"] = common.SEODescription
 	common.OptionMap["ServerAddress"] = ""
 	common.OptionMap["WorkerUrl"] = system_setting.WorkerUrl
 	common.OptionMap["WorkerValidKey"] = system_setting.WorkerValidKey
@@ -115,6 +119,7 @@ func InitOptionMap() {
 	common.OptionMap["WaffoMinTopUp"] = strconv.Itoa(setting.WaffoMinTopUp)
 	common.OptionMap["WaffoPayMethods"] = setting.WaffoPayMethods2JsonString()
 	common.OptionMap["TopupGroupRatio"] = common.TopupGroupRatio2JSONString()
+	common.OptionMap["TopupGroupCreditRatio"] = common.TopupGroupCreditRatio2JSONString()
 	common.OptionMap["Chats"] = setting.Chats2JsonString()
 	common.OptionMap["AutoGroups"] = setting.AutoGroups2JsonString()
 	common.OptionMap["DefaultUseAutoGroup"] = strconv.FormatBool(setting.DefaultUseAutoGroup)
@@ -132,6 +137,13 @@ func InitOptionMap() {
 	common.OptionMap["QuotaForNewUser"] = strconv.Itoa(common.QuotaForNewUser)
 	common.OptionMap["QuotaForInviter"] = strconv.Itoa(common.QuotaForInviter)
 	common.OptionMap["QuotaForInvitee"] = strconv.Itoa(common.QuotaForInvitee)
+	common.OptionMap["AffiliateCommissionPercentage"] = strconv.FormatFloat(common.AffiliateCommissionPercentage, 'f', -1, 64)
+	common.OptionMap["AffiliateCommissionTiers"] = common.AffiliateCommissionTiersToJSONString()
+	common.OptionMap["AffiliateTransferEnabled"] = strconv.FormatBool(common.AffiliateTransferEnabled)
+	common.OptionMap["AffiliateWithdrawEnabled"] = strconv.FormatBool(common.AffiliateWithdrawEnabled)
+	common.OptionMap["AffiliateMinWithdrawQuota"] = strconv.Itoa(common.AffiliateMinWithdrawQuota)
+	common.OptionMap["AffiliateBackfillHistoricalTopupEnabled"] = strconv.FormatBool(common.AffiliateBackfillHistoricalTopupEnabled)
+	common.OptionMap["AffiliateLeaderboardEnabled"] = strconv.FormatBool(common.AffiliateLeaderboardEnabled)
 	common.OptionMap["InvitationRegisterReward"] = strconv.FormatFloat(operation_setting.InvitationRegisterReward, 'f', -1, 64)
 	common.OptionMap["InvitationFirstTopupThreshold"] = strconv.FormatFloat(operation_setting.InvitationFirstTopupThreshold, 'f', -1, 64)
 	common.OptionMap["InvitationFirstTopupReward"] = strconv.FormatFloat(operation_setting.InvitationFirstTopupReward, 'f', -1, 64)
@@ -150,6 +162,7 @@ func InitOptionMap() {
 	common.OptionMap["GroupGroupRatio"] = ratio_setting.GroupGroupRatio2JSONString()
 	common.OptionMap["UserUsableGroups"] = setting.UserUsableGroups2JSONString()
 	common.OptionMap["UserGroupIcons"] = setting.UserGroupIcons2JSONString()
+	common.OptionMap["UserGroupWelcomeOverlays"] = setting.UserGroupWelcomeOverlays2JSONString()
 	common.OptionMap["CompletionRatio"] = ratio_setting.CompletionRatio2JSONString()
 	common.OptionMap["ImageRatio"] = ratio_setting.ImageRatio2JSONString()
 	common.OptionMap["AudioRatio"] = ratio_setting.AudioRatio2JSONString()
@@ -180,6 +193,30 @@ func InitOptionMap() {
 	common.OptionMap["AutomaticRetryStatusCodes"] = operation_setting.AutomaticRetryStatusCodesToString()
 	common.OptionMap["ExposeRatioEnabled"] = strconv.FormatBool(ratio_setting.IsExposeRatioEnabled())
 
+	// 会员升级相关配置
+	common.OptionMap["MemberUpgradeEnabled"] = "true"
+	common.OptionMap["MemberUpgradeAdminOnly"] = "false"
+	common.OptionMap["MemberUpgradeFAQ"] = `[
+		{
+			"question": "会员有效期到期后会怎样？",
+			"answer": "会员到期后，您的账户将恢复为普通用户状态，页面展示会切换回普通用户样式，消费费率也会恢复为标准费率。"
+		},
+		{
+			"question": "可以在会员有效期内更换套餐吗？",
+			"answer": "不可以。如您购买的是月卡，需等到期后才可重新开通其他套餐。"
+		},
+		{
+			"question": "会员费用可以退款吗？",
+			"answer": "会员开通后不支持退款，请在购买前仔细确认所选套餐。"
+		},
+		{
+			"question": "会员优惠费率如何计算？",
+			"answer": "会员用户在消费时会自动享受优惠倍率，具体倍率请查看套餐详情。优惠费率会在每次API调用时自动应用。"
+		}
+	]`
+	common.OptionMap["MemberBalanceConversionTitle"] = "余额换算说明"
+	common.OptionMap["MemberBalanceConversionContent"] = `本系统采用积分制计费方式，以下是常见模型的费率参考：<br/><br/><strong>文本模型示例：</strong><br/>• GPT-4: 约 30积分/1K tokens（输入）、60积分/1K tokens（输出）<br/>• GPT-3.5: 约 1.5积分/1K tokens（输入）、2积分/1K tokens（输出）<br/>• Claude-3: 约 15积分/1K tokens（输入）、75积分/1K tokens（输出）<br/><br/><strong>图像模型示例：</strong><br/>• DALL-E 3: 约 40积分/张（标准质量）<br/>• Midjourney: 约 30积分/张<br/><br/><strong>说明：</strong><br/>1. 实际费率可能因模型版本、参数设置而有所不同<br/>2. 会员用户享受优惠倍率，实际消费更低<br/>3. 具体费率以实际消费记录为准<br/><br/>充值 ¥1 = 100积分（具体比例以充值页面显示为准）`
+
 	// 自动添加所有注册的模型配置
 	modelConfigs := config.GlobalConfig.ExportAllConfigs()
 	for k, v := range modelConfigs {
@@ -192,12 +229,30 @@ func InitOptionMap() {
 
 func loadOptionsFromDatabase() {
 	options, _ := AllOption()
+	affiliateTiersValue := ""
+	affiliateTiersFound := false
 	for _, option := range options {
+		if option.Key == "AffiliateCommissionTiers" {
+			affiliateTiersValue = option.Value
+			affiliateTiersFound = true
+			continue
+		}
 		err := updateOptionMap(option.Key, option.Value)
 		if err != nil {
 			common.SysLog("failed to update option map: " + err.Error())
 		}
 	}
+	if affiliateTiersFound {
+		common.OptionMap["AffiliateCommissionTiers"] = affiliateTiersValue
+		if err := common.UpdateAffiliateCommissionTiersByJSONString(affiliateTiersValue); err != nil {
+			common.SysLog("failed to update affiliate commission tiers: " + err.Error())
+		}
+	} else {
+		common.SetAffiliateCommissionTiers(nil, common.AffiliateCommissionPercentage)
+		common.OptionMap["AffiliateCommissionTiers"] = common.AffiliateCommissionTiersToJSONString()
+	}
+	common.OptionMap["AffiliateCommissionPercentage"] = strconv.FormatFloat(common.AffiliateCommissionPercentage, 'f', -1, 64)
+	common.OptionMap["AffiliateCommissionTiers"] = common.AffiliateCommissionTiersToJSONString()
 }
 
 func SyncOptions(frequency int) {
@@ -333,6 +388,14 @@ func updateOptionMap(key string, value string) (err error) {
 			setting.DefaultUseAutoGroup = boolValue
 		case "ExposeRatioEnabled":
 			ratio_setting.SetExposeRatioEnabled(boolValue)
+		case "AffiliateTransferEnabled":
+			common.AffiliateTransferEnabled = boolValue
+		case "AffiliateWithdrawEnabled":
+			common.AffiliateWithdrawEnabled = boolValue
+		case "AffiliateBackfillHistoricalTopupEnabled":
+			common.AffiliateBackfillHistoricalTopupEnabled = boolValue
+		case "AffiliateLeaderboardEnabled":
+			common.AffiliateLeaderboardEnabled = boolValue
 		}
 	}
 	switch key {
@@ -429,6 +492,8 @@ func updateOptionMap(key string, value string) (err error) {
 		setting.WaffoMinTopUp, _ = strconv.Atoi(value)
 	case "TopupGroupRatio":
 		err = common.UpdateTopupGroupRatioByJSONString(value)
+	case "TopupGroupCreditRatio":
+		err = common.UpdateTopupGroupCreditRatioByJSONString(value)
 	case "GitHubClientId":
 		common.GitHubClientId = value
 	case "GitHubClientSecret":
@@ -449,8 +514,12 @@ func updateOptionMap(key string, value string) (err error) {
 		common.Footer = value
 	case "SystemName":
 		common.SystemName = value
+	case "SystemSubtitle":
+		common.SystemSubtitle = value
 	case "Logo":
 		common.Logo = value
+	case "SEODescription":
+		common.SEODescription = value
 	case "WeChatServerAddress":
 		common.WeChatServerAddress = value
 	case "WeChatServerToken":
@@ -471,6 +540,15 @@ func updateOptionMap(key string, value string) (err error) {
 		common.QuotaForInviter, _ = strconv.Atoi(value)
 	case "QuotaForInvitee":
 		common.QuotaForInvitee, _ = strconv.Atoi(value)
+	case "AffiliateCommissionPercentage":
+		common.AffiliateCommissionPercentage, _ = strconv.ParseFloat(value, 64)
+		common.SetAffiliateCommissionTiers(nil, common.AffiliateCommissionPercentage)
+		common.OptionMap["AffiliateCommissionTiers"] = common.AffiliateCommissionTiersToJSONString()
+	case "AffiliateCommissionTiers":
+		err = common.UpdateAffiliateCommissionTiersByJSONString(value)
+		common.OptionMap["AffiliateCommissionPercentage"] = strconv.FormatFloat(common.AffiliateCommissionPercentage, 'f', -1, 64)
+	case "AffiliateMinWithdrawQuota":
+		common.AffiliateMinWithdrawQuota, _ = strconv.Atoi(value)
 	case "InvitationRegisterReward":
 		operation_setting.InvitationRegisterReward, _ = strconv.ParseFloat(value, 64)
 	case "InvitationFirstTopupThreshold":
@@ -507,6 +585,8 @@ func updateOptionMap(key string, value string) (err error) {
 		err = setting.UpdateUserUsableGroupsByJSONString(value)
 	case "UserGroupIcons":
 		err = setting.UpdateUserGroupIconsByJSONString(value)
+	case "UserGroupWelcomeOverlays":
+		err = setting.UpdateUserGroupWelcomeOverlaysByJSONString(value)
 	case "CompletionRatio":
 		err = ratio_setting.UpdateCompletionRatioByJSONString(value)
 	case "ModelPrice":
@@ -577,6 +657,9 @@ func handleConfigUpdate(key, value string) bool {
 	if configName == "performance_setting" {
 		// 同步磁盘缓存配置到 common 包
 		performance_setting.UpdateAndSync()
+	}
+	if configName == "tool_price_setting" {
+		operation_setting.RebuildToolPriceIndex()
 	}
 
 	return true // 已处理

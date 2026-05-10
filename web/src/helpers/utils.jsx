@@ -52,10 +52,69 @@ export function getSystemName() {
   return system_name;
 }
 
+export function getSystemSubtitle() {
+  return localStorage.getItem('system_subtitle') || '';
+}
+
+export function getSystemTitle() {
+  const systemName = getSystemName();
+  const subtitle = getSystemSubtitle().trim();
+  return subtitle ? `${systemName} - ${subtitle}` : systemName;
+}
+
+export function getSEODescription() {
+  return localStorage.getItem('seo_description') || '';
+}
+
+export function setMetaDescription(description) {
+  const content = description || '';
+  const metas = document.querySelectorAll("meta[name='description']");
+  if (metas.length === 0) {
+    const meta = document.createElement('meta');
+    meta.setAttribute('name', 'description');
+    document.head.appendChild(meta);
+    meta.setAttribute('content', content);
+    return;
+  }
+  metas.forEach((meta) => meta.setAttribute('content', content));
+}
+
 export function getLogo() {
   let logo = localStorage.getItem('logo');
   if (!logo) return '/logo.png';
   return logo;
+}
+
+export function applySiteBranding(overrides = {}) {
+  if (Object.prototype.hasOwnProperty.call(overrides, 'systemName')) {
+    localStorage.setItem('system_name', overrides.systemName || '');
+  }
+  if (Object.prototype.hasOwnProperty.call(overrides, 'systemSubtitle')) {
+    localStorage.setItem('system_subtitle', overrides.systemSubtitle || '');
+  }
+  if (Object.prototype.hasOwnProperty.call(overrides, 'seoDescription')) {
+    localStorage.setItem('seo_description', overrides.seoDescription || '');
+  }
+  if (Object.prototype.hasOwnProperty.call(overrides, 'logo')) {
+    localStorage.setItem('logo', overrides.logo || '');
+  }
+
+  const title = getSystemTitle();
+  if (title) {
+    document.title = title;
+  }
+  setMetaDescription(getSEODescription());
+
+  const logo = getLogo();
+  if (logo) {
+    let linkElement = document.querySelector("link[rel~='icon']");
+    if (!linkElement) {
+      linkElement = document.createElement('link');
+      linkElement.setAttribute('rel', 'icon');
+      document.head.appendChild(linkElement);
+    }
+    linkElement.href = logo;
+  }
 }
 
 export function getUserIdFromLocalStorage() {

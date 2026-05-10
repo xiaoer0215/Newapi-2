@@ -44,14 +44,15 @@ const LogsFilters = ({
       layout='vertical'
       trigger='change'
       stopValidateWithError={false}
+      className='usage-log-filter-form'
     >
       <div className='flex flex-col gap-2'>
-        <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2'>
+        <div className='usage-log-filter-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2'>
           {/* 时间选择器 */}
-          <div className='col-span-1 lg:col-span-2'>
+          <div className='usage-log-date-range col-span-1 lg:col-span-2'>
             <Form.DatePicker
               field='dateRange'
-              className='w-full'
+              className='usage-log-date-picker w-full'
               type='dateTimeRange'
               placeholder={[t('开始时间'), t('结束时间')]}
               showClear
@@ -68,6 +69,7 @@ const LogsFilters = ({
           {/* 其他搜索字段 */}
           <Form.Input
             field='token_name'
+            className='usage-log-filter-control'
             prefix={<IconSearch />}
             placeholder={t('令牌名称')}
             showClear
@@ -77,6 +79,7 @@ const LogsFilters = ({
 
           <Form.Input
             field='model_name'
+            className='usage-log-filter-control'
             prefix={<IconSearch />}
             placeholder={t('模型名称')}
             showClear
@@ -86,6 +89,7 @@ const LogsFilters = ({
 
           <Form.Input
             field='group'
+            className='usage-log-filter-control'
             prefix={<IconSearch />}
             placeholder={t('分组')}
             showClear
@@ -95,6 +99,7 @@ const LogsFilters = ({
 
           <Form.Input
             field='request_id'
+            className='usage-log-filter-control'
             prefix={<IconSearch />}
             placeholder={t('Request ID')}
             showClear
@@ -106,6 +111,7 @@ const LogsFilters = ({
             <>
               <Form.Input
                 field='channel'
+                className='usage-log-filter-control'
                 prefix={<IconSearch />}
                 placeholder={t('渠道 ID')}
                 showClear
@@ -114,6 +120,7 @@ const LogsFilters = ({
               />
               <Form.Input
                 field='username'
+                className='usage-log-filter-control'
                 prefix={<IconSearch />}
                 placeholder={t('用户名称')}
                 showClear
@@ -131,13 +138,20 @@ const LogsFilters = ({
             <Form.Select
               field='logType'
               placeholder={t('日志类型')}
-              className='w-full sm:w-auto min-w-[120px]'
+              className='usage-log-filter-control w-full sm:w-auto min-w-[120px]'
               showClear
               pure
-              onChange={() => {
-                // 延迟执行搜索，让表单值先更新
+              onChange={(value) => {
+                const parsedLogType =
+                  value === undefined || value === null || value === ''
+                    ? 0
+                    : parseInt(value);
+                const nextLogType = Number.isFinite(parsedLogType)
+                  ? parsedLogType
+                  : 0;
+                setLogType(nextLogType);
                 setTimeout(() => {
-                  refresh();
+                  refresh(nextLogType);
                 }, 0);
               }}
               size='small'
@@ -168,7 +182,7 @@ const LogsFilters = ({
                   formApi.reset();
                   setLogType(0);
                   setTimeout(() => {
-                    refresh();
+                    refresh(0);
                   }, 100);
                 }
               }}

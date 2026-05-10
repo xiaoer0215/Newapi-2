@@ -34,7 +34,7 @@
     <img src="https://trendshift.io/api/badge/repositories/20180" alt="QuantumNous%2Fnew-api | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/>
   </a>
   <br>
-  <a href="https://hellogithub.com/repository/QuantumNous/new-api" target="_blank">
+  <a href="https://github.com/xiaoer0215/Newapi-2" target="_blank">
     <img src="https://api.hellogithub.com/v1/widgets/recommend.svg?rid=539ac4217e69431684ad4a0bab768811&claim_uid=tbFPfKIDHpc4TzR" alt="Featured｜HelloGitHub" style="width: 250px; height: 54px;" width="250" height="54" />
   </a><!--
   --><a href="https://www.producthunt.com/products/new-api/launches/new-api?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-new-api" target="_blank" rel="noopener noreferrer">
@@ -54,113 +54,10 @@
 
 ## 📝 Project Description
 
-> [!NOTE]
-<<<<<<< Updated upstream
-> - 本仓库为基于 `new-api` 的二次开发开源版本，保留上游项目标识、核心架构与主要文档结构
-> - 适合作为二开功能整理、部署实践与后续持续迭代的公开代码仓库
-> - 如需查看原版能力、更新记录与完整官方文档，请优先参考上游 `new-api` 项目与文档
->
-> [!TIP]
-> - 如果你准备直接部署此仓库，建议先阅读下方的快速开始与部署说明
-> - 如果你准备继续二次开发，建议定期与上游 `new-api` 保持对比，减少后续合并成本
-> - 当前二开仓库地址：`https://github.com/xiaoer0215/Newapi-2.git`
-> - 下方保留的官方仓库、镜像与文档链接主要用于上游说明与兼容参考；如果你希望完全通过当前仓库分发，还需要同步维护你自己的 Releases、镜像与文档页
-=======
-> - This repository is an open-source secondary-development edition based on `new-api`, with upstream attribution, core architecture, and the main documentation structure preserved.
-> - It is intended for public sharing of derivative work, deployment practice, and continued customization.
-> - For original capabilities, release notes, and full official documentation, please refer to the upstream `new-api` project and docs.
->
-> [!TIP]
-> - If you plan to deploy this repository directly, start with the quick start and deployment sections below.
-> - If you plan to keep customizing it, regularly compare with upstream `new-api` to reduce future merge cost.
-> - Current fork repository: `https://github.com/xiaoer0215/Newapi-2.git`
-> - The upstream repository, image, and documentation links below are retained for attribution and reference. If you want distribution to be fully based on this fork, you should also maintain your own Releases, Docker images, and documentation pages.
->>>>>>> Stashed changes
-
 > [!IMPORTANT]
 > - This project is for personal learning purposes only, with no guarantee of stability or technical support
 > - Users must comply with OpenAI's [Terms of Use](https://openai.com/policies/terms-of-use) and **applicable laws and regulations**, and must not use it for illegal purposes
 > - According to the [《Interim Measures for the Management of Generative Artificial Intelligence Services》](http://www.cac.gov.cn/2023-07/13/c_1690898327029107.htm), please do not provide any unregistered generative AI services to the public in China.
-
-## 🧩 Fork Notes
-
-### Deploying This Fork
-
-If you want to deploy this secondary-development repository directly instead of starting from the upstream repository, use:
-
-```bash
-git clone https://github.com/xiaoer0215/Newapi-2.git
-cd Newapi-2
-```
-
-> Notes:
-> - The official repository, image, and documentation links are kept below for upstream reference and compatibility notes
-> - If you want to distribute entirely through this fork, you should also maintain your own releases, image registry, changelog, and documentation homepage
-
-### Custom additions currently organized in this repository
-
-- Monitoring enhancements: added group monitoring and model monitoring, with more visibility into status, success rate, and failure counts
-- UI adjustments for both user and admin sides: customized login/register, model marketplace, token pages, and related interactions
-- Model marketplace attribution: the model marketplace page is imitated from [one-hub](https://github.com/MartialBE/one-hub)
-- User-side AI image generation: includes a basic AI image generation entry backed by the in-site workflow and balance billing
-- Customizable data dashboard: dashboard modules can be arranged as needed, with two extra QR-code slots for QQ groups, support contacts, or similar use cases
-- Personal rate limits: supports per-user request limits by minute, hour, and day
-- Wallet and subscription management: adds visual wallet discounts and bonus credits, plus subscription instance management with per-user subscription details
-- Redemption codes and auto-delivery: redemption codes can be searched together with linked users, and auto-delivery supports product listing plus card-secret import and sale
-- Logs and homepage override: supports request logs, error logs, and usage/billing logs, and fixes the issue where custom HTML homepage overrides could not fully cover the navigation bar and footer; `new-api` copyright still needs to be retained
-- Billing lookup improvements: supports searching payment records by username or payment number, and removes the original order-number display logic
-
----
-
-## 🧩 二开版本补充说明
-
-### 当前仓库部署入口
-
-如果你希望直接使用当前二开仓库，而不是从上游仓库开始，请优先使用下面的仓库地址：
-
-```bash
-git clone https://github.com/xiaoer0215/Newapi-2.git
-cd Newapi-2
-```
-
-> 说明：
-> - 当前文档中保留的官方链接用于保留上游引用与能力说明
-> - 如果要做到“全部通过你自己的仓库部署”，还建议你补齐自己的二进制发布、Docker 镜像仓库、更新日志和文档首页
-
-### 当前仓库已整理的二开与定制能力
-
-- 监控与展示增强：补充了分组监控与相关监控展示能力，支持不同时间窗口查看状态、失败次数、成功率等信息
-- 数据看板定制：首页 / 数据看板支持按需要配置展示版块，并可额外放置最多两个联系二维码面板，可用于 QQ 群、客服微信等场景
-- 前台与管理端 UI 调整：登录注册、模型广场、令牌管理、钱包管理等页面做了二开风格的界面与交互调整
-- 用户端 AI 生图：新增独立 AI 生图入口，可按后台绘图分组自动识别模型，为用户自动创建生图专用令牌，并直接走站内余额结算
-- 邀请奖励与审核风控：支持首次邀请奖励、首充达标奖励、后台人工审核、驳回理由、邀请余额发放，以及同 IP / 设备指纹 / 支付账户排查
-- 签到与请求控制：在原有签到基础上增加 Turnstile、人机校验、同 IP 每日限制，以及 VPN / 代理 / 机房 / 住宅代理 IP 检测；同时支持用户个人限速，按分钟 / 小时 / 天设置请求上限
-- 钱包、支付与账单：钱包管理界面支持折扣、赠送额度、到账额度等可视化展示，并支持钱包 / 订阅扣费偏好切换；充值账单侧支持按用户名或支付号检索记录
-- 订阅与运营能力：补充订阅套餐、用户订阅实例管理、补时 / 赠送 / 作废等操作；兑换码支持后台搜索管理；自动发货支持商品上架、卡密导入与售卖
-- 日志与首页覆盖能力：支持启用额度消费日志、请求错误日志等记录；首页与页脚支持 HTML / Markdown / iframe 方式自定义覆盖，适合完整替换首页展示，但仍需保留项目版权信息
-
----
-
-## 🧩 Fork-Specific Notes
-
-### Deploy This Fork
-
-If you want to deploy from this fork directly instead of starting from upstream, use:
-
-```bash
-git clone https://github.com/xiaoer0215/Newapi-2.git
-cd Newapi-2
-```
-
-> Notes:
-> - Upstream links are intentionally kept for attribution and compatibility reference.
-> - To make distribution fully go through this fork, you should additionally maintain your own release assets, Docker image repository, changelog, and docs landing page.
-
-### Confirmed Additions In This Fork
-
-- Invitation reward review flow with first-invite reward, first-topup reward, manual approval, rejection reason, invitation balance crediting, and basic anti-abuse signals based on IP, device fingerprint, and payment account.
-- A standalone user-side AI image generation page that reads drawing group/model settings from the backend and auto-creates a dedicated drawing token for each user.
-- Enhanced check-in risk controls on top of the base check-in feature, including Turnstile verification, same-IP daily limits, and VPN / proxy / datacenter / residential proxy IP checks.
 
 ---
 
@@ -213,7 +110,7 @@ cd Newapi-2
 
 ```bash
 # Clone the project
-git clone https://github.com/QuantumNous/new-api.git
+git clone https://github.com/xiaoer0215/Newapi-2.git
 cd new-api
 
 # Edit docker-compose.yml configuration
@@ -262,7 +159,7 @@ docker run --name new-api -d --restart always \
 
 <div align="center">
 
-### 📖 [Official Documentation](https://docs.newapi.pro/en/docs) | [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/QuantumNous/new-api)
+### 📖 [Official Documentation](https://docs.newapi.pro/en/docs) | [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://github.com/xiaoer0215/Newapi-2)
 
 </div>
 
@@ -439,7 +336,7 @@ docker run --name new-api -d --restart always \
 
 ```bash
 # Clone the project
-git clone https://github.com/QuantumNous/new-api.git
+git clone https://github.com/xiaoer0215/Newapi-2.git
 cd new-api
 
 # Edit configuration

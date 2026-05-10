@@ -38,12 +38,13 @@ const ApiInfoPanel = ({
   return (
     <Card
       {...CARD_PROPS}
-      className='bg-gray-50 border-0 !rounded-2xl'
-      style={{ background: 'rgba(255, 255, 255, 0.75)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(148, 163, 184, 0.2)', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)' }}
+      className='dashboard-glass-card bg-gray-50 border-0 !rounded-2xl'
       title={
         <div className={FLEX_CENTER_GAP2}>
-          <Server size={16} />
-          {t('API信息')}
+          <span className='dashboard-title-icon indigo'>
+            <Server size={16} />
+          </span>
+          {t('API\u4fe1\u606f')}
         </div>
       }
       bodyStyle={{ padding: 0 }}
@@ -70,21 +71,19 @@ const ApiInfoPanel = ({
                         color='white'
                         shape='circle'
                         onClick={() => handleSpeedTest(api.url)}
-                        className='cursor-pointer hover:opacity-80 text-xs'
+                        className='dashboard-glass-pill cursor-pointer hover:opacity-80 text-xs'
                       >
-                        {t('测速')}
+                        {t('\u6d4b\u901f')}
                       </Tag>
                       <Tag
                         prefixIcon={<ExternalLink size={12} />}
                         size='small'
                         color='white'
                         shape='circle'
-                        onClick={() =>
-                          window.open(api.url, '_blank', 'noopener,noreferrer')
-                        }
-                        className='cursor-pointer hover:opacity-80 text-xs'
+                        onClick={() => window.open(api.url, '_blank', 'noopener,noreferrer')}
+                        className='dashboard-glass-pill cursor-pointer hover:opacity-80 text-xs'
                       >
-                        {t('跳转')}
+                        {t('\u8df3\u8f6c')}
                       </Tag>
                     </div>
                   </div>
@@ -107,8 +106,8 @@ const ApiInfoPanel = ({
               darkModeImage={
                 <IllustrationConstructionDark style={ILLUSTRATION_SIZE} />
               }
-              title={t('暂无API信息')}
-              description={t('请联系管理员在系统设置中配置API信息')}
+              title={t('\u6682\u65e0API\u4fe1\u606f')}
+              description={t('\u8bf7\u8054\u7cfb\u7ba1\u7406\u5458\u5728\u7cfb\u7edf\u8bbe\u7f6e\u4e2d\u914d\u7f6eAPI\u4fe1\u606f')}
             />
           </div>
         )}

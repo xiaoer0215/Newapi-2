@@ -30,8 +30,6 @@ import {
   Space,
   Spin,
   Tag,
-  Tabs,
-  TabPane,
   Tooltip,
   Typography,
 } from '@douyinfe/semi-ui';
@@ -107,16 +105,21 @@ const RechargeCard = ({
     !subscriptionLoading && subscriptionPlans.length > 0;
   const selectedGiftAmount = Number(topupInfo?.gift?.[topUpCount] || 0);
   const selectedCreditAmount = Number(topUpCount || 0) + selectedGiftAmount;
+  const ignoreAmountDiscount = Boolean(topupInfo?.ignore_amount_discount);
+  const payRatio = Number(topupInfo?.topup_group_ratio || 1);
+  const selectedDiscountedPrice = Number(
+    topupInfo?.discounted_price?.[topUpCount] || 0,
+  );
 
-  // Effective discount for the currently entered amount (preset-specific or custom fallback)
+  // Fixed tiers use their own configured price; custom amounts only use the group pay ratio.
   const isPresetAmount = (topupInfo?.amount_options || []).includes(Number(topUpCount));
-  const presetDiscount = topupInfo?.discount?.[topUpCount];
-  const customDiscount = topupInfo?.custom_discount;
-  const selectedDiscount = presetDiscount != null
-    ? presetDiscount
-    : (!isPresetAmount && customDiscount > 0 && customDiscount < 1)
-      ? customDiscount
-      : 1.0;
+  const presetDiscount =
+    isPresetAmount && Number(topUpCount || 0) > 0 && selectedDiscountedPrice > 0
+      ? selectedDiscountedPrice / Number(topUpCount)
+      : Number(topupInfo?.discount?.[topUpCount] || 1);
+  const selectedDiscount = isPresetAmount
+    ? Math.max(Number(ignoreAmountDiscount ? 1 : presetDiscount || 1), 0.0001)
+    : Math.max(payRatio, 0.0001);
   const hasCustomDiscount = selectedDiscount < 1;
 
   useEffect(() => {
@@ -155,17 +158,26 @@ const RechargeCard = ({
   };
 
   const buildPresetDisplay = (preset) => {
+    const usdAmount = Number(preset.value || 0);
     const giftAmount = Number(
       preset.gift || topupInfo?.gift?.[preset.value] || 0,
     );
     const creditAmount = Number(
-      preset.credit_amount || Number(preset.value || 0) + giftAmount,
+      preset.credit_amount || usdAmount + giftAmount,
     );
-    const discount = Number(
-      preset.discount || topupInfo?.discount?.[preset.value] || 1,
+    const discountedPrice = Number(
+      preset.discounted_price || topupInfo?.discounted_price?.[preset.value] || 0,
     );
-    const originalPrice = Number(preset.value || 0) * Number(priceRatio || 1);
-    const actualPay = originalPrice * discount;
+    const originalPrice = usdAmount * Number(priceRatio || 1);
+    const presetDiscount = ignoreAmountDiscount
+      ? 1
+      : discountedPrice > 0 && originalPrice > 0
+        ? discountedPrice / originalPrice
+        : Number(preset.discount || topupInfo?.discount?.[preset.value] || 1);
+    const discount = Math.max(Number(presetDiscount || 1), 0.0001);
+    const actualPay = discountedPrice > 0
+      ? discountedPrice
+      : originalPrice * discount;
     const saveAmount = originalPrice - actualPay;
 
     return {
@@ -175,29 +187,37 @@ const RechargeCard = ({
       giftAmount,
       hasDiscount: discount < 1,
       saveAmount,
-      usdAmount: Number(preset.value || 0),
+      usdAmount,
     };
   };
 
   const renderPresetCard = (preset, index) => {
     const display = buildPresetDisplay(preset);
+    const selected = selectedPreset === preset.value;
 
     return (
       <Card
         key={index}
+        className={`topup-preset-card ${selected ? 'is-selected' : ''}`}
         style={{
           cursor: 'pointer',
-          border:
-            selectedPreset === preset.value
-              ? '2px solid var(--semi-color-primary)'
-              : '1px solid var(--semi-color-border)',
           height: '100%',
           width: '100%',
         }}
         bodyStyle={{ padding: '10px 12px' }}
+        role='button'
+        tabIndex={0}
+        aria-pressed={selected}
         onClick={() => {
           selectPresetAmount(preset);
           onlineFormApiRef.current?.setValue('topUpCount', preset.value);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            selectPresetAmount(preset);
+            onlineFormApiRef.current?.setValue('topUpCount', preset.value);
+          }
         }}
       >
         <div style={{ textAlign: 'center' }}>
@@ -671,79 +691,99 @@ const RechargeCard = ({
         </div>
       </div>
 
-      <Tabs
-        type='card'
-        activeKey={activeTab}
-        onChange={setActiveTab}
-        className='topup-tabs'
-      >
-        {shouldShowSubscription && (
-          <TabPane
-            tab={
-              <div className='flex items-center gap-2'>
-                <Sparkles size={16} />
-                {t('订阅套餐')}
+      {(() => {
+        const tabItems = [
+          shouldShowSubscription
+            ? {
+                key: 'subscription',
+                label: t('订阅套餐'),
+                icon: <Sparkles size={16} />,
+                content: (
+                  <div className='py-2'>
+                    <SubscriptionPlansCard
+                      t={t}
+                      loading={subscriptionLoading}
+                      plans={subscriptionPlans}
+                      payMethods={payMethods}
+                      enableOnlineTopUp={enableOnlineTopUp}
+                      enableStripeTopUp={enableStripeTopUp}
+                      enableCreemTopUp={enableCreemTopUp}
+                      billingPreference={billingPreference}
+                      onChangeBillingPreference={onChangeBillingPreference}
+                      activeSubscriptions={activeSubscriptions}
+                      allSubscriptions={allSubscriptions}
+                      reloadSubscriptionSelf={reloadSubscriptionSelf}
+                      withCard={false}
+                    />
+                  </div>
+                ),
+              }
+            : null,
+          {
+            key: 'topup',
+            label: t('额度充值'),
+            icon: <Wallet size={16} />,
+            content: (
+              <div className='space-y-4 py-2'>
+                {topupContent}
+                {redeemPanel}
               </div>
-            }
-            itemKey='subscription'
-          >
-            <div className='py-2'>
-              <SubscriptionPlansCard
-                t={t}
-                loading={subscriptionLoading}
-                plans={subscriptionPlans}
-                payMethods={payMethods}
-                enableOnlineTopUp={enableOnlineTopUp}
-                enableStripeTopUp={enableStripeTopUp}
-                enableCreemTopUp={enableCreemTopUp}
-                billingPreference={billingPreference}
-                onChangeBillingPreference={onChangeBillingPreference}
-                activeSubscriptions={activeSubscriptions}
-                allSubscriptions={allSubscriptions}
-                reloadSubscriptionSelf={reloadSubscriptionSelf}
-                withCard={false}
-              />
-            </div>
-          </TabPane>
-        )}
-        <TabPane
-          tab={
-            <div className='flex items-center gap-2'>
-              <Wallet size={16} />
-              {t('额度充值')}
-            </div>
-          }
-          itemKey='topup'
-        >
-          <div className='space-y-4 py-2'>
-            {topupContent}
-            {redeemPanel}
-          </div>
-        </TabPane>
-        {Array.isArray(topupInfo?.auto_delivery_products) && (
-        <TabPane
-          tab={
-            <div className='flex items-center gap-2'>
-              <IconGift size={16} />
-              {t('自动发货')}
-            </div>
-          }
-          itemKey='auto_delivery'
-        >
-          <div className='py-2'>
-            <AutoDeliveryShop
-              t={t}
-              reloadUserQuota={reloadSubscriptionSelf}
-              payMethods={payMethods}
-              enableOnlineTopUp={enableOnlineTopUp}
-              enableStripeTopUp={enableStripeTopUp}
-              enableCreemTopUp={enableCreemTopUp}
-              products={topupInfo?.auto_delivery_products || []}
-            />
-          </div>
-        </TabPane>
-        )}
-      </Tabs>
+            ),
+          },
+          Array.isArray(topupInfo?.auto_delivery_products)
+            ? {
+                key: 'auto_delivery',
+                label: t('自动发货'),
+                icon: <IconGift size={16} />,
+                content: (
+                  <div className='py-2'>
+                    <AutoDeliveryShop
+                      t={t}
+                      reloadUserQuota={reloadSubscriptionSelf}
+                      payMethods={payMethods}
+                      enableOnlineTopUp={enableOnlineTopUp}
+                      enableStripeTopUp={enableStripeTopUp}
+                      enableCreemTopUp={enableCreemTopUp}
+                      products={topupInfo?.auto_delivery_products || []}
+                    />
+                  </div>
+                ),
+              }
+            : null,
+        ].filter(Boolean);
+        const activeItem =
+          tabItems.find((item) => item.key === activeTab) || tabItems[0];
+
+        return (
+          <>
+            {tabItems.length > 0 && (
+              <div className='topup-segmented-tabs' role='tablist'>
+                {tabItems.map((item) => {
+                  const selected = item.key === activeItem?.key;
+                  return (
+                    <button
+                      key={item.key}
+                      type='button'
+                      role='tab'
+                      aria-selected={selected}
+                      className={`topup-segmented-tab${selected ? ' is-active' : ''}`}
+                      onClick={() => setActiveTab(item.key)}
+                    >
+                      <span className='topup-segmented-tab__icon'>
+                        {item.icon}
+                      </span>
+                      <span className='topup-segmented-tab__label'>
+                        {item.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            <div className='topup-tab-panel'>{activeItem?.content}</div>
+          </>
+        );
+      })()}
     </Card>
   );
 };

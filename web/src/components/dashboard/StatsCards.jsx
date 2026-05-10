@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
-import { Card, Avatar, Skeleton, Tag } from '@douyinfe/semi-ui';
+import { Card, Skeleton, Tag } from '@douyinfe/semi-ui';
 import { VChart } from '@visactor/react-vchart';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -32,6 +32,7 @@ const StatsCards = ({
 }) => {
   const navigate = useNavigate();
   const { t } = useTranslation();
+
   return (
     <div className='mb-4'>
       <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4'>
@@ -39,73 +40,72 @@ const StatsCards = ({
           <Card
             key={idx}
             {...CARD_PROPS}
-            className='hover:-translate-y-1 hover:shadow-lg border-0 !rounded-2xl w-full'
-            style={{ background: 'rgba(255, 255, 255, 0.75)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(148, 163, 184, 0.2)', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)', transition: 'transform 0.3s ease, box-shadow 0.3s ease' }}
+            className='dashboard-glass-card dashboard-stats-card hover:-translate-y-1 !rounded-2xl w-full'
             title={group.title}
           >
             <div className='space-y-4'>
-              {group.items.map((item, itemIdx) => (
-                <div
-                  key={itemIdx}
-                  className='flex items-center justify-between cursor-pointer'
-                  onClick={item.onClick}
-                >
-                  <div className='flex items-center'>
-                    <Avatar
-                      className='mr-3'
-                      size='small'
-                      color={item.avatarColor}
-                    >
-                      {item.icon}
-                    </Avatar>
-                    <div>
-                      <div className='text-xs text-gray-500'>{item.title}</div>
-                      <div className='text-lg font-semibold'>
-                        <Skeleton
-                          loading={loading}
-                          active
-                          placeholder={
-                            <Skeleton.Paragraph
-                              active
-                              rows={1}
-                              style={{
-                                width: '65px',
-                                height: '24px',
-                                marginTop: '4px',
-                              }}
-                            />
-                          }
-                        >
-                          {item.value}
-                        </Skeleton>
+              {group.items.map((item, itemIdx) => {
+                const isBalance = item.title === t('\u5f53\u524d\u4f59\u989d');
+                const iconTone = item.avatarColor || ['blue', 'green', 'purple', 'orange'][itemIdx % 4];
+                return (
+                  <div
+                    key={itemIdx}
+                    className='dashboard-stat-row cursor-pointer'
+                    onClick={item.onClick}
+                  >
+                    <div className='dashboard-stat-left'>
+                      <div className={`dashboard-glass-icon ${iconTone}`}>
+                        {item.icon}
+                      </div>
+                      <div className='dashboard-stat-text'>
+                        <div className='dashboard-stat-label'>{item.title}</div>
+                        <div className='dashboard-stat-value'>
+                          <Skeleton
+                            loading={loading}
+                            active
+                            placeholder={
+                              <Skeleton.Paragraph
+                                active
+                                rows={1}
+                                style={{
+                                  width: '65px',
+                                  height: '24px',
+                                  marginTop: '4px',
+                                }}
+                              />
+                            }
+                          >
+                            {item.value}
+                          </Skeleton>
+                        </div>
                       </div>
                     </div>
+                    {isBalance ? (
+                      <Tag
+                        color='white'
+                        shape='circle'
+                        size='large'
+                        className='dashboard-glass-pill'
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate('/console/topup');
+                        }}
+                      >
+                        {t('\u5145\u503c')}
+                      </Tag>
+                    ) : (
+                      (loading || (item.trendData && item.trendData.length > 0)) && (
+                        <div className='dashboard-stat-trend'>
+                          <VChart
+                            spec={getTrendSpec(item.trendData, item.trendColor)}
+                            option={CHART_CONFIG}
+                          />
+                        </div>
+                      )
+                    )}
                   </div>
-                  {item.title === t('当前余额') ? (
-                    <Tag
-                      color='white'
-                      shape='circle'
-                      size='large'
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate('/console/topup');
-                      }}
-                    >
-                      {t('充值')}
-                    </Tag>
-                  ) : (
-                    (loading ||
-                      (item.trendData && item.trendData.length > 0)) && (
-                      <div className='w-24 h-10'>
-                        <VChart
-                          spec={getTrendSpec(item.trendData, item.trendColor)}
-                          option={CHART_CONFIG}
-                        />
-                      </div>
-                    )
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           </Card>
         ))}

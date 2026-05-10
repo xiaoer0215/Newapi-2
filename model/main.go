@@ -274,6 +274,8 @@ func migrateDB() error {
 		&Token{},
 		&User{},
 		&InvitationReward{},
+		&AffiliateCommissionRecord{},
+		&AffiliateWithdrawal{},
 		&PasskeyCredential{},
 		&Option{},
 		&Redemption{},
@@ -323,8 +325,13 @@ func migrateDB() error {
 	if err := addAutoDeliveryColumns(); err != nil {
 		common.SysError("failed to add auto_delivery columns: " + err.Error())
 	}
+	if err := addAffiliateCommissionColumns(); err != nil {
+		common.SysError("failed to add affiliate commission columns: " + err.Error())
+	}
+	if err := syncHistoricalAffiliateRelations(); err != nil {
+		common.SysError("failed to sync historical affiliate relations: " + err.Error())
+	}
 
-	return nil
 	if common.UsingSQLite {
 		if err := ensureSubscriptionPlanTableSQLite(); err != nil {
 			return err
@@ -348,6 +355,9 @@ func migrateDBFast() error {
 		{&Channel{}, "Channel"},
 		{&Token{}, "Token"},
 		{&User{}, "User"},
+		{&InvitationReward{}, "InvitationReward"},
+		{&AffiliateCommissionRecord{}, "AffiliateCommissionRecord"},
+		{&AffiliateWithdrawal{}, "AffiliateWithdrawal"},
 		{&PasskeyCredential{}, "PasskeyCredential"},
 		{&Option{}, "Option"},
 		{&Redemption{}, "Redemption"},
@@ -454,6 +464,7 @@ func ensureSubscriptionPlanTableSQLite() error {
 ` + "`creem_product_id`" + ` varchar(128) DEFAULT '',
 ` + "`max_purchase_per_user`" + ` integer DEFAULT 0,
 ` + "`upgrade_group`" + ` varchar(64) DEFAULT '',
+` + "`show_in_member_upgrade`" + ` numeric DEFAULT 0,
 ` + "`total_amount`" + ` bigint NOT NULL DEFAULT 0,
 ` + "`quota_reset_period`" + ` varchar(16) DEFAULT 'never',
 ` + "`quota_reset_custom_seconds`" + ` bigint DEFAULT 0,
@@ -487,6 +498,7 @@ PRIMARY KEY (` + "`id`" + `)
 		{Name: "creem_product_id", DDL: "`creem_product_id` varchar(128) DEFAULT ''"},
 		{Name: "max_purchase_per_user", DDL: "`max_purchase_per_user` integer DEFAULT 0"},
 		{Name: "upgrade_group", DDL: "`upgrade_group` varchar(64) DEFAULT ''"},
+		{Name: "show_in_member_upgrade", DDL: "`show_in_member_upgrade` numeric DEFAULT 0"},
 		{Name: "total_amount", DDL: "`total_amount` bigint NOT NULL DEFAULT 0"},
 		{Name: "quota_reset_period", DDL: "`quota_reset_period` varchar(16) DEFAULT 'never'"},
 		{Name: "quota_reset_custom_seconds", DDL: "`quota_reset_custom_seconds` bigint DEFAULT 0"},
@@ -620,40 +632,132 @@ func migrateSubscriptionPlanPriceAmount() {
 // addAutoDeliveryColumns adds columns introduced in new versions to existing auto_delivery tables.
 // GORM AutoMigrate fails for auto_delivery_orders on SQLite because the table has an inline UNIQUE
 // constraint on trade_no that prevents the table-rebuild strategy. We use explicit ALTER TABLE instead.
-func addAutoDeliveryColumns() error {
-	type tableCol struct {
-		table string
-		col   string
-		ddl   string
+type manualColumnDef struct {
+	table string
+	col   string
+	ddl   string
+}
+
+func countTableColumn(table string, col string) (int64, error) {
+	var count int64
+	if common.UsingSQLite {
+		return count, DB.Raw("SELECT COUNT(*) FROM pragma_table_info(?) WHERE name = ?", table, col).Scan(&count).Error
 	}
-	cols := []tableCol{
-		{"auto_delivery_products", "tutorial", "`tutorial` text"},
-		{"auto_delivery_orders", "delivered_tutorial", "`delivered_tutorial` text"},
+	if common.UsingPostgreSQL {
+		return count, DB.Raw("SELECT COUNT(*) FROM information_schema.columns WHERE table_name = ? AND column_name = ?", table, col).Scan(&count).Error
 	}
+	return count, DB.Raw("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?", table, col).Scan(&count).Error
+}
+
+func addManualColumns(cols []manualColumnDef) error {
 	for _, tc := range cols {
 		if !DB.Migrator().HasTable(tc.table) {
 			continue
 		}
-		if DB.Migrator().HasColumn(&struct{ ID int }{}, tc.col) {
-			// HasColumn with anonymous struct won't work — use raw PRAGMA/query instead
-		}
-		// Use PRAGMA table_info to check column existence (works on all three DBs via GORM Raw)
-		var count int64
-		if common.UsingSQLite {
-			DB.Raw("SELECT COUNT(*) FROM pragma_table_info(?) WHERE name = ?", tc.table, tc.col).Scan(&count)
-		} else if common.UsingPostgreSQL {
-			DB.Raw("SELECT COUNT(*) FROM information_schema.columns WHERE table_name = ? AND column_name = ?", tc.table, tc.col).Scan(&count)
-		} else {
-			DB.Raw("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?", tc.table, tc.col).Scan(&count)
+		count, err := countTableColumn(tc.table, tc.col)
+		if err != nil {
+			return err
 		}
 		if count > 0 {
 			continue
 		}
-		if err := DB.Exec("ALTER TABLE `" + tc.table + "` ADD COLUMN " + tc.ddl).Error; err != nil {
+		tableName := "`" + tc.table + "`"
+		if common.UsingPostgreSQL {
+			tableName = `"` + tc.table + `"`
+		}
+		if err := DB.Exec("ALTER TABLE " + tableName + " ADD COLUMN " + tc.ddl).Error; err != nil {
 			return fmt.Errorf("alter %s add %s: %w", tc.table, tc.col, err)
 		}
 	}
 	return nil
+}
+
+func addAutoDeliveryColumns() error {
+	return addManualColumns([]manualColumnDef{
+		{"auto_delivery_products", "tutorial", "`tutorial` text"},
+		{"auto_delivery_orders", "delivered_tutorial", "`delivered_tutorial` text"},
+	})
+}
+
+func addAffiliateCommissionColumns() error {
+	ddl := "`top_up_money` decimal(18,6) NOT NULL DEFAULT 0"
+	if common.UsingPostgreSQL {
+		ddl = `"top_up_money" decimal(18,6) NOT NULL DEFAULT 0`
+	}
+	if err := addManualColumns([]manualColumnDef{
+		{"affiliate_commission_records", "top_up_money", ddl},
+	}); err != nil {
+		return err
+	}
+	return backfillAffiliateCommissionTopUpMoney()
+}
+
+func backfillAffiliateCommissionTopUpMoney() error {
+	if !DB.Migrator().HasTable("affiliate_commission_records") || !DB.Migrator().HasTable("top_ups") {
+		return nil
+	}
+	if common.UsingPostgreSQL {
+		return DB.Exec(`UPDATE "affiliate_commission_records" AS r SET "top_up_money" = t."money" FROM "top_ups" AS t WHERE r."top_up_id" = t."id" AND COALESCE(r."top_up_money", 0) = 0`).Error
+	}
+	if common.UsingSQLite {
+		return DB.Exec("UPDATE `affiliate_commission_records` SET `top_up_money` = (SELECT `money` FROM `top_ups` WHERE `top_ups`.`id` = `affiliate_commission_records`.`top_up_id`) WHERE IFNULL(`top_up_money`, 0) = 0").Error
+	}
+	return DB.Exec("UPDATE `affiliate_commission_records` AS r JOIN `top_ups` AS t ON r.`top_up_id` = t.`id` SET r.`top_up_money` = t.`money` WHERE IFNULL(r.`top_up_money`, 0) = 0").Error
+}
+
+func syncHistoricalAffiliateRelations() error {
+	if !DB.Migrator().HasTable("users") || !DB.Migrator().HasTable("invitation_rewards") {
+		return nil
+	}
+	if common.UsingPostgreSQL {
+		return DB.Exec(`
+			UPDATE "users" AS u
+			SET "inviter_id" = r."inviter_id"
+			FROM (
+				SELECT "invitee_id", MIN("inviter_id") AS "inviter_id"
+				FROM "invitation_rewards"
+				WHERE "invitee_id" > 0 AND "inviter_id" > 0
+				GROUP BY "invitee_id"
+			) AS r
+			WHERE u."id" = r."invitee_id"
+			  AND COALESCE(u."inviter_id", 0) = 0
+			  AND u."id" <> r."inviter_id"
+		`).Error
+	}
+	if common.UsingSQLite {
+		return DB.Exec(`
+			UPDATE "users"
+			SET "inviter_id" = (
+				SELECT MIN(r."inviter_id")
+				FROM "invitation_rewards" AS r
+				WHERE r."invitee_id" = "users"."id"
+				  AND r."invitee_id" > 0
+				  AND r."inviter_id" > 0
+				  AND r."inviter_id" <> "users"."id"
+			)
+			WHERE COALESCE("inviter_id", 0) = 0
+			  AND EXISTS (
+				SELECT 1
+				FROM "invitation_rewards" AS r
+				WHERE r."invitee_id" = "users"."id"
+				  AND r."invitee_id" > 0
+				  AND r."inviter_id" > 0
+				  AND r."inviter_id" <> "users"."id"
+			  )
+		`).Error
+	}
+	return DB.Exec(`
+		UPDATE ` + "`users`" + ` AS u
+		JOIN (
+			SELECT ` + "`invitee_id`" + `, MIN(` + "`inviter_id`" + `) AS ` + "`inviter_id`" + `
+			FROM ` + "`invitation_rewards`" + `
+			WHERE ` + "`invitee_id`" + ` > 0 AND ` + "`inviter_id`" + ` > 0
+			GROUP BY ` + "`invitee_id`" + `
+		) AS r ON u.` + "`id`" + ` = r.` + "`invitee_id`" + `
+		SET u.` + "`inviter_id`" + ` = r.` + "`inviter_id`" + `
+		WHERE IFNULL(u.` + "`inviter_id`" + `, 0) = 0
+		  AND u.` + "`id`" + ` <> r.` + "`inviter_id`" + `
+	`).Error
 }
 
 func closeDB(db *gorm.DB) error {

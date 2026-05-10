@@ -1,4 +1,4 @@
-/*
+﻿/*
 Copyright (C) 2025 QuantumNous
 
 This program is free software: you can redistribute it and/or modify
@@ -60,23 +60,28 @@ import {
 
 import {
   LayoutDashboard,
-  TerminalSquare,
+  Zap,
   MessageSquare,
-  Key,
+  KeyRound,
   BarChart3,
   Image as ImageIcon,
-  Palette,
+  FileText,
   CheckSquare,
   CreditCard,
   Layers,
   Gift,
-  User,
+  UserRound,
+  UsersRound,
   Settings,
   CircleUser,
   Package,
   Server,
   CalendarClock,
   ShoppingCart,
+  Star,
+  Activity,
+  DollarSign,
+  Share2,
 } from 'lucide-react';
 import {
   SiAtlassian,
@@ -103,45 +108,47 @@ import {
   SiX,
 } from 'react-icons/si';
 
-// 获取侧边栏Lucide图标组件
+// 鑾峰彇渚ц竟鏍廘ucide鍥炬爣缁勪欢
 export function getLucideIcon(key, selected = false) {
-  const size = 16;
+  const size = 18;
   const strokeWidth = 2;
-  const SELECTED_COLOR = 'var(--semi-color-primary)';
-  const iconColor = selected ? SELECTED_COLOR : 'currentColor';
+  const iconColor = 'currentColor';
   const commonProps = {
     size,
     strokeWidth,
-    className: `transition-colors duration-200 ${selected ? 'transition-transform duration-200 scale-105' : ''}`,
+    className: 'transition-colors duration-150',
   };
 
-  // 根据不同的key返回不同的图标
   switch (key) {
     case 'detail':
       return <LayoutDashboard {...commonProps} color={iconColor} />;
     case 'playground':
-      return <TerminalSquare {...commonProps} color={iconColor} />;
+      return <Zap {...commonProps} color={iconColor} />;
     case 'chat':
       return <MessageSquare {...commonProps} color={iconColor} />;
     case 'token':
-      return <Key {...commonProps} color={iconColor} />;
+      return <KeyRound {...commonProps} color={iconColor} />;
     case 'log':
       return <BarChart3 {...commonProps} color={iconColor} />;
     case 'drawing':
-      return <Palette {...commonProps} color={iconColor} />;
     case 'midjourney':
       return <ImageIcon {...commonProps} color={iconColor} />;
     case 'task':
       return <CheckSquare {...commonProps} color={iconColor} />;
     case 'topup':
       return <CreditCard {...commonProps} color={iconColor} />;
+    case 'member_upgrade':
+      return <Star {...commonProps} color={iconColor} />;
+    case 'affiliate':
+      return <Share2 {...commonProps} color={iconColor} />;
     case 'channel':
       return <Layers {...commonProps} color={iconColor} />;
     case 'redemption':
       return <Gift {...commonProps} color={iconColor} />;
-    case 'user':
     case 'personal':
-      return <User {...commonProps} color={iconColor} />;
+      return <UserRound {...commonProps} color={iconColor} />;
+    case 'user':
+      return <UsersRound {...commonProps} color={iconColor} />;
     case 'models':
       return <Package {...commonProps} color={iconColor} />;
     case 'deployment':
@@ -150,6 +157,12 @@ export function getLucideIcon(key, selected = false) {
       return <CalendarClock {...commonProps} color={iconColor} />;
     case 'auto_delivery':
       return <ShoppingCart {...commonProps} color={iconColor} />;
+    case 'group_monitor':
+      return <Activity {...commonProps} color={iconColor} />;
+    case 'pricing':
+      return <DollarSign {...commonProps} color={iconColor} />;
+    case 'about':
+      return <FileText {...commonProps} color={iconColor} />;
     case 'setting':
       return <Settings {...commonProps} color={iconColor} />;
     default:
@@ -157,7 +170,7 @@ export function getLucideIcon(key, selected = false) {
   }
 }
 
-// 获取模型分类
+// 鑾峰彇妯″瀷鍒嗙被
 export const getModelCategories = (() => {
   let categoriesCache = null;
   let lastLocale = null;
@@ -244,12 +257,12 @@ export const getModelCategories = (() => {
           model.model_name.toLowerCase().includes('minimax'),
       },
       baidu: {
-        label: t('文心一言'),
+        label: t('鏂囧績涓€瑷€'),
         icon: <Wenxin.Color />,
         filter: (model) => model.model_name.toLowerCase().includes('ernie'),
       },
       xunfei: {
-        label: t('讯飞星火'),
+        label: t('璁鏄熺伀'),
         icon: <Spark.Color />,
         filter: (model) => model.model_name.toLowerCase().includes('spark'),
       },
@@ -259,7 +272,7 @@ export const getModelCategories = (() => {
         filter: (model) => model.model_name.toLowerCase().includes('mj_'),
       },
       tencent: {
-        label: t('腾讯混元'),
+        label: t('鑵捐娣峰厓'),
         icon: <Hunyuan.Color />,
         filter: (model) => model.model_name.toLowerCase().includes('hunyuan'),
       },
@@ -324,9 +337,9 @@ export const getModelCategories = (() => {
 })();
 
 /**
- * 根据渠道类型返回对应的厂商图标
- * @param {number} channelType - 渠道类型值
- * @returns {JSX.Element|null} - 对应的厂商图标组件
+ * 鏍规嵁娓犻亾绫诲瀷杩斿洖瀵瑰簲鐨勫巶鍟嗗浘鏍?
+ * @param {number} channelType - 娓犻亾绫诲瀷鍊?
+ * @returns {JSX.Element|null} - 瀵瑰簲鐨勫巶鍟嗗浘鏍囩粍浠?
  */
 export function getChannelIcon(channelType) {
   const iconSize = 14;
@@ -354,15 +367,15 @@ export function getChannelIcon(channelType) {
       return <Cloudflare.Color size={iconSize} />;
     case 43: // DeepSeek
       return <DeepSeek.Color size={iconSize} />;
-    case 15: // 百度文心千帆
-    case 46: // 百度文心千帆V2
+    case 15: // 鐧惧害鏂囧績鍗冨竼
+    case 46: // 鐧惧害鏂囧績鍗冨竼V2
       return <Wenxin.Color size={iconSize} />;
-    case 17: // 阿里通义千问
+    case 17: // 闃块噷閫氫箟鍗冮棶
       return <Qwen.Color size={iconSize} />;
-    case 18: // 讯飞星火认知
+    case 18: // 璁鏄熺伀璁ょ煡
       return <Spark.Color size={iconSize} />;
-    case 16: // 智谱 ChatGLM
-    case 26: // 智谱 GLM-4V
+    case 16: // 鏅鸿氨 ChatGLM
+    case 26: // 鏅鸿氨 GLM-4V
       return <Zhipu.Color size={iconSize} />;
     case 24: // Google Gemini
     case 11: // Google PaLM2
@@ -375,11 +388,11 @@ export function getChannelIcon(channelType) {
       return <Perplexity.Color size={iconSize} />;
     case 20: // OpenRouter
       return <OpenRouter size={iconSize} />;
-    case 19: // 360 智脑
+    case 19: // 360 鏅鸿剳
       return <Ai360.Color size={iconSize} />;
-    case 23: // 腾讯混元
+    case 23: // 鑵捐娣峰厓
       return <Hunyuan.Color size={iconSize} />;
-    case 31: // 零一万物
+    case 31: // 闆朵竴涓囩墿
       return <Yi.Color size={iconSize} />;
     case 35: // MiniMax
       return <Minimax.Color size={iconSize} />;
@@ -391,48 +404,48 @@ export function getChannelIcon(channelType) {
       return <SiliconCloud.Color size={iconSize} />;
     case 42: // Mistral AI
       return <Mistral.Color size={iconSize} />;
-    case 45: // 字节火山方舟、豆包通用
+    case 45: // 瀛楄妭鐏北鏂硅垷銆佽眴鍖呴€氱敤
       return <Doubao.Color size={iconSize} />;
     case 48: // xAI
       return <XAI size={iconSize} />;
     case 49: // Coze
       return <Coze size={iconSize} />;
-    case 50: // 可灵 Kling
+    case 50: // 鍙伒 Kling
       return <Kling.Color size={iconSize} />;
-    case 51: // 即梦 Jimeng
+    case 51: // 鍗虫ⅵ Jimeng
       return <Jimeng.Color size={iconSize} />;
-    case 54: // 豆包视频 Doubao Video
+    case 54: // 璞嗗寘瑙嗛 Doubao Video
       return <Doubao.Color size={iconSize} />;
     case 56: // Replicate
       return <Replicate size={iconSize} />;
-    case 8: // 自定义渠道
-    case 22: // 知识库：FastGPT
+    case 8: // 鑷畾涔夋笭閬?
+    case 22: // 鐭ヨ瘑搴擄細FastGPT
       return <FastGPT.Color size={iconSize} />;
-    case 21: // 知识库：AI Proxy
-    case 44: // 嵌入模型：MokaAI M3E
+    case 21: // 鐭ヨ瘑搴擄細AI Proxy
+    case 44: // 宓屽叆妯″瀷锛歁okaAI M3E
     default:
-      return null; // 未知类型或自定义渠道不显示图标
+      return null; // 鏈煡绫诲瀷鎴栬嚜瀹氫箟娓犻亾涓嶆樉绀哄浘鏍?
   }
 }
 
 /**
- * 根据图标名称动态获取 LobeHub 图标组件
- * 支持：
- * - 基础："OpenAI"、"OpenAI.Color" 等
- * - 额外属性（点号链式）："OpenAI.Avatar.type={'platform'}"、"OpenRouter.Avatar.shape={'square'}"
- * - 继续兼容第二参数 size；若字符串里有 size=，以字符串为准
- * @param {string} iconName - 图标名称/描述
- * @param {number} size - 图标大小，默认为 14
- * @returns {JSX.Element} - 对应的图标组件或 Avatar
+ * 鏍规嵁鍥炬爣鍚嶇О鍔ㄦ€佽幏鍙?LobeHub 鍥炬爣缁勪欢
+ * 鏀寔锛?
+ * - 鍩虹锛?OpenAI"銆?OpenAI.Color" 绛?
+ * - 棰濆灞炴€э紙鐐瑰彿閾惧紡锛夛細"OpenAI.Avatar.type={'platform'}"銆?OpenRouter.Avatar.shape={'square'}"
+ * - 缁х画鍏煎绗簩鍙傛暟 size锛涜嫢瀛楃涓查噷鏈?size=锛屼互瀛楃涓蹭负鍑?
+ * @param {string} iconName - 鍥炬爣鍚嶇О/鎻忚堪
+ * @param {number} size - 鍥炬爣澶у皬锛岄粯璁や负 14
+ * @returns {JSX.Element} - 瀵瑰簲鐨勫浘鏍囩粍浠舵垨 Avatar
  */
 export function getLobeHubIcon(iconName, size = 14) {
   if (typeof iconName === 'string') iconName = iconName.trim();
-  // 如果没有图标名称，返回 Avatar
+  // 濡傛灉娌℃湁鍥炬爣鍚嶇О锛岃繑鍥?Avatar
   if (!iconName) {
     return <Avatar size='extra-extra-small'>?</Avatar>;
   }
 
-  // 解析组件路径与点号链式属性
+  // 瑙ｆ瀽缁勪欢璺緞涓庣偣鍙烽摼寮忓睘鎬?
   const segments = String(iconName).split('.');
   const baseKey = segments[0];
   const BaseIcon = LobeIcons[baseKey];
@@ -448,7 +461,7 @@ export function getLobeHubIcon(iconName, size = 14) {
     propStartIndex = 1;
   }
 
-  // 失败兜底
+  // 澶辫触鍏滃簳
   if (
     !IconComponent ||
     (typeof IconComponent !== 'function' && typeof IconComponent !== 'object')
@@ -457,29 +470,29 @@ export function getLobeHubIcon(iconName, size = 14) {
     return <Avatar size='extra-extra-small'>{firstLetter}</Avatar>;
   }
 
-  // 解析点号链式属性，形如：key={...}、key='...'、key="..."、key=123、key、key=true/false
+  // 瑙ｆ瀽鐐瑰彿閾惧紡灞炴€э紝褰㈠锛歬ey={...}銆乲ey='...'銆乲ey="..."銆乲ey=123銆乲ey銆乲ey=true/false
   const props = {};
 
   const parseValue = (raw) => {
     if (raw == null) return true;
     let v = String(raw).trim();
-    // 去除一层花括号包裹
+    // 鍘婚櫎涓€灞傝姳鎷彿鍖呰９
     if (v.startsWith('{') && v.endsWith('}')) {
       v = v.slice(1, -1).trim();
     }
-    // 去除引号
+    // 鍘婚櫎寮曞彿
     if (
       (v.startsWith('"') && v.endsWith('"')) ||
       (v.startsWith("'") && v.endsWith("'"))
     ) {
       return v.slice(1, -1);
     }
-    // 布尔
+    // 甯冨皵
     if (v === 'true') return true;
     if (v === 'false') return false;
-    // 数字
+    // 鏁板瓧
     if (/^-?\d+(?:\.\d+)?$/.test(v)) return Number(v);
-    // 其他原样返回字符串
+    // 鍏朵粬鍘熸牱杩斿洖瀛楃涓?
     return v;
   };
 
@@ -496,7 +509,7 @@ export function getLobeHubIcon(iconName, size = 14) {
     props[key] = parseValue(valRaw);
   }
 
-  // 兼容第二参数 size，若字符串中未显式指定 size，则使用函数入参
+  // 鍏煎绗簩鍙傛暟 size锛岃嫢瀛楃涓蹭腑鏈樉寮忔寚瀹?size锛屽垯浣跨敤鍑芥暟鍏ュ弬
   if (props.size == null && size != null) props.size = size;
 
   return <IconComponent {...props} />;
@@ -553,7 +566,7 @@ function normalizeOAuthIconKey(raw) {
  * - react-icons simple key: github / gitlab / google / keycloak
  * - prefixed key: ri:github / si:github
  * - full URL image: https://example.com/logo.png
- * - emoji: 🐱
+ * - emoji: 馃惐
  */
 export function getOAuthProviderIcon(iconName, size = 20) {
   const raw = String(iconName || '').trim();
@@ -603,7 +616,7 @@ export function getOAuthProviderIcon(iconName, size = 20) {
   );
 }
 
-// 颜色列表
+// 棰滆壊鍒楄〃
 const colors = [
   'amber',
   'blue',
@@ -622,9 +635,9 @@ const colors = [
   'yellow',
 ];
 
-// 基础10色色板 (N ≤ 10)
+// 鍩虹10鑹茶壊鏉?(N 鈮?10)
 const baseColors = [
-  '#1664FF', // 主色
+  '#1664FF', // 涓昏壊
   '#1AC6FF',
   '#FF8A00',
   '#3CC780',
@@ -636,7 +649,7 @@ const baseColors = [
   '#FF7DDA',
 ];
 
-// 扩展20色色板 (10 < N ≤ 20)
+// 鎵╁睍20鑹茶壊鏉?(10 < N 鈮?20)
 const extendedColors = [
   '#1664FF',
   '#B2CFFF',
@@ -660,57 +673,57 @@ const extendedColors = [
   '#FFCFEE',
 ];
 
-// 模型颜色映射
+// 妯″瀷棰滆壊鏄犲皠
 export const modelColorMap = {
-  'dall-e': 'rgb(147,112,219)', // 深紫色
-  // 'dall-e-2': 'rgb(147,112,219)', // 介于紫色和蓝色之间的色调
-  'dall-e-3': 'rgb(153,50,204)', // 介于紫罗兰和洋红之间的色调
-  'gpt-3.5-turbo': 'rgb(184,227,167)', // 浅绿色
-  // 'gpt-3.5-turbo-0301': 'rgb(131,220,131)', // 亮绿色
-  'gpt-3.5-turbo-0613': 'rgb(60,179,113)', // 海洋绿
-  'gpt-3.5-turbo-1106': 'rgb(32,178,170)', // 浅海洋绿
-  'gpt-3.5-turbo-16k': 'rgb(149,252,206)', // 淡橙色
-  'gpt-3.5-turbo-16k-0613': 'rgb(119,255,214)', // 淡桃
-  'gpt-3.5-turbo-instruct': 'rgb(175,238,238)', // 粉蓝色
-  'gpt-4': 'rgb(135,206,235)', // 天蓝色
-  // 'gpt-4-0314': 'rgb(70,130,180)', // 钢蓝色
-  'gpt-4-0613': 'rgb(100,149,237)', // 矢车菊蓝
-  'gpt-4-1106-preview': 'rgb(30,144,255)', // 道奇蓝
-  'gpt-4-0125-preview': 'rgb(2,177,236)', // 深天蓝
-  'gpt-4-turbo-preview': 'rgb(2,177,255)', // 深天蓝
-  'gpt-4-32k': 'rgb(104,111,238)', // 中紫色
-  // 'gpt-4-32k-0314': 'rgb(90,105,205)', // 暗灰蓝色
-  'gpt-4-32k-0613': 'rgb(61,71,139)', // 暗蓝灰色
-  'gpt-4-all': 'rgb(65,105,225)', // 皇家蓝
-  'gpt-4-gizmo-*': 'rgb(0,0,255)', // 纯蓝色
-  'gpt-4-vision-preview': 'rgb(25,25,112)', // 午夜蓝
-  'text-ada-001': 'rgb(255,192,203)', // 粉红色
-  'text-babbage-001': 'rgb(255,160,122)', // 浅珊瑚色
-  'text-curie-001': 'rgb(219,112,147)', // 苍紫罗兰色
-  // 'text-davinci-002': 'rgb(199,21,133)', // 中紫罗兰红色
-  'text-davinci-003': 'rgb(219,112,147)', // 苍紫罗兰色（与Curie相同，表示同一个系列）
-  'text-davinci-edit-001': 'rgb(255,105,180)', // 热粉色
-  'text-embedding-ada-002': 'rgb(255,182,193)', // 浅粉红
-  'text-embedding-v1': 'rgb(255,174,185)', // 浅粉红色（略有区别）
-  'text-moderation-latest': 'rgb(255,130,171)', // 强粉色
-  'text-moderation-stable': 'rgb(255,160,122)', // 浅珊瑚色（与Babbage相同，表示同一类功能）
-  'tts-1': 'rgb(255,140,0)', // 深橙色
-  'tts-1-1106': 'rgb(255,165,0)', // 橙色
-  'tts-1-hd': 'rgb(255,215,0)', // 金色
-  'tts-1-hd-1106': 'rgb(255,223,0)', // 金黄色（略有区别）
-  'whisper-1': 'rgb(245,245,220)', // 米色
-  'claude-3-opus-20240229': 'rgb(255,132,31)', // 橙红色
-  'claude-3-sonnet-20240229': 'rgb(253,135,93)', // 橙色
-  'claude-3-haiku-20240307': 'rgb(255,175,146)', // 浅橙色
+  'dall-e': 'rgb(147,112,219)', // 娣辩传鑹?
+  // 'dall-e-2': 'rgb(147,112,219)', // 浠嬩簬绱壊鍜岃摑鑹蹭箣闂寸殑鑹茶皟
+  'dall-e-3': 'rgb(153,50,204)', // 浠嬩簬绱綏鍏板拰娲嬬孩涔嬮棿鐨勮壊璋?
+  'gpt-3.5-turbo': 'rgb(184,227,167)', // 娴呯豢鑹?
+  // 'gpt-3.5-turbo-0301': 'rgb(131,220,131)', // 浜豢鑹?
+  'gpt-3.5-turbo-0613': 'rgb(60,179,113)', // 娴锋磱缁?
+  'gpt-3.5-turbo-1106': 'rgb(32,178,170)', // 娴呮捣娲嬬豢
+  'gpt-3.5-turbo-16k': 'rgb(149,252,206)', // 娣℃鑹?
+  'gpt-3.5-turbo-16k-0613': 'rgb(119,255,214)', // 娣℃
+  'gpt-3.5-turbo-instruct': 'rgb(175,238,238)', // 绮夎摑鑹?
+  'gpt-4': 'rgb(135,206,235)', // 澶╄摑鑹?
+  // 'gpt-4-0314': 'rgb(70,130,180)', // 閽㈣摑鑹?
+  'gpt-4-0613': 'rgb(100,149,237)', // 鐭㈣溅鑿婅摑
+  'gpt-4-1106-preview': 'rgb(30,144,255)', // 閬撳钃?
+  'gpt-4-0125-preview': 'rgb(2,177,236)', // 娣卞ぉ钃?
+  'gpt-4-turbo-preview': 'rgb(2,177,255)', // 娣卞ぉ钃?
+  'gpt-4-32k': 'rgb(104,111,238)', // 涓传鑹?
+  // 'gpt-4-32k-0314': 'rgb(90,105,205)', // 鏆楃伆钃濊壊
+  'gpt-4-32k-0613': 'rgb(61,71,139)', // 鏆楄摑鐏拌壊
+  'gpt-4-all': 'rgb(65,105,225)', // 鐨囧钃?
+  'gpt-4-gizmo-*': 'rgb(0,0,255)', // 绾摑鑹?
+  'gpt-4-vision-preview': 'rgb(25,25,112)', // 鍗堝钃?
+  'text-ada-001': 'rgb(255,192,203)', // 绮夌孩鑹?
+  'text-babbage-001': 'rgb(255,160,122)', // 娴呯強鐟氳壊
+  'text-curie-001': 'rgb(219,112,147)', // 鑻嶇传缃楀叞鑹?
+  // 'text-davinci-002': 'rgb(199,21,133)', // 涓传缃楀叞绾㈣壊
+  'text-davinci-003': 'rgb(219,112,147)', // 鑻嶇传缃楀叞鑹诧紙涓嶤urie鐩稿悓锛岃〃绀哄悓涓€涓郴鍒楋級
+  'text-davinci-edit-001': 'rgb(255,105,180)', // 鐑矇鑹?
+  'text-embedding-ada-002': 'rgb(255,182,193)', // 娴呯矇绾?
+  'text-embedding-v1': 'rgb(255,174,185)', // 娴呯矇绾㈣壊锛堢暐鏈夊尯鍒級
+  'text-moderation-latest': 'rgb(255,130,171)', // 寮虹矇鑹?
+  'text-moderation-stable': 'rgb(255,160,122)', // 娴呯強鐟氳壊锛堜笌Babbage鐩稿悓锛岃〃绀哄悓涓€绫诲姛鑳斤級
+  'tts-1': 'rgb(255,140,0)', // 娣辨鑹?
+  'tts-1-1106': 'rgb(255,165,0)', // 姗欒壊
+  'tts-1-hd': 'rgb(255,215,0)', // 閲戣壊
+  'tts-1-hd-1106': 'rgb(255,223,0)', // 閲戦粍鑹诧紙鐣ユ湁鍖哄埆锛?
+  'whisper-1': 'rgb(245,245,220)', // 绫宠壊
+  'claude-3-opus-20240229': 'rgb(255,132,31)', // 姗欑孩鑹?
+  'claude-3-sonnet-20240229': 'rgb(253,135,93)', // 姗欒壊
+  'claude-3-haiku-20240307': 'rgb(255,175,146)', // 娴呮鑹?
 };
 
 export function modelToColor(modelName) {
-  // 1. 如果模型在预定义的 modelColorMap 中，使用预定义颜色
+  // 1. 濡傛灉妯″瀷鍦ㄩ瀹氫箟鐨?modelColorMap 涓紝浣跨敤棰勫畾涔夐鑹?
   if (modelColorMap[modelName]) {
     return modelColorMap[modelName];
   }
 
-  // 2. 生成一个稳定的数字作为索引
+  // 2. 鐢熸垚涓€涓ǔ瀹氱殑鏁板瓧浣滀负绱㈠紩
   let hash = 0;
   for (let i = 0; i < modelName.length; i++) {
     hash = (hash << 5) - hash + modelName.charCodeAt(i);
@@ -718,10 +731,10 @@ export function modelToColor(modelName) {
   }
   hash = Math.abs(hash);
 
-  // 3. 根据模型名称长度选择不同的色板
+  // 3. 鏍规嵁妯″瀷鍚嶇О闀垮害閫夋嫨涓嶅悓鐨勮壊鏉?
   const colorPalette = modelName.length > 10 ? extendedColors : baseColors;
 
-  // 4. 使用hash值选择颜色
+  // 4. 浣跨敤hash鍊奸€夋嫨棰滆壊
   const index = hash % colorPalette.length;
   return colorPalette[index];
 }
@@ -735,22 +748,48 @@ export function stringToColor(str) {
   return colors[i];
 }
 
-// 渲染带有模型图标的标签
+// 娓叉煋甯︽湁妯″瀷鍥炬爣鐨勬爣绛?
 export function renderModelTag(modelName, options = {}) {
   const {
     color,
     size = 'default',
-    shape = 'circle',
+    shape = 'square',
     onClick,
     suffixIcon,
+    className,
   } = options;
 
   const categories = getModelCategories(i18next.t);
+  const categoryTagColors = {
+    openai: 'blue',
+    anthropic: 'orange',
+    gemini: 'green',
+    moonshot: 'indigo',
+    zhipu: 'cyan',
+    qwen: 'light-blue',
+    deepseek: 'teal',
+    minimax: 'pink',
+    baidu: 'blue',
+    xunfei: 'yellow',
+    midjourney: 'purple',
+    tencent: 'cyan',
+    cohere: 'lime',
+    cloudflare: 'orange',
+    ai360: 'green',
+    jina: 'teal',
+    mistral: 'violet',
+    xai: 'grey',
+    llama: 'grey',
+    doubao: 'red',
+    yi: 'amber',
+  };
   let icon = null;
+  let categoryKey = '';
 
   for (const [key, category] of Object.entries(categories)) {
     if (key !== 'all' && category.filter({ model_name: modelName })) {
       icon = category.icon;
+      categoryKey = key;
       break;
     }
   }
@@ -762,6 +801,7 @@ export function renderModelTag(modelName, options = {}) {
       suffixIcon={suffixIcon}
       size={size}
       shape={shape}
+      className={['model-name-tag', className].filter(Boolean).join(' ')}
       onClick={onClick}
     >
       {modelName}
@@ -809,10 +849,10 @@ export function renderGroup(group) {
           onClick={async (event) => {
             event.stopPropagation();
             if (await copy(group)) {
-              showSuccess(i18next.t('已复制：') + group);
+              showSuccess(i18next.t('\u5df2\u590d\u5236\uff1a') + group);
             } else {
               Modal.error({
-                title: i18next.t('无法复制到剪贴板，请手动复制'),
+                title: i18next.t('\u65e0\u6cd5\u590d\u5236\u5230\u526a\u8d34\u677f\uff0c\u8bf7\u624b\u52a8\u590d\u5236'),
                 content: group,
               });
             }
@@ -1001,12 +1041,12 @@ export function renderQuotaNumberWithDigit(num, digits = 2) {
   const quotaDisplayType = localStorage.getItem('quota_display_type') || 'USD';
   num = num.toFixed(digits);
   if (quotaDisplayType === 'CNY') {
-    return '¥' + num;
+    return '楼' + num;
   } else if (quotaDisplayType === 'USD') {
     return '$' + num;
   } else if (quotaDisplayType === 'CUSTOM') {
     const statusStr = localStorage.getItem('status');
-    let symbol = '¤';
+    let symbol = '陇';
     try {
       if (statusStr) {
         const s = JSON.parse(statusStr);
@@ -1079,10 +1119,10 @@ export function renderQuotaWithAmount(amount) {
     : amount;
 
   if (quotaDisplayType === 'CNY') {
-    return '¥' + formattedAmount;
+    return '楼' + formattedAmount;
   } else if (quotaDisplayType === 'CUSTOM') {
     const statusStr = localStorage.getItem('status');
-    let symbol = '¤';
+    let symbol = '陇';
     try {
       if (statusStr) {
         const s = JSON.parse(statusStr);
@@ -1106,7 +1146,7 @@ export function getCurrencyConfig() {
   let rate = 1;
 
   if (quotaDisplayType === 'CNY') {
-    symbol = '¥';
+    symbol = '\u00a5';
     try {
       if (statusStr) {
         const s = JSON.parse(statusStr);
@@ -1117,7 +1157,7 @@ export function getCurrencyConfig() {
     try {
       if (statusStr) {
         const s = JSON.parse(statusStr);
-        symbol = s?.custom_currency_symbol || '¤';
+        symbol = s?.custom_currency_symbol || '\u00a4';
         rate = s?.custom_currency_exchange_rate || 1;
       }
     } catch (e) {}
@@ -1127,10 +1167,10 @@ export function getCurrencyConfig() {
 }
 
 /**
- * 将美元金额转换为当前选择的货币
- * @param {number} usdAmount - 美元金额
- * @param {number} digits - 小数位数
- * @returns {string} - 格式化后的货币字符串
+ * 灏嗙編鍏冮噾棰濊浆鎹负褰撳墠閫夋嫨鐨勮揣甯?
+ * @param {number} usdAmount - 缇庡厓閲戦
+ * @param {number} digits - 灏忔暟浣嶆暟
+ * @returns {string} - 鏍煎紡鍖栧悗鐨勮揣甯佸瓧绗︿覆
  */
 export function convertUSDToCurrency(usdAmount, digits = 2) {
   const { symbol, rate } = getCurrencyConfig();
@@ -1158,10 +1198,10 @@ export function renderQuota(quota, digits = 2) {
       }
     } catch (e) {}
     value = resultUSD * usdRate;
-    symbol = '¥';
+    symbol = '楼';
   } else if (quotaDisplayType === 'CUSTOM') {
     const statusStr = localStorage.getItem('status');
-    let symbolCustom = '¤';
+    let symbolCustom = '陇';
     let rate = 1;
     try {
       if (statusStr) {
@@ -1241,7 +1281,7 @@ function appendPricePart(parts, condition, key, vars) {
 }
 
 function joinBillingSummary(parts) {
-  return parts.filter(Boolean).join('，');
+  return parts.filter(Boolean).join('\uff0c');
 }
 
 function getGroupRatioText(groupRatio, user_group_ratio) {
@@ -1353,7 +1393,7 @@ function renderPriceSimpleCore({
           ? i18next.t('模型价格 {{price}}', {
               price: formatCompactDisplayPrice(modelPrice),
             })
-          : i18next.t('按次'),
+          : i18next.t('\u6309\u6b21'),
       });
     } else if (isPriceDisplayMode(displayMode, modelPrice)) {
       segments.push({
@@ -1366,7 +1406,7 @@ function renderPriceSimpleCore({
       if (shouldShowCache) {
         segments.push({
           tone: 'secondary',
-          text: i18next.t('缓存读 {{price}} / 1M tokens', {
+          text: i18next.t('\u7f13\u5b58\u8bfb {{price}} / 1M tokens', {
             price: formatCompactDisplayPrice(modelRatio * 2.0 * cacheRatio),
           }),
         });
@@ -1523,7 +1563,7 @@ function renderPriceSimpleCore({
 
     if (shouldShowCache) {
       parts.push(
-        i18next.t('缓存读 {{price}} / 1M tokens', {
+        i18next.t('\u7f13\u5b58\u8bfb {{price}} / 1M tokens', {
           price: formatCompactDisplayPrice(modelRatio * 2.0 * cacheRatio),
         }),
       );
@@ -1632,7 +1672,7 @@ export function renderTaskBillingProcess(other, content) {
     );
   }
   return renderBillingArticle([
-    buildBillingText('任务预扣费（将在任务完成后按实际token重算）'),
+    buildBillingText('任务预扣费（将在任务完成后按实际 token 重算）'),
   ]);
 }
 
@@ -1673,13 +1713,13 @@ export function renderModelPrice(
   if (!shouldUseRatioBillingProcess(modelPrice)) {
     if (modelPrice !== -1) {
       return renderBillingArticle([
-        buildBillingPriceText('按次：{{symbol}}{{price}}', {
+        buildBillingPriceText('\u6309\u6b21\uff1a{{symbol}}{{price}}', {
           symbol,
           usdAmount: modelPrice,
           rate,
         }),
         buildBillingPriceText(
-          '按次 {{symbol}}{{price}} * {{ratioType}} {{ratio}} = {{symbol}}{{total}}',
+          '\u6309\u6b21 {{symbol}}{{price}} * {{ratioType}} {{ratio}} = {{symbol}}{{total}}',
           {
             symbol,
             usdAmount: modelPrice,
@@ -1742,7 +1782,7 @@ export function renderModelPrice(
       );
     } else if (audioInputSeperatePrice && audioInputTokens > 0) {
       inputDesc = buildBillingText(
-        '(输入 {{nonAudioInput}} tokens / 1M tokens * {{symbol}}{{price}} + 音频输入 {{audioInput}} tokens / 1M tokens * {{symbol}}{{audioPrice}}',
+        '(\u8f93\u5165 {{nonAudioInput}} tokens / 1M tokens * {{symbol}}{{price}} + \u97f3\u9891\u8f93\u5165 {{audioInput}} tokens / 1M tokens * {{symbol}}{{audioPrice}}',
         {
           nonAudioInput: inputTokens - audioInputTokens,
           audioInput: audioInputTokens,
@@ -1777,7 +1817,7 @@ export function renderModelPrice(
     const extraServices = [
       webSearch && webSearchCallCount > 0
         ? buildBillingPriceText(
-            ' + Web搜索 {{count}}次 / 1K 次 * {{symbol}}{{price}} * {{ratioType}} {{ratio}}',
+            ' + Web\u641c\u7d22 {{count}}\u6b21 / 1K \u6b21 * {{symbol}}{{price}} * {{ratioType}} {{ratio}}',
             {
               count: webSearchCallCount,
               symbol,
@@ -1790,7 +1830,7 @@ export function renderModelPrice(
         : '',
       fileSearch && fileSearchCallCount > 0
         ? buildBillingPriceText(
-            ' + 文件搜索 {{count}}次 / 1K 次 * {{symbol}}{{price}} * {{ratioType}} {{ratio}}',
+            ' + \u6587\u4ef6\u641c\u7d22 {{count}}\u6b21 / 1K \u6b21 * {{symbol}}{{price}} * {{ratioType}} {{ratio}}',
             {
               count: fileSearchCallCount,
               symbol,
@@ -1803,7 +1843,7 @@ export function renderModelPrice(
         : '',
       imageGenerationCall && imageGenerationCallPrice > 0
         ? buildBillingPriceText(
-            ' + 图片生成调用 {{symbol}}{{price}} / 1次 * {{ratioType}} {{ratio}}',
+            ' + \u56fe\u7247\u751f\u6210\u8c03\u7528 {{symbol}}{{price}} / 1\u6b21 * {{ratioType}} {{ratio}}',
             {
               symbol,
               usdAmount: imageGenerationCallPrice,
@@ -1823,7 +1863,7 @@ export function renderModelPrice(
           usdAmount: inputRatioPrice,
           rate,
           audioPrice: audioInputSeperatePrice
-            ? `，${i18next.t('音频输入价格')} ${symbol}${formatBillingDisplayPrice(audioInputPrice, rate)} / 1M tokens`
+            ? `\uff0c${i18next.t('\u97f3\u9891\u8f93\u5165\u4ef7\u683c')} ${symbol}${formatBillingDisplayPrice(audioInputPrice, rate)} / 1M tokens`
             : '',
         },
       ),
@@ -1895,7 +1935,7 @@ export function renderModelPrice(
     const displayPrice = (modelPrice * rate).toFixed(6);
     const displayTotal = (modelPrice * groupRatio * rate).toFixed(6);
     return i18next.t(
-      '按次：{{symbol}}{{price}} * {{ratioType}}：{{ratio}} = {{symbol}}{{total}}',
+      '\u6309\u6b21\uff1a{{symbol}}{{price}} * {{ratioType}}\uff1a{{ratio}} = {{symbol}}{{total}}',
       {
         symbol: symbol,
         price: displayPrice,
@@ -1980,7 +2020,7 @@ export function renderModelPrice(
           })
         : null,
       audioRatioValue !== null
-        ? buildBillingText('音频倍率 {{audioRatio}}', {
+        ? buildBillingText('\u97f3\u9891\u500d\u7387 {{audioRatio}}', {
             audioRatio: audioRatioValue,
           })
         : null,
@@ -1990,10 +2030,10 @@ export function renderModelPrice(
       }),
     ]
       .filter(Boolean)
-      .join('，'),
+      .join('\uff0c'),
     textInputTokens > 0
       ? buildBillingText(
-          '普通输入：{{tokens}} / 1M * 模型倍率 {{modelRatio}} * {{ratioType}} {{ratio}} = {{amount}}',
+          '\u666e\u901a\u8f93\u5165\uff1a{{tokens}} / 1M * \u6a21\u578b\u500d\u7387 {{modelRatio}} * {{ratioType}} {{ratio}} = {{amount}}',
           {
             tokens: textInputTokens,
             modelRatio: modelRatioValue,
@@ -2031,7 +2071,7 @@ export function renderModelPrice(
       : null,
     audioInputTokens > 0 && audioRatioValue !== null
       ? buildBillingText(
-          '音频输入：{{tokens}} / 1M * 模型倍率 {{modelRatio}} * 音频倍率 {{audioRatio}} * {{ratioType}} {{ratio}} = {{amount}}',
+          '\u97f3\u9891\u8f93\u5165\uff1a{{tokens}} / 1M * \u6a21\u578b\u500d\u7387 {{modelRatio}} * \u97f3\u9891\u500d\u7387 {{audioRatio}} * {{ratioType}} {{ratio}} = {{amount}}',
           {
             tokens: audioInputTokens,
             modelRatio: modelRatioValue,
@@ -2079,7 +2119,7 @@ export function renderModelPrice(
       : null,
     imageGenerationCall && imageGenerationCallPrice > 0
       ? buildBillingText(
-          '图片生成：1 次 * 单价 {{price}} * {{ratioType}} {{ratio}} = {{amount}}',
+          '\u56fe\u7247\u751f\u6210\uff1a1 \u6b21 * \u5355\u4ef7 {{price}} * {{ratioType}} {{ratio}} = {{amount}}',
           {
             price: renderDisplayAmountFromUsd(imageGenerationCallPrice),
             ratioType: ratioLabel,
@@ -2088,7 +2128,7 @@ export function renderModelPrice(
           },
         )
       : null,
-    buildBillingText('合计：{{total}}', {
+    buildBillingText('\u5408\u8ba1\uff1a{{total}}', {
       total: renderDisplayAmountFromUsd(totalAmount),
     }),
   ]);
@@ -2187,7 +2227,7 @@ export function renderLogContent(
   } else {
     if (image) {
       return i18next.t(
-        '模型倍率 {{modelRatio}}，缓存倍率 {{cacheRatio}}，输出倍率 {{completionRatio}}，图片输入倍率 {{imageRatio}}，{{ratioType}} {{ratio}}',
+        '\u6a21\u578b\u500d\u7387 {{modelRatio}}\uff0c\u7f13\u5b58\u500d\u7387 {{cacheRatio}}\uff0c\u8f93\u51fa\u500d\u7387 {{completionRatio}}\uff0c\u56fe\u7247\u8f93\u5165\u500d\u7387 {{imageRatio}}\uff0c{{ratioType}} {{ratio}}',
         {
           modelRatio: modelRatio,
           cacheRatio: cacheRatio,
@@ -2211,7 +2251,7 @@ export function renderLogContent(
       );
     } else {
       return i18next.t(
-        '模型倍率 {{modelRatio}}，缓存倍率 {{cacheRatio}}，输出倍率 {{completionRatio}}，{{ratioType}} {{ratio}}',
+        '\u6a21\u578b\u500d\u7387 {{modelRatio}}\uff0c\u7f13\u5b58\u500d\u7387 {{cacheRatio}}\uff0c\u8f93\u51fa\u500d\u7387 {{completionRatio}}\uff0c{{ratioType}} {{ratio}}',
         {
           modelRatio: modelRatio,
           cacheRatio: cacheRatio,
@@ -2299,7 +2339,7 @@ export function renderAudioModelPrice(
           rate,
         }),
         buildBillingPriceText(
-          '模型价格 {{symbol}}{{price}} / 次 * {{ratioType}} {{ratio}} = {{symbol}}{{total}}',
+          '\u6a21\u578b\u4ef7\u683c {{symbol}}{{price}} / \u6b21 * {{ratioType}} {{ratio}} = {{symbol}}{{total}}',
           {
             symbol,
             usdAmount: modelPrice,
@@ -2353,18 +2393,18 @@ export function renderAudioModelPrice(
             },
           )
         : null,
-      buildBillingPriceText('音频输入价格：{{symbol}}{{price}} / 1M tokens', {
+      buildBillingPriceText('\u97f3\u9891\u8f93\u5165\u4ef7\u683c\uff1a{{symbol}}{{price}} / 1M tokens', {
         symbol,
         usdAmount: inputRatioPrice * audioRatio,
         rate,
       }),
-      buildBillingPriceText('音频补全价格：{{symbol}}{{price}} / 1M tokens', {
+      buildBillingPriceText('\u97f3\u9891\u8865\u5168\u4ef7\u683c\uff1a{{symbol}}{{price}} / 1M tokens', {
         symbol,
         usdAmount: inputRatioPrice * audioRatio * audioCompletionRatio,
         rate,
       }),
       buildBillingText(
-        '文字提示 {{input}} tokens / 1M tokens * {{symbol}}{{textInputPrice}} + 文字补全 {{completion}} tokens / 1M tokens * {{symbol}}{{textCompPrice}} + 音频提示 {{audioInput}} tokens / 1M tokens * {{symbol}}{{audioInputPrice}} + 音频补全 {{audioCompletion}} tokens / 1M tokens * {{symbol}}{{audioCompPrice}} * {{ratioType}} {{ratio}} = {{symbol}}{{total}}',
+        '\u6587\u5b57\u63d0\u793a {{input}} tokens / 1M tokens * {{symbol}}{{textInputPrice}} + \u6587\u5b57\u8865\u5168 {{completion}} tokens / 1M tokens * {{symbol}}{{textCompPrice}} + \u97f3\u9891\u63d0\u793a {{audioInput}} tokens / 1M tokens * {{symbol}}{{audioInputPrice}} + \u97f3\u9891\u8865\u5168 {{audioCompletion}} tokens / 1M tokens * {{symbol}}{{audioCompPrice}} * {{ratioType}} {{ratio}} = {{symbol}}{{total}}',
         {
           input: inputTokens,
           completion: completionTokens,
@@ -2436,7 +2476,7 @@ export function renderAudioModelPrice(
 
   return renderBillingArticle([
     buildBillingText(
-      '模型倍率 {{modelRatio}}，补全倍率 {{completionRatio}}，音频倍率 {{audioRatio}}，音频补全倍率 {{audioCompletionRatio}}，{{cachePart}}{{ratioType}} {{ratio}}',
+      '\u6a21\u578b\u500d\u7387 {{modelRatio}}\uff0c\u8865\u5168\u500d\u7387 {{completionRatio}}\uff0c\u97f3\u9891\u500d\u7387 {{audioRatio}}\uff0c\u97f3\u9891\u8865\u5168\u500d\u7387 {{audioCompletionRatio}}\uff0c{{cachePart}}{{ratioType}} {{ratio}}',
       {
         modelRatio: modelRatioValue,
         completionRatio: completionRatioValue,
@@ -2451,7 +2491,7 @@ export function renderAudioModelPrice(
       },
     ),
     buildBillingText(
-      '普通输入：{{tokens}} / 1M * 模型倍率 {{modelRatio}} * {{ratioType}} {{ratio}} = {{amount}}',
+      '\u666e\u901a\u8f93\u5165\uff1a{{tokens}} / 1M * \u6a21\u578b\u500d\u7387 {{modelRatio}} * {{ratioType}} {{ratio}} = {{amount}}',
       {
         tokens: Math.max(inputTokens - cacheTokens, 0),
         modelRatio: modelRatioValue,
@@ -2499,7 +2539,7 @@ export function renderAudioModelPrice(
       },
     ),
     buildBillingText(
-      '音频输入：{{tokens}} / 1M * 模型倍率 {{modelRatio}} * 音频倍率 {{audioRatio}} * {{ratioType}} {{ratio}} = {{amount}}',
+      '\u97f3\u9891\u8f93\u5165\uff1a{{tokens}} / 1M * \u6a21\u578b\u500d\u7387 {{modelRatio}} * \u97f3\u9891\u500d\u7387 {{audioRatio}} * {{ratioType}} {{ratio}} = {{amount}}',
       {
         tokens: audioInputTokens,
         modelRatio: modelRatioValue,
@@ -2515,7 +2555,7 @@ export function renderAudioModelPrice(
       },
     ),
     buildBillingText(
-      '音频输出：{{tokens}} / 1M * 模型倍率 {{modelRatio}} * 音频倍率 {{audioRatio}} * 音频补全倍率 {{audioCompletionRatio}} * {{ratioType}} {{ratio}} = {{amount}}',
+      '\u97f3\u9891\u8f93\u51fa\uff1a{{tokens}} / 1M * \u6a21\u578b\u500d\u7387 {{modelRatio}} * \u97f3\u9891\u500d\u7387 {{audioRatio}} * \u97f3\u9891\u8865\u5168\u500d\u7387 {{audioCompletionRatio}} * {{ratioType}} {{ratio}} = {{amount}}',
       {
         tokens: audioCompletionTokens,
         modelRatio: modelRatioValue,
@@ -2533,7 +2573,7 @@ export function renderAudioModelPrice(
       },
     ),
     buildBillingText(
-      '合计：文字部分 {{textTotal}} + 音频部分 {{audioTotal}} = {{total}}',
+      '\u5408\u8ba1\uff1a\u6587\u5b57\u90e8\u5206 {{textTotal}} + \u97f3\u9891\u90e8\u5206 {{audioTotal}} = {{total}}',
       {
         textTotal: renderDisplayAmountFromUsd(textPrice),
         audioTotal: renderDisplayAmountFromUsd(audioPrice),
@@ -2587,7 +2627,7 @@ export function renderClaudeModelPrice(
           rate,
         }),
         buildBillingPriceText(
-          '模型价格 {{symbol}}{{price}} / 次 * {{ratioType}} {{ratio}} = {{symbol}}{{total}}',
+          '\u6a21\u578b\u4ef7\u683c {{symbol}}{{price}} / \u6b21 * {{ratioType}} {{ratio}} = {{symbol}}{{total}}',
           {
             symbol,
             usdAmount: modelPrice,
@@ -2827,7 +2867,7 @@ export function renderClaudeModelPrice(
 
   return renderBillingArticle([
     buildBillingText(
-      '模型倍率 {{modelRatio}}，输出倍率 {{completionRatio}}，缓存倍率 {{cacheRatio}}，{{ratioType}} {{ratio}}',
+      '\u6a21\u578b\u500d\u7387 {{modelRatio}}\uff0c\u8f93\u51fa\u500d\u7387 {{completionRatio}}\uff0c\u7f13\u5b58\u500d\u7387 {{cacheRatio}}\uff0c{{ratioType}} {{ratio}}',
       {
         modelRatio: modelRatioValue,
         completionRatio: completionRatioValue,
@@ -2848,7 +2888,7 @@ export function renderClaudeModelPrice(
           cacheCreationRatio: cacheCreationRatioValue,
         }),
     buildBillingText(
-      '普通输入：{{tokens}} / 1M * 模型倍率 {{modelRatio}} * {{ratioType}} {{ratio}} = {{amount}}',
+      '\u666e\u901a\u8f93\u5165\uff1a{{tokens}} / 1M * \u6a21\u578b\u500d\u7387 {{modelRatio}} * {{ratioType}} {{ratio}} = {{amount}}',
       {
         tokens: inputTokens,
         modelRatio: modelRatioValue,
@@ -2954,7 +2994,7 @@ export function renderClaudeModelPrice(
         ),
       },
     ),
-    buildBillingText('合计：{{total}}', {
+    buildBillingText('\u5408\u8ba1\uff1a{{total}}', {
       total: renderDisplayAmountFromUsd(totalAmount),
     }),
   ]);
@@ -3100,21 +3140,21 @@ export function renderClaudeLogContent(
       }),
     ];
 
-    return parts.join('，');
+    return parts.join('\uff0c');
   }
 }
 
-// 已统一至 renderModelPriceSimple，若仍有遗留引用，请改为传入 provider='claude'
+// 宸茬粺涓€鑷?renderModelPriceSimple锛岃嫢浠嶆湁閬楃暀寮曠敤锛岃鏀逛负浼犲叆 provider='claude'
 
 /**
- * rehype 插件：将段落等文本节点拆分为逐词 <span>，并添加淡入动画 class。
- * 仅在流式渲染阶段使用，避免已渲染文字重复动画。
+ * rehype 鎻掍欢锛氬皢娈佃惤绛夋枃鏈妭鐐规媶鍒嗕负閫愯瘝 <span>锛屽苟娣诲姞娣″叆鍔ㄧ敾 class銆?
+ * 浠呭湪娴佸紡娓叉煋闃舵浣跨敤锛岄伩鍏嶅凡娓叉煋鏂囧瓧閲嶅鍔ㄧ敾銆?
  */
 export function rehypeSplitWordsIntoSpans(options = {}) {
   const { previousContentLength = 0 } = options;
 
   return (tree) => {
-    let currentCharCount = 0; // 当前已处理的字符数
+    let currentCharCount = 0; // 褰撳墠宸插鐞嗙殑瀛楃鏁?
 
     visit(tree, 'element', (node) => {
       if (
@@ -3127,7 +3167,7 @@ export function rehypeSplitWordsIntoSpans(options = {}) {
         node.children.forEach((child) => {
           if (child.type === 'text') {
             try {
-              // 使用 Intl.Segmenter 精准拆分中英文及标点
+              // 浣跨敤 Intl.Segmenter 绮惧噯鎷嗗垎涓嫳鏂囧強鏍囩偣
               const segmenter = new Intl.Segmenter('zh', {
                 granularity: 'word',
               });
@@ -3140,7 +3180,7 @@ export function rehypeSplitWordsIntoSpans(options = {}) {
                   const wordStartPos = currentCharCount;
                   const wordEndPos = currentCharCount + word.length;
 
-                  // 判断这个词是否是新增的（在 previousContentLength 之后）
+                  // 鍒ゆ柇杩欎釜璇嶆槸鍚︽槸鏂板鐨勶紙鍦?previousContentLength 涔嬪悗锛?
                   const isNewContent = wordStartPos >= previousContentLength;
 
                   newChildren.push({
@@ -3155,12 +3195,12 @@ export function rehypeSplitWordsIntoSpans(options = {}) {
                   currentCharCount = wordEndPos;
                 });
             } catch (_) {
-              // Fallback：如果浏览器不支持 Segmenter
+              // Fallback锛氬鏋滄祻瑙堝櫒涓嶆敮鎸?Segmenter
               const textStartPos = currentCharCount;
               const isNewContent = textStartPos >= previousContentLength;
 
               if (isNewContent) {
-                // 新内容，添加动画
+                // 鏂板唴瀹癸紝娣诲姞鍔ㄧ敾
                 newChildren.push({
                   type: 'element',
                   tagName: 'span',
@@ -3170,7 +3210,7 @@ export function rehypeSplitWordsIntoSpans(options = {}) {
                   children: [{ type: 'text', value: child.value }],
                 });
               } else {
-                // 旧内容，不添加动画
+                // 鏃у唴瀹癸紝涓嶆坊鍔犲姩鐢?
                 newChildren.push(child);
               }
 
@@ -3185,3 +3225,4 @@ export function rehypeSplitWordsIntoSpans(options = {}) {
     });
   };
 }
+

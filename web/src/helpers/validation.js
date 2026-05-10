@@ -1,14 +1,10 @@
-export const USERNAME_RULE_TEXT = '账号仅支持英文、数字、下划线，或邮箱地址';
+export const USERNAME_RULE_TEXT = '账号支持中文、英文、数字、符号和邮箱格式，不能包含空格，最多50个字符';
 
 export const normalizeUsername = (value = '') => value.trim();
 
-const USERNAME_PATTERN = /^[A-Za-z0-9_]+$/;
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const USERNAME_PATTERN = /^\S{1,50}$/u;
 
 export const isValidUsername = (value = '') => {
   const normalizedValue = normalizeUsername(value);
-  return (
-    USERNAME_PATTERN.test(normalizedValue) ||
-    EMAIL_PATTERN.test(normalizedValue)
-  );
+  return USERNAME_PATTERN.test(normalizedValue);
 };

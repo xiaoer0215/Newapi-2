@@ -34,7 +34,7 @@
     <img src="https://trendshift.io/api/badge/repositories/20180" alt="QuantumNous%2Fnew-api | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/>
   </a>
   <br>
-  <a href="https://hellogithub.com/repository/QuantumNous/new-api" target="_blank">
+  <a href="https://github.com/xiaoer0215/Newapi-2" target="_blank">
     <img src="https://api.hellogithub.com/v1/widgets/recommend.svg?rid=539ac4217e69431684ad4a0bab768811&claim_uid=tbFPfKIDHpc4TzR" alt="Featured｜HelloGitHub" style="width: 250px; height: 54px;" width="250" height="54" />
   </a><!--
   --><a href="https://www.producthunt.com/products/new-api/launches/new-api?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-new-api" target="_blank" rel="noopener noreferrer">
@@ -54,81 +54,10 @@
 
 ## 📝 项目说明
 
-> [!NOTE]
-> - 本仓库为基于 `new-api` 的二次开发开源版本，保留上游项目标识、核心架构与主要文档结构
-> - 适合作为二开功能整理、部署实践与后续持续迭代的公开代码仓库
-> - 如需查看原版能力、更新记录与完整官方文档，请优先参考上游 `new-api` 项目与文档
->
-> [!TIP]
-> - 如果你准备直接部署此仓库，建议先阅读下方的快速开始与部署说明
-> - 如果你准备继续二次开发，建议定期与上游 `new-api` 保持对比，减少后续合并成本
-> - 当前二开仓库地址：`https://github.com/xiaoer0215/Newapi-2.git`
-> - 下方保留的官方仓库、镜像与文档链接主要用于上游说明与兼容参考；如果你希望完全通过当前仓库分发，还需要同步维护你自己的 Releases、镜像与文档页
-
 > [!IMPORTANT]
 > - 本项目仅供个人学习使用，不保证稳定性，且不提供任何技术支持
 > - 使用者必须在遵循 OpenAI 的 [使用条款](https://openai.com/policies/terms-of-use) 以及**法律法规**的情况下使用，不得用于非法用途
 > - 根据 [《生成式人工智能服务管理暂行办法》](http://www.cac.gov.cn/2023-07/13/c_1690898327029107.htm) 的要求，请勿对中国地区公众提供一切未经备案的生成式人工智能服务
-
-## 🧩 二开版本补充说明
-
-### 当前仓库部署入口
-
-如果你希望直接使用当前二开仓库，而不是从上游仓库开始，请优先使用下面的仓库地址：
-
-```bash
-git clone https://github.com/xiaoer0215/Newapi-2.git
-cd Newapi-2
-```
-
-> 说明：
-> - 当前文档中保留的官方仓库、镜像与文档链接，主要用于说明上游来源与兼容关系
-> - 如果你计划完全通过当前仓库分发，建议同步维护自己的 Releases、镜像仓库、更新日志与文档首页
-
-### 当前仓库已整理的二开与定制能力
-
-当前版本基于 `new-api` 做了较大幅度的二次开发，围绕用户增长、运营管理、监控风控、前台体验与自动化售卖补充了大量实用能力，更适合作为可持续运营和继续扩展的二开基础版本。
-
-- 邀请与增长体系：新增邀请好友相关能力，支持邀请奖励、首充奖励、审核发放与基础风控，便于搭建裂变增长闭环
-- 监控增强：新增分组监控与模型监控，支持查看状态、成功率、失败次数等关键指标，便于快速定位异常渠道与模型
-- 前台与控制台 UI 调整：登录注册、模型广场、令牌界面等页面已做风格与交互优化，整体体验更贴近运营型站点
-- 模型广场来源说明：模型广场页面仿制 [one-hub](https://github.com/MartialBE/one-hub)
-- 用户端 AI 生图：提供基础 AI 生图功能，支持站内生图流程与余额结算，便于直接面向终端用户开放使用
-- 数据看板定制：看板内容可按需展示，并可额外放置两个二维码位，适合放置 QQ 群、客服微信等运营入口
-- 个人限速与请求控制：支持按分钟、小时、天为用户设置请求限额，方便进行精细化限流管理
-- 钱包与订阅管理：钱包界面支持折扣、赠送额度等可视化展示；新增订阅实例管理，可查看具体用户订阅内容
-- 兑换码、卡密搜索与自动发货：支持兑换码搜索联动用户查询，并提供卡密导入、搜索、上架与自动发货等能力
-- 日志与首页覆盖：支持启用请求日志、错误日志、额度消费日志，并修复 HTML 覆盖首页时可完整覆盖导航栏与底部的问题，但仍需保留 `new-api` 版权信息
-- 账单检索优化：支持按用户名或支付号查询支付记录，并取消原版订单号展示逻辑
-
----
-
-## 🧩 二开版本补充说明
-
-### 当前仓库部署入口
-
-如果你希望直接使用当前二开仓库，而不是从上游仓库开始，请优先使用下面的仓库地址：
-
-```bash
-git clone https://github.com/xiaoer0215/Newapi-2.git
-cd Newapi-2
-```
-
-> 说明：
-> - 当前文档中保留的官方链接用于保留上游引用与能力说明
-> - 如果要做到“全部通过你自己的仓库部署”，还建议你补齐自己的二进制发布、Docker 镜像仓库、更新日志和文档首页
-
-### 当前仓库已整理的二开与定制能力
-
-- 监控与展示增强：补充了分组监控与相关监控展示能力，支持不同时间窗口查看状态、失败次数、成功率等信息
-- 数据看板定制：首页 / 数据看板支持按需要配置展示版块，并可额外放置最多两个联系二维码面板，可用于 QQ 群、客服微信等场景
-- 前台与管理端 UI 调整：登录注册、模型广场、令牌管理、钱包管理等页面做了二开风格的界面与交互调整
-- 用户端 AI 生图：新增独立 AI 生图入口，可按后台绘图分组自动识别模型，为用户自动创建生图专用令牌，并直接走站内余额结算
-- 邀请奖励与审核风控：支持首次邀请奖励、首充达标奖励、后台人工审核、驳回理由、邀请余额发放，以及同 IP / 设备指纹 / 支付账户排查
-- 签到与请求控制：在原有签到基础上增加 Turnstile、人机校验、同 IP 每日限制，以及 VPN / 代理 / 机房 / 住宅代理 IP 检测；同时支持用户个人限速，按分钟 / 小时 / 天设置请求上限
-- 钱包、支付与账单：钱包管理界面支持折扣、赠送额度、到账额度等可视化展示，并支持钱包 / 订阅扣费偏好切换；充值账单侧支持按用户名或支付号检索记录
-- 订阅与运营能力：补充订阅套餐、用户订阅实例管理、补时 / 赠送 / 作废等操作；兑换码支持后台搜索管理；自动发货支持商品上架、卡密导入与售卖
-- 日志与首页覆盖能力：支持启用额度消费日志、请求错误日志等记录；首页与页脚支持 HTML / Markdown / iframe 方式自定义覆盖，适合完整替换首页展示，但仍需保留项目版权信息
 
 ---
 
@@ -181,7 +110,7 @@ cd Newapi-2
 
 ```bash
 # 克隆项目
-git clone https://github.com/QuantumNous/new-api.git
+git clone https://github.com/xiaoer0215/Newapi-2.git
 cd new-api
 
 # 编辑 docker-compose.yml 配置
@@ -230,7 +159,7 @@ docker run --name new-api -d --restart always \
 
 <div align="center">
 
-### 📖 [官方文档](https://docs.newapi.pro/zh/docs) | [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/QuantumNous/new-api)
+### 📖 [官方文档](https://docs.newapi.pro/zh/docs) | [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://github.com/xiaoer0215/Newapi-2)
 
 </div>
 
@@ -407,7 +336,7 @@ docker run --name new-api -d --restart always \
 
 ```bash
 # 克隆项目
-git clone https://github.com/QuantumNous/new-api.git
+git clone https://github.com/xiaoer0215/Newapi-2.git
 cd new-api
 
 # 编辑配置

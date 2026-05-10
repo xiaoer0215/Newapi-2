@@ -25,61 +25,37 @@ const { Text } = Typography;
 
 const ContactPanel = ({ contactImage, contactTitle, contactCaption, CARD_PROPS, t }) => {
   const captionLines = contactCaption
-    ? contactCaption.split('\n').map(l => l.trim()).filter(Boolean)
+    ? contactCaption.split(/\\n|\n/g).map((line) => line.trim()).filter(Boolean)
     : [];
 
   return (
     <Card
       {...CARD_PROPS}
-      className='shadow-sm !rounded-2xl'
-      style={{
-        background: 'rgba(255, 255, 255, 0.75)',
-        backdropFilter: 'blur(24px)',
-        WebkitBackdropFilter: 'blur(24px)',
-        border: '1px solid rgba(148, 163, 184, 0.2)',
-        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
-      }}
+      className='dashboard-glass-card shadow-sm !rounded-2xl lg:col-span-1'
       title={
         <div className='flex items-center gap-2'>
-          <QrCode size={16} />
-          {contactTitle || t('联系我们')}
+          <span className='dashboard-title-icon green'>
+            <QrCode size={16} />
+          </span>
+          {contactTitle || t('\u8054\u7cfb\u6211\u4eec')}
         </div>
       }
+      bodyStyle={{ padding: 0 }}
     >
-      <div className='flex flex-col items-center justify-center py-2 gap-3'>
-        <img
-          src={contactImage}
-          alt={contactTitle || t('联系二维码')}
-          style={{
-            maxWidth: '100%',
-            maxHeight: 200,
-            borderRadius: 8,
-            objectFit: 'contain',
-          }}
-          onError={(e) => { e.target.style.display = 'none'; }}
-        />
+      <div className='dashboard-contact-panel'>
+        <div className='dashboard-contact-qr'>
+          <img
+            src={contactImage}
+            alt={contactTitle || t('\u8054\u7cfb\u4e8c\u7ef4\u7801')}
+            onError={(event) => {
+              event.currentTarget.style.display = 'none';
+            }}
+          />
+        </div>
         {captionLines.length > 0 && (
-          <div style={{
-            width: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 4,
-            paddingTop: 8,
-            borderTop: '1px solid var(--semi-color-border)',
-          }}>
+          <div className='dashboard-contact-caption'>
             {captionLines.map((line, idx) => (
-              <Text
-                key={idx}
-                size='small'
-                style={{
-                  display: 'block',
-                  textAlign: 'center',
-                  color: 'var(--semi-color-text-1)',
-                  userSelect: 'text',
-                }}
-              >
-                {line}
-              </Text>
+              <Text key={idx}>{line}</Text>
             ))}
           </div>
         )}

@@ -17,12 +17,28 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func isGPTImageModel(modelName string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(modelName))
+	if normalized == "" {
+		return false
+	}
+
+	return strings.HasPrefix(normalized, "gpt-image-") || normalized == "chatgpt-image-latest"
+}
+
 func GetAndValidateRequest(c *gin.Context, format types.RelayFormat) (request dto.Request, err error) {
 	relayMode := relayconstant.Path2RelayMode(c.Request.URL.Path)
 
 	switch format {
 	case types.RelayFormatOpenAI:
-		request, err = GetAndValidateTextRequest(c, relayMode)
+		textRequest, textErr := GetAndValidateTextRequest(c, relayMode)
+		if textErr != nil {
+			return nil, textErr
+		}
+		if relayMode == relayconstant.RelayModeChatCompletions && common.IsImageGenerationModel(textRequest.Model) {
+			return BuildOpenAIImageRequestFromChatCompletions(c, textRequest)
+		}
+		request = textRequest
 	case types.RelayFormatGemini:
 		if strings.Contains(c.Request.URL.Path, ":embedContent") {
 			request, err = GetAndValidateGeminiEmbeddingRequest(c)
@@ -159,9 +175,9 @@ func GetAndValidOpenAIImageRequest(c *gin.Context, relayMode int) (*dto.ImageReq
 				imageRequest.Image, _ = json.Marshal(imageValue)
 			}
 
-			if imageRequest.Model == "gpt-image-1" {
+			if isGPTImageModel(imageRequest.Model) {
 				if imageRequest.Quality == "" {
-					imageRequest.Quality = "standard"
+					imageRequest.Quality = "auto"
 				}
 			}
 			if imageRequest.N == nil || *imageRequest.N == 0 {
@@ -209,7 +225,7 @@ func GetAndValidOpenAIImageRequest(c *gin.Context, relayMode int) (*dto.ImageReq
 			if imageRequest.Size == "" {
 				imageRequest.Size = "1024x1024"
 			}
-		} else if imageRequest.Model == "gpt-image-1" {
+		} else if isGPTImageModel(imageRequest.Model) {
 			if imageRequest.Quality == "" {
 				imageRequest.Quality = "auto"
 			}
@@ -290,7 +306,12 @@ func GetAndValidateTextRequest(c *gin.Context, relayMode int) (*dto.GeneralOpenA
 		// For FIM (Fill-in-the-middle) requests with prefix/suffix, messages is optional
 		// It will be filled by provider-specific adaptors if needed (e.g., SiliconFlow)。Or it is allowed by model vendor(s) (e.g., DeepSeek)
 		if len(textRequest.Messages) == 0 && textRequest.Prefix == nil && textRequest.Suffix == nil {
-			return nil, errors.New("field messages is required")
+			if !common.IsImageGenerationModel(textRequest.Model) {
+				return nil, errors.New("field messages is required")
+			}
+			if _, err := ExtractPromptFromOpenAIChatImageRequest(textRequest); err != nil {
+				return nil, err
+			}
 		}
 	case relayconstant.RelayModeEmbeddings:
 	case relayconstant.RelayModeModerations:
@@ -303,6 +324,147 @@ func GetAndValidateTextRequest(c *gin.Context, relayMode int) (*dto.GeneralOpenA
 		}
 	}
 	return textRequest, nil
+}
+
+func BuildOpenAIImageRequestFromChatCompletions(c *gin.Context, textRequest *dto.GeneralOpenAIRequest) (*dto.ImageRequest, error) {
+	if textRequest == nil {
+		return nil, errors.New("request is required")
+	}
+
+	prompt, err := ExtractPromptFromOpenAIChatImageRequest(textRequest)
+	if err != nil {
+		return nil, err
+	}
+
+	var rawFields map[string]json.RawMessage
+	if err = common.UnmarshalBodyReusable(c, &rawFields); err != nil {
+		return nil, err
+	}
+
+	imageRequest := &dto.ImageRequest{
+		Model:  textRequest.Model,
+		Prompt: prompt,
+		Size:   textRequest.Size,
+		User:   textRequest.User,
+	}
+
+	if textRequest.N != nil && *textRequest.N > 0 {
+		imageRequest.N = common.GetPointer(uint(*textRequest.N))
+	}
+
+	if value, ok := rawFields["quality"]; ok {
+		_ = common.Unmarshal(value, &imageRequest.Quality)
+	}
+	if value, ok := rawFields["response_format"]; ok {
+		var responseFormat string
+		if err = common.Unmarshal(value, &responseFormat); err == nil {
+			imageRequest.ResponseFormat = responseFormat
+		}
+	}
+	if value, ok := rawFields["style"]; ok {
+		imageRequest.Style = value
+	}
+	if value, ok := rawFields["background"]; ok {
+		imageRequest.Background = value
+	}
+	if value, ok := rawFields["moderation"]; ok {
+		imageRequest.Moderation = value
+	}
+	if value, ok := rawFields["output_format"]; ok {
+		imageRequest.OutputFormat = value
+	}
+	if value, ok := rawFields["output_compression"]; ok {
+		imageRequest.OutputCompression = value
+	}
+	if value, ok := rawFields["partial_images"]; ok {
+		imageRequest.PartialImages = value
+	}
+	if value, ok := rawFields["watermark"]; ok {
+		var watermark bool
+		if err = common.Unmarshal(value, &watermark); err == nil {
+			imageRequest.Watermark = common.GetPointer(watermark)
+		}
+	}
+	if value, ok := rawFields["image"]; ok {
+		imageRequest.Image = value
+	}
+
+	if imageRequest.N == nil || *imageRequest.N == 0 {
+		imageRequest.N = common.GetPointer(uint(1))
+	}
+	if isGPTImageModel(imageRequest.Model) && imageRequest.Quality == "" {
+		imageRequest.Quality = "auto"
+	}
+
+	return imageRequest, nil
+}
+
+func ExtractPromptFromOpenAIChatImageRequest(textRequest *dto.GeneralOpenAIRequest) (string, error) {
+	if textRequest == nil {
+		return "", errors.New("request is required")
+	}
+
+	sections := make([]string, 0, len(textRequest.Messages)+2)
+	promptText := strings.TrimSpace(stringifyOpenAIImagePromptValue(textRequest.Prompt))
+	if promptText != "" {
+		sections = append(sections, promptText)
+	}
+
+	inputText := strings.TrimSpace(strings.Join(textRequest.ParseInput(), "\n"))
+	if inputText != "" {
+		sections = append(sections, inputText)
+	}
+
+	for _, message := range textRequest.Messages {
+		messageText := strings.TrimSpace(message.StringContent())
+		if messageText == "" {
+			textParts := make([]string, 0, 2)
+			for _, content := range message.ParseContent() {
+				if content.Type == dto.ContentTypeText {
+					part := strings.TrimSpace(content.Text)
+					if part != "" {
+						textParts = append(textParts, part)
+					}
+				}
+			}
+			messageText = strings.TrimSpace(strings.Join(textParts, "\n"))
+		}
+		if messageText == "" {
+			continue
+		}
+		switch message.Role {
+		case "", "user":
+			sections = append(sections, messageText)
+		default:
+			sections = append(sections, fmt.Sprintf("%s: %s", message.Role, messageText))
+		}
+	}
+
+	prompt := strings.TrimSpace(strings.Join(sections, "\n\n"))
+	if prompt == "" {
+		return "", errors.New("prompt is required for image generation")
+	}
+	return prompt, nil
+}
+
+func stringifyOpenAIImagePromptValue(value any) string {
+	switch v := value.(type) {
+	case nil:
+		return ""
+	case string:
+		return v
+	case []any:
+		parts := make([]string, 0, len(v))
+		for _, item := range v {
+			part := strings.TrimSpace(stringifyOpenAIImagePromptValue(item))
+			if part != "" {
+				parts = append(parts, part)
+			}
+		}
+		return strings.Join(parts, "\n")
+	default:
+		return strings.TrimSpace(fmt.Sprintf("%v", v))
+	}
 }
 
 func GetAndValidateGeminiRequest(c *gin.Context) (*dto.GeminiChatRequest, error) {

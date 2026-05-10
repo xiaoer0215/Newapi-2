@@ -113,6 +113,7 @@ func (*CreemAdaptor) RequestPay(c *gin.Context, req *CreemPayRequest) {
 		Money:             selectedProduct.Price,
 		TradeNo:           referenceId,
 		PaymentMethod:     PaymentMethodCreem,
+		GroupSnapshot:     user.Group,
 		ClientIP:          c.ClientIP(),
 		DeviceFingerprint: getRequestDeviceFingerprint(c),
 		CreateTime:        time.Now().Unix(),

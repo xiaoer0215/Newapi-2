@@ -1,4 +1,4 @@
-/*
+﻿/*
 Copyright (C) 2025 QuantumNous
 
 This program is free software: you can redistribute it and/or modify
@@ -22,6 +22,8 @@ import { Layout } from '@douyinfe/semi-ui';
 import SiderBar from './SiderBar';
 import App from '../../App';
 import FooterBar from './Footer';
+import UserGroupWelcomeOverlay from './UserGroupWelcomeOverlay';
+import HomeNoticeModal from './HomeNoticeModal';
 import { ToastContainer } from 'react-toastify';
 import React, { useContext, useEffect, useState } from 'react';
 import { useIsMobile } from '../../hooks/common/useIsMobile';
@@ -29,8 +31,7 @@ import { useSidebarCollapsed } from '../../hooks/common/useSidebarCollapsed';
 import { useTranslation } from 'react-i18next';
 import {
   API,
-  getLogo,
-  getSystemName,
+  applySiteBranding,
   showError,
   setStatusData,
 } from '../../helpers';
@@ -42,7 +43,7 @@ const { Sider, Content, Header } = Layout;
 
 const PageLayout = () => {
   const [userState, userDispatch] = useContext(UserContext);
-  const [, statusDispatch] = useContext(StatusContext);
+  const [statusState, statusDispatch] = useContext(StatusContext);
   const isMobile = useIsMobile();
   const [collapsed, , setCollapsed] = useSidebarCollapsed();
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -68,9 +69,29 @@ const PageLayout = () => {
   const shouldInnerPadding =
     location.pathname.includes('/console') &&
     !location.pathname.startsWith('/console/chat') &&
-    location.pathname !== '/console/playground';
+    location.pathname !== '/console/playground' &&
+    location.pathname !== '/console/drawing';
 
   const isConsoleRoute = location.pathname.startsWith('/console');
+  const isDrawingPage = location.pathname === '/console/drawing';
+  const flatConsolePagePaths = [
+    '/console',
+    '/console/token',
+    '/console/log',
+    '/console/channel',
+    '/console/subscription',
+    '/console/redemption',
+    '/console/user',
+    '/console/setting',
+    '/console/group_monitor',
+    '/console/topup',
+    '/console/member_upgrade',
+    '/console/affiliate',
+    '/console/personal',
+    '/console/drawing',
+  ];
+  const isFlatConsolePage = flatConsolePagePaths.includes(location.pathname);
+  const shouldLowerFlatConsoleContent = isFlatConsolePage && !isDrawingPage;
   const showSider = isConsoleRoute && (!isMobile || drawerOpen);
 
   useEffect(() => {
@@ -105,17 +126,7 @@ const PageLayout = () => {
   useEffect(() => {
     loadUser();
     loadStatus().catch(console.error);
-    let systemName = getSystemName();
-    if (systemName) {
-      document.title = systemName;
-    }
-    let logo = getLogo();
-    if (logo) {
-      let linkElement = document.querySelector("link[rel~='icon']");
-      if (linkElement) {
-        linkElement.href = logo;
-      }
-    }
+    applySiteBranding();
   }, []);
 
   useEffect(() => {
@@ -149,8 +160,15 @@ const PageLayout = () => {
 
   // 首页有自定义HTML时，隐藏系统导航栏和Footer
   const isHomePage = location.pathname === '/';
-  const hasCustomHomepage = !!(window.__HOME_PAGE_CONTENT__?.trim());
+  const hasCustomHomepage = !!window.__HOME_PAGE_CONTENT__?.trim();
   const shouldHideChrome = isHomePage && hasCustomHomepage;
+  const contentPadding = shouldInnerPadding
+    ? isMobile
+      ? `calc(var(--header-height, 60px) + ${shouldLowerFlatConsoleContent ? 10 : 2}px) 5px 5px`
+      : `calc(var(--header-height, 60px) + ${shouldLowerFlatConsoleContent ? 12 : 2}px) 24px 24px`
+    : shouldHideChrome
+      ? '0'
+      : 'calc(var(--header-height, 60px) + 2px) 0 0';
 
   return (
     <Layout
@@ -158,7 +176,7 @@ const PageLayout = () => {
       style={{
         display: 'flex',
         flexDirection: 'column',
-        overflow: (isMobile && !isPlayground) ? 'visible' : 'hidden',
+        overflow: isMobile && !isPlayground ? 'visible' : 'hidden',
       }}
     >
       {!shouldHideChrome && (
@@ -181,7 +199,7 @@ const PageLayout = () => {
       )}
       <Layout
         style={{
-          overflow: (isMobile && !isPlayground) ? 'visible' : 'auto',
+          overflow: isMobile && !isPlayground ? 'visible' : 'auto',
           display: 'flex',
           flexDirection: 'column',
         }}
@@ -191,11 +209,14 @@ const PageLayout = () => {
             {/* 手机端遮罩层 */}
             {isMobile && drawerOpen && (
               <div
+                className='app-mobile-sider-mask'
                 onClick={() => setDrawerOpen(false)}
                 style={{
                   position: 'fixed',
                   inset: 0,
-                  background: 'rgba(15, 23, 42, 0.28)',
+                  background: 'rgba(255, 255, 255, 0.34)',
+                  backdropFilter: 'blur(10px) saturate(125%)',
+                  WebkitBackdropFilter: 'blur(10px) saturate(125%)',
                   zIndex: 98,
                 }}
               />
@@ -205,15 +226,15 @@ const PageLayout = () => {
               style={{
                 position: 'fixed',
                 left: 0,
-                top: '60px',
-                height: 'calc(100dvh - 60px)',
+                top: 'var(--header-height, 60px)',
+                height: 'calc(100dvh - var(--header-height, 60px))',
                 zIndex: 99,
                 border: 'none',
                 paddingRight: '0',
                 width: 'var(--sidebar-current-width)',
-                background: isMobile ? 'var(--semi-color-bg-1)' : 'transparent',
-                borderRight: isMobile ? '1px solid var(--semi-color-border)' : 'none',
-                boxShadow: isMobile ? '4px 0 24px rgba(15, 23, 42, 0.12)' : 'none',
+                background: '#fff',
+                borderRight: '1px solid #e5e7eb',
+                boxShadow: 'none',
                 overflowY: 'auto',
                 overflowX: 'hidden',
                 scrollbarWidth: 'none',
@@ -240,12 +261,17 @@ const PageLayout = () => {
           }}
         >
           <Content
+            className={isFlatConsolePage ? 'flat-console-content' : undefined}
+            data-console-page={isFlatConsolePage ? location.pathname : undefined}
             style={{
               flex: '1 0 auto',
-              overflowY: (isMobile && !isPlayground) ? 'visible' : 'hidden',
+              overflowY: isMobile && !isPlayground ? 'visible' : 'hidden',
               WebkitOverflowScrolling: 'touch',
-              padding: shouldInnerPadding ? (isMobile ? '5px' : '24px') : '0',
+              padding: isDrawingPage
+                ? 'calc(var(--header-height, 60px) + 2px) 0 0'
+                : contentPadding,
               position: 'relative',
+              background: '#f1f5f9',
             }}
           >
             <App />
@@ -262,6 +288,12 @@ const PageLayout = () => {
           )}
         </Layout>
       </Layout>
+      <UserGroupWelcomeOverlay
+        isConsoleRoute={isConsoleRoute}
+        user={userState?.user}
+        status={statusState?.status}
+      />
+      <HomeNoticeModal />
       <ToastContainer />
     </Layout>
   );

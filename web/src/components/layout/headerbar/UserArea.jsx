@@ -116,11 +116,11 @@ const UserArea = ({
             </Dropdown.Menu>
           }
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 12px 4px 4px', borderRadius: '20px', background: 'rgba(255,255,255,0.5)', cursor: 'pointer' }} className='hover:bg-semi-color-fill-1 transition-colors'>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '4px 12px 4px 5px', borderRadius: '999px', background: 'rgba(255,255,255,0.74)', border: '1px solid rgba(148,163,184,0.24)', cursor: 'pointer' }} className='app-user-profile-v2 hover:bg-semi-color-fill-1 transition-colors'>
             <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: stringToColor(userState.user.username) || 'linear-gradient(135deg, #c084fc, #9333ea)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '12px', fontWeight: 'bold' }}>
               {userState.user.username[0].toUpperCase()}
             </div>
-            <span style={{ fontSize: '13px', color: 'var(--semi-color-text-2)' }} className='hidden md:inline'>{userState.user.username}</span>
+            <span style={{ fontSize: '13px', color: '#1f2937', fontWeight: 700 }} className='hidden md:inline'>{userState.user.username}</span>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--semi-color-text-2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className=''><polyline points="6 9 12 15 18 9"></polyline></svg>
           </div>
         </Dropdown>

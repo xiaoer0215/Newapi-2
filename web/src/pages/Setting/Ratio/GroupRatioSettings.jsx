@@ -20,15 +20,20 @@ For commercial licensing, please contact support@quantumnous.com
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import {
   Button,
+  Card,
   Col,
   Collapsible,
   Form,
+  InputNumber,
   Radio,
   RadioGroup,
   Row,
+  Select,
   SideSheet,
+  Space,
   Spin,
   Switch,
+  TextArea,
   Tabs,
   Typography,
 } from '@douyinfe/semi-ui';
@@ -37,12 +42,14 @@ import { IconHelpCircle } from '@douyinfe/semi-icons';
 import {
   compareObjects,
   API,
+  setStatusData,
   showError,
   showSuccess,
   showWarning,
   verifyJSON,
 } from '../../../helpers';
 import { useTranslation } from 'react-i18next';
+import UserGroupIcon from '../../../components/common/UserGroupIcon';
 import GroupTable from './components/GroupTable';
 import AutoGroupList from './components/AutoGroupList';
 import GroupGroupRatioRules from './components/GroupGroupRatioRules';
@@ -53,11 +60,20 @@ const { Text, Title, Paragraph } = Typography;
 const OPTION_KEYS = [
   'GroupRatio',
   'UserUsableGroups',
+  'UserGroupIcons',
+  'UserGroupWelcomeOverlays',
   'GroupGroupRatio',
   'group_ratio_setting.group_special_usable_group',
   'AutoGroups',
   'DefaultUseAutoGroup',
 ];
+
+const MAX_WELCOME_OVERLAY_DURATION_SECONDS = 7 * 24 * 60 * 60;
+const WELCOME_OVERLAY_DURATION_UNITS = {
+  second: 1,
+  minute: 60,
+  hour: 3600,
+};
 
 function parseJSONSafe(str, fallback) {
   if (!str || !str.trim()) return fallback;
@@ -68,15 +84,58 @@ function parseJSONSafe(str, fallback) {
   }
 }
 
+function normalizeWelcomeOverlayConfig(value) {
+  if (!value || typeof value !== 'object') {
+    return { svg: '', autoCloseSeconds: 0, repeatIntervalSeconds: 0 };
+  }
+
+  return {
+    svg: String(value.svg || '').trim(),
+    autoCloseSeconds: Math.max(
+      0,
+      Math.min(
+        MAX_WELCOME_OVERLAY_DURATION_SECONDS,
+        Number.parseInt(value.auto_close_seconds, 10) || 0,
+      ),
+    ),
+    repeatIntervalSeconds: Math.max(
+      0,
+      Math.min(
+        MAX_WELCOME_OVERLAY_DURATION_SECONDS,
+        Number.parseInt(value.repeat_interval_seconds, 10) || 0,
+      ),
+    ),
+  };
+}
+
+function inferWelcomeOverlayTimeUnit(seconds) {
+  if (seconds >= WELCOME_OVERLAY_DURATION_UNITS.hour && seconds % WELCOME_OVERLAY_DURATION_UNITS.hour === 0) {
+    return 'hour';
+  }
+  if (seconds >= WELCOME_OVERLAY_DURATION_UNITS.minute && seconds % WELCOME_OVERLAY_DURATION_UNITS.minute === 0) {
+    return 'minute';
+  }
+  return 'second';
+}
+
 export default function GroupRatioSettings(props) {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [editMode, setEditMode] = useState('visual');
   const [showGuide, setShowGuide] = useState(false);
+  const [iconEditorModes, setIconEditorModes] = useState({});
+  const [welcomeOverlayCloseUnits, setWelcomeOverlayCloseUnits] = useState({});
+  const [welcomeOverlayRepeatUnits, setWelcomeOverlayRepeatUnits] = useState({});
+  const [selectedIconGroups, setSelectedIconGroups] = useState([]);
+  const [selectedWelcomeGroups, setSelectedWelcomeGroups] = useState([]);
+  const [iconGroupDraft, setIconGroupDraft] = useState('');
+  const [welcomeGroupDraft, setWelcomeGroupDraft] = useState('');
 
   const [inputs, setInputs] = useState({
     GroupRatio: '',
     UserUsableGroups: '',
+    UserGroupIcons: '',
+    UserGroupWelcomeOverlays: '',
     GroupGroupRatio: '',
     'group_ratio_setting.group_special_usable_group': '',
     AutoGroups: '',
@@ -90,6 +149,42 @@ export default function GroupRatioSettings(props) {
     const ratioMap = parseJSONSafe(inputs.GroupRatio, {});
     return Object.keys(ratioMap);
   }, [inputs.GroupRatio]);
+  const userUsableGroups = useMemo(
+    () => parseJSONSafe(inputs.UserUsableGroups, {}),
+    [inputs.UserUsableGroups],
+  );
+  const userGroupIcons = useMemo(
+    () => parseJSONSafe(inputs.UserGroupIcons, {}),
+    [inputs.UserGroupIcons],
+  );
+  const userGroupWelcomeOverlays = useMemo(
+    () => parseJSONSafe(inputs.UserGroupWelcomeOverlays, {}),
+    [inputs.UserGroupWelcomeOverlays],
+  );
+  const welcomeOverlayUnitOptions = useMemo(
+    () => [
+      { label: t('秒'), value: 'second' },
+      { label: t('分钟'), value: 'minute' },
+      { label: t('小时'), value: 'hour' },
+    ],
+    [t],
+  );
+  const iconGroupNames = useMemo(() => {
+    const names = new Set([
+      ...groupNames,
+      ...Object.keys(userUsableGroups || {}),
+      ...Object.keys(userGroupIcons || {}),
+    ]);
+    return Array.from(names).sort((a, b) => a.localeCompare(b));
+  }, [groupNames, userUsableGroups, userGroupIcons]);
+  const welcomeGroupNames = useMemo(() => {
+    const names = new Set([
+      ...groupNames,
+      ...Object.keys(userUsableGroups || {}),
+      ...Object.keys(userGroupWelcomeOverlays || {}),
+    ]);
+    return Array.from(names).sort((a, b) => a.localeCompare(b));
+  }, [groupNames, userUsableGroups, userGroupWelcomeOverlays]);
 
   async function onSubmit() {
     if (editMode === 'manual') {
@@ -129,6 +224,17 @@ export default function GroupRatioSettings(props) {
           return showError(res[i].data.message);
         }
       }
+      try {
+        const statusRes = await API.get('/api/status', {
+          skipErrorHandler: true,
+          disableDuplicate: true,
+        });
+        if (statusRes.data?.success && statusRes.data?.data) {
+          setStatusData(statusRes.data.data);
+        }
+      } catch (_) {
+        // Ignore status refresh failures; option saves have already succeeded.
+      }
       showSuccess(t('保存成功'));
       props.refresh();
     } catch (error) {
@@ -148,6 +254,11 @@ export default function GroupRatioSettings(props) {
     }
     setInputs(currentInputs);
     setInputsRow(structuredClone(currentInputs));
+    setIconEditorModes({});
+    setSelectedIconGroups([]);
+    setSelectedWelcomeGroups([]);
+    setIconGroupDraft('');
+    setWelcomeGroupDraft('');
     dataVersionRef.current += 1;
     if (refForm.current) {
       refForm.current.setValues(currentInputs);
@@ -174,6 +285,129 @@ export default function GroupRatioSettings(props) {
       ...prev,
       'group_ratio_setting.group_special_usable_group': value,
     }));
+  }, []);
+  const updateUserGroupIcon = useCallback((groupName, value) => {
+    setInputs((prev) => {
+      const nextIcons = parseJSONSafe(prev.UserGroupIcons, {});
+      const trimmedGroup = String(groupName || '').trim();
+      if (!trimmedGroup) {
+        return prev;
+      }
+      if (String(value || '').trim()) {
+        nextIcons[trimmedGroup] = value;
+      } else {
+        delete nextIcons[trimmedGroup];
+      }
+      return {
+        ...prev,
+        UserGroupIcons: JSON.stringify(nextIcons, null, 2),
+      };
+    });
+  }, []);
+  const handleUserGroupIconModeChange = useCallback(
+    (groupName, mode) => {
+      const trimmedGroup = String(groupName || '').trim();
+      if (!trimmedGroup) {
+        return;
+      }
+      setIconEditorModes((prev) => ({
+        ...prev,
+        [trimmedGroup]: mode,
+      }));
+      if (mode !== 'custom') {
+        updateUserGroupIcon(trimmedGroup, '');
+      }
+    },
+    [updateUserGroupIcon],
+  );
+  const removeUserGroupIconConfig = useCallback(
+    (groupName) => {
+      const trimmedGroup = String(groupName || '').trim();
+      if (!trimmedGroup) {
+        return;
+      }
+      setIconEditorModes((prev) => {
+        const nextModes = { ...prev };
+        delete nextModes[trimmedGroup];
+        return nextModes;
+      });
+      setSelectedIconGroups((prev) => prev.filter((item) => item !== trimmedGroup));
+      updateUserGroupIcon(trimmedGroup, '');
+    },
+    [updateUserGroupIcon],
+  );
+  const updateUserGroupWelcomeOverlay = useCallback((groupName, patch) => {
+    setInputs((prev) => {
+      const nextOverlays = parseJSONSafe(prev.UserGroupWelcomeOverlays, {});
+      const trimmedGroup = String(groupName || '').trim();
+      if (!trimmedGroup) {
+        return prev;
+      }
+
+      const currentOverlay = normalizeWelcomeOverlayConfig(
+        nextOverlays[trimmedGroup],
+      );
+      const nextOverlay = {
+        svg:
+          patch.svg !== undefined ? String(patch.svg || '').trim() : currentOverlay.svg,
+        auto_close_seconds:
+          patch.auto_close_seconds !== undefined
+            ? Math.max(
+                0,
+                Math.min(
+                  MAX_WELCOME_OVERLAY_DURATION_SECONDS,
+                  Number.parseInt(patch.auto_close_seconds, 10) || 0,
+                ),
+              )
+            : currentOverlay.autoCloseSeconds,
+        repeat_interval_seconds:
+          patch.repeat_interval_seconds !== undefined
+            ? Math.max(
+                0,
+                Math.min(
+                  MAX_WELCOME_OVERLAY_DURATION_SECONDS,
+                  Number.parseInt(patch.repeat_interval_seconds, 10) || 0,
+                ),
+              )
+            : currentOverlay.repeatIntervalSeconds,
+      };
+
+      if (nextOverlay.svg) {
+        nextOverlays[trimmedGroup] = nextOverlay;
+      } else {
+        delete nextOverlays[trimmedGroup];
+      }
+
+      return {
+        ...prev,
+        UserGroupWelcomeOverlays: JSON.stringify(nextOverlays, null, 2),
+      };
+    });
+  }, []);
+  const removeUserGroupWelcomeOverlayConfig = useCallback((groupName) => {
+    const trimmedGroup = String(groupName || '').trim();
+    if (!trimmedGroup) {
+      return;
+    }
+    setSelectedWelcomeGroups((prev) => prev.filter((item) => item !== trimmedGroup));
+    setWelcomeOverlayCloseUnits((prev) => {
+      const nextUnits = { ...prev };
+      delete nextUnits[trimmedGroup];
+      return nextUnits;
+    });
+    setWelcomeOverlayRepeatUnits((prev) => {
+      const nextUnits = { ...prev };
+      delete nextUnits[trimmedGroup];
+      return nextUnits;
+    });
+    setInputs((prev) => {
+      const nextOverlays = parseJSONSafe(prev.UserGroupWelcomeOverlays, {});
+      delete nextOverlays[trimmedGroup];
+      return {
+        ...prev,
+        UserGroupWelcomeOverlays: JSON.stringify(nextOverlays, null, 2),
+      };
+    });
   }, []);
 
   const dv = dataVersionRef.current;
@@ -250,6 +484,421 @@ export default function GroupRatioSettings(props) {
           onChange={handleSpecialUsableChange}
         />
       </Form.Section>
+
+      <Form.Section text={t('\u5206\u7ec4\u56fe\u6807')}>
+        <Text
+          type='tertiary'
+          size='small'
+          style={{ display: 'block', marginBottom: 12 }}
+        >
+          {t(
+            '\u8fd9\u91cc\u53ef\u4ee5\u586b\u5199\u56fe\u7247 URL\u3001data:image \u6216\u76f4\u63a5\u7c98\u8d34 SVG \u4ee3\u7801\u3002\u4fdd\u5b58\u540e\uff0c\u5c5e\u4e8e\u8fd9\u4e2a\u5206\u7ec4\u7684\u7528\u6237\u540d\u540e\u9762\u5c31\u4f1a\u663e\u793a\u5bf9\u5e94\u56fe\u6807\u3002',
+          )}
+        </Text>
+        {iconGroupNames.length === 0 ? (
+          <Card bodyStyle={{ padding: 16 }} className='!rounded-2xl'>
+            <Text type='tertiary'>
+              {t('\u5f53\u524d\u8fd8\u6ca1\u6709\u53ef\u914d\u7f6e\u7684\u5206\u7ec4\uff0c\u8bf7\u5148\u5728\u4e0a\u9762\u7684\u5206\u7ec4\u7ba1\u7406\u91cc\u521b\u5efa\u5206\u7ec4\u3002')}
+            </Text>
+          </Card>
+        ) : (
+          <>
+            <div className='mb-3 flex flex-wrap items-center gap-2'>
+              <Select
+                style={{ width: 240 }}
+                filter
+                allowCreate
+                showClear
+                placeholder={t('\u9009\u62e9\u8981\u914d\u7f6e\u56fe\u6807\u7684\u5206\u7ec4')}
+                optionList={
+                  iconGroupDraft && !iconGroupNames.includes(iconGroupDraft)
+                    ? [
+                        ...iconGroupNames
+                          .filter((groupName) => !selectedIconGroups.includes(groupName))
+                          .map((groupName) => ({ label: groupName, value: groupName })),
+                        { label: iconGroupDraft, value: iconGroupDraft },
+                      ]
+                    : iconGroupNames
+                        .filter((groupName) => !selectedIconGroups.includes(groupName))
+                        .map((groupName) => ({ label: groupName, value: groupName }))
+                }
+                value={iconGroupDraft || undefined}
+                onChange={(value) => setIconGroupDraft(String(value || ''))}
+              />
+              <Button
+                theme='outline'
+                disabled={!String(iconGroupDraft || '').trim()}
+                onClick={() => {
+                  const trimmedGroup = String(iconGroupDraft || '').trim();
+                  if (!trimmedGroup) return;
+                  setSelectedIconGroups((prev) =>
+                    Array.from(new Set([...prev, trimmedGroup])).sort((a, b) =>
+                      a.localeCompare(b),
+                    ),
+                  );
+                  setIconGroupDraft('');
+                }}
+              >
+                {t('\u65b0\u589e\u5206\u7ec4\u56fe\u6807')}
+              </Button>
+            </div>
+            {selectedIconGroups.length === 0 ? (
+              <div className='rounded-2xl border border-dashed border-[var(--semi-color-border)] px-4 py-4'>
+                <Text type='tertiary'>
+                  {t('\u5148\u9009\u62e9\u4e00\u4e2a\u5206\u7ec4\uff0c\u518d\u5355\u72ec\u914d\u7f6e\u5b83\u7684\u56fe\u6807\u3002')}
+                </Text>
+              </div>
+            ) : (
+              <div className='grid grid-cols-1 gap-3 md:grid-cols-2'>
+                {selectedIconGroups.map((groupName) => {
+                  const iconValue = String(userGroupIcons?.[groupName] || '');
+                  const displayName = userUsableGroups?.[groupName] || groupName;
+                  const iconMode =
+                    iconEditorModes[groupName] ||
+                    (iconValue.trim() ? 'custom' : 'disabled');
+
+                  return (
+                    <div
+                      key={`icon_${groupName}`}
+                      className='rounded-2xl border border-[var(--semi-color-border)] px-4 py-4'
+                    >
+                      <div className='mb-3 flex items-center justify-between gap-3'>
+                        <div>
+                          <Text strong>{groupName}</Text>
+                          {displayName !== groupName ? (
+                            <div className='mt-1 text-xs text-semi-color-text-2'>
+                              {displayName}
+                            </div>
+                          ) : null}
+                        </div>
+                        <div className='flex items-center gap-2'>
+                          <Select
+                            style={{ width: 150 }}
+                            optionList={[
+                              { label: t('\u4e0d\u4f7f\u7528\u56fe\u6807'), value: 'disabled' },
+                              { label: t('\u586b\u5199\u81ea\u5b9a\u4e49\u56fe\u6807'), value: 'custom' },
+                            ]}
+                            value={iconMode}
+                            onChange={(value) =>
+                              handleUserGroupIconModeChange(groupName, value)
+                            }
+                          />
+                          <Button
+                            theme='borderless'
+                            type='danger'
+                            onClick={() => removeUserGroupIconConfig(groupName)}
+                          >
+                            {t('\u5220\u9664')}
+                          </Button>
+                        </div>
+                      </div>
+                      {iconMode === 'custom' ? (
+                        <div className='flex flex-col gap-3 lg:flex-row lg:items-start'>
+                          <div className='flex min-h-[72px] items-center justify-center rounded-xl bg-semi-color-fill-0 px-3 lg:w-[180px] lg:min-w-[180px]'>
+                            {iconValue ? (
+                              <UserGroupIcon
+                                value={iconValue}
+                                alt={groupName}
+                                wrapperClassName='inline-flex h-8 w-auto items-center'
+                                imgClassName='block h-8 w-auto object-contain'
+                                svgClassName='block h-8 w-auto [&>svg]:block [&>svg]:h-8 [&>svg]:w-auto'
+                              />
+                            ) : (
+                              <Text type='tertiary' size='small'>
+                                {t('\u9009\u62e9\u540e\u5728\u53f3\u8fb9\u586b\u5199\u56fe\u6807\u5185\u5bb9')}
+                              </Text>
+                            )}
+                          </div>
+                          <div className='flex-1'>
+                            <TextArea
+                              style={{ height: 72, minHeight: 72 }}
+                              placeholder={t('\u652f\u6301\u76f4\u63a5\u7c98\u8d34 SVG \u4ee3\u7801\uff0c\u6216\u586b\u5199\u56fe\u7247 URL')}
+                              value={iconValue}
+                              onChange={(value) => updateUserGroupIcon(groupName, value)}
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <Text type='tertiary' size='small'>
+                          {t('\u5f53\u524d\u5206\u7ec4\u4e0d\u663e\u793a\u56fe\u6807')}
+                        </Text>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        )}
+      </Form.Section>
+
+      <Form.Section text={t('分组欢迎弹层')}>
+        <Text
+          type='tertiary'
+          size='small'
+          style={{ display: 'block', marginBottom: 12 }}
+        >
+          {t(
+            '这里可以给指定分组配置全屏欢迎弹层。用户切换或升级到该分组后，进入控制台会自动展示；支持粘贴 SVG 代码，用户也可以手动关闭。',
+          )}
+        </Text>
+        {welcomeGroupNames.length === 0 ? (
+          <Card bodyStyle={{ padding: 16 }} className='!rounded-2xl'>
+            <Text type='tertiary'>
+              {t('\u5f53\u524d\u8fd8\u6ca1\u6709\u53ef\u914d\u7f6e\u7684\u5206\u7ec4\uff0c\u8bf7\u5148\u5728\u4e0a\u9762\u7684\u5206\u7ec4\u7ba1\u7406\u91cc\u521b\u5efa\u5206\u7ec4\u3002')}
+            </Text>
+          </Card>
+        ) : (
+          <>
+            <div className='mb-3 flex flex-wrap items-center gap-2'>
+              <Select
+                style={{ width: 240 }}
+                filter
+                allowCreate
+                showClear
+                placeholder={t('\u9009\u62e9\u8981\u914d\u7f6e\u6b22\u8fce\u5f39\u5c42\u7684\u5206\u7ec4')}
+                optionList={
+                  welcomeGroupDraft && !welcomeGroupNames.includes(welcomeGroupDraft)
+                    ? [
+                        ...welcomeGroupNames
+                          .filter(
+                            (groupName) => !selectedWelcomeGroups.includes(groupName),
+                          )
+                          .map((groupName) => ({
+                            label: groupName,
+                            value: groupName,
+                          })),
+                        { label: welcomeGroupDraft, value: welcomeGroupDraft },
+                      ]
+                    : welcomeGroupNames
+                        .filter(
+                          (groupName) => !selectedWelcomeGroups.includes(groupName),
+                        )
+                        .map((groupName) => ({
+                          label: groupName,
+                          value: groupName,
+                        }))
+                }
+                value={welcomeGroupDraft || undefined}
+                onChange={(value) => setWelcomeGroupDraft(String(value || ''))}
+              />
+              <Button
+                theme='outline'
+                disabled={!String(welcomeGroupDraft || '').trim()}
+                onClick={() => {
+                  const trimmedGroup = String(welcomeGroupDraft || '').trim();
+                  if (!trimmedGroup) return;
+                  setSelectedWelcomeGroups((prev) =>
+                    Array.from(new Set([...prev, trimmedGroup])).sort((a, b) =>
+                      a.localeCompare(b),
+                    ),
+                  );
+                  setWelcomeGroupDraft('');
+                }}
+              >
+                {t('\u65b0\u589e\u6b22\u8fce\u5f39\u5c42')}
+              </Button>
+            </div>
+            {selectedWelcomeGroups.length === 0 ? (
+              <Card bodyStyle={{ padding: 16 }} className='!rounded-2xl'>
+                <Text type='tertiary'>
+                  {t('\u5148\u9009\u62e9\u4e00\u4e2a\u5206\u7ec4\uff0c\u518d\u5355\u72ec\u914d\u7f6e\u5b83\u7684\u5168\u5c4f\u6b22\u8fce\u5f39\u5c42\u3002')}
+                </Text>
+              </Card>
+            ) : (
+              <Space vertical style={{ width: '100%' }} spacing={12}>
+                {selectedWelcomeGroups.map((groupName) => {
+                  const welcomeOverlay = normalizeWelcomeOverlayConfig(
+                    userGroupWelcomeOverlays?.[groupName],
+                  );
+                  const displayName = userUsableGroups?.[groupName] || groupName;
+                  const selectedCloseUnit =
+                    welcomeOverlayCloseUnits[groupName] ||
+                    inferWelcomeOverlayTimeUnit(welcomeOverlay.autoCloseSeconds);
+                  const closeUnitSeconds =
+                    WELCOME_OVERLAY_DURATION_UNITS[selectedCloseUnit] || 1;
+                  const closeDisplayValue =
+                    welcomeOverlay.autoCloseSeconds > 0
+                      ? Number(
+                          (
+                            welcomeOverlay.autoCloseSeconds / closeUnitSeconds
+                          ).toFixed(selectedCloseUnit === 'second' ? 0 : 2),
+                        )
+                      : 0;
+                  const closeInputStep =
+                    selectedCloseUnit === 'second' ? 1 : 0.5;
+                  const closeInputPrecision =
+                    selectedCloseUnit === 'second' ? 0 : 2;
+                  const closeInputMax =
+                    MAX_WELCOME_OVERLAY_DURATION_SECONDS / closeUnitSeconds;
+                  const selectedRepeatUnit =
+                    welcomeOverlayRepeatUnits[groupName] ||
+                    inferWelcomeOverlayTimeUnit(welcomeOverlay.repeatIntervalSeconds);
+                  const repeatUnitSeconds =
+                    WELCOME_OVERLAY_DURATION_UNITS[selectedRepeatUnit] || 1;
+                  const repeatDisplayValue =
+                    welcomeOverlay.repeatIntervalSeconds > 0
+                      ? Number(
+                          (
+                            welcomeOverlay.repeatIntervalSeconds / repeatUnitSeconds
+                          ).toFixed(selectedRepeatUnit === 'second' ? 0 : 2),
+                        )
+                      : 0;
+                  const repeatInputStep =
+                    selectedRepeatUnit === 'second' ? 1 : 0.5;
+                  const repeatInputPrecision =
+                    selectedRepeatUnit === 'second' ? 0 : 2;
+                  const repeatInputMax =
+                    MAX_WELCOME_OVERLAY_DURATION_SECONDS / repeatUnitSeconds;
+
+                  return (
+                    <Card
+                      key={`welcome_${groupName}`}
+                      bodyStyle={{ padding: 16 }}
+                      className='!rounded-2xl'
+                    >
+                      <div className='mb-4 flex items-center justify-between gap-3'>
+                        <div>
+                          <Text strong>{groupName}</Text>
+                          {displayName !== groupName ? (
+                            <div className='mt-1 text-xs text-semi-color-text-2'>
+                              {displayName}
+                            </div>
+                          ) : null}
+                        </div>
+                        <div className='flex items-center gap-2'>
+                          <div className='text-xs text-semi-color-text-2'>
+                            {t('\u5168\u5c4f\u6b22\u8fce\u5c42')}
+                          </div>
+                          <Button
+                            theme='borderless'
+                            type='danger'
+                            onClick={() =>
+                              removeUserGroupWelcomeOverlayConfig(groupName)
+                            }
+                          >
+                            {t('\u5220\u9664')}
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className='mb-4 overflow-hidden rounded-2xl border border-[var(--semi-color-border)] bg-[rgba(15,23,42,0.88)] p-4'>
+                        <div className='flex h-[180px] items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-white/5'>
+                          {welcomeOverlay.svg ? (
+                            <UserGroupIcon
+                              value={welcomeOverlay.svg}
+                              alt={`${groupName}-welcome`}
+                              wrapperClassName='flex h-full w-full items-center justify-center overflow-hidden'
+                              imgClassName='max-h-full max-w-full object-contain'
+                              svgClassName='block h-full w-full [&>svg]:block [&>svg]:h-full [&>svg]:w-full'
+                            />
+                          ) : (
+                            <Text type='tertiary'>{t('\u672a\u8bbe\u7f6e\u6b22\u8fce\u5f39\u5c42')}</Text>
+                          )}
+                        </div>
+                      </div>
+
+                      <Row gutter={12}>
+                        <Col xs={24} md={12}>
+                          <div className='mb-1 text-sm font-medium text-semi-color-text-0'>
+                            {t('\u81ea\u52a8\u5173\u95ed\u65f6\u957f')}
+                          </div>
+                          <div className='flex gap-2'>
+                            <InputNumber
+                              min={0}
+                              max={closeInputMax}
+                              step={closeInputStep}
+                              precision={closeInputPrecision}
+                              style={{ width: '100%' }}
+                              placeholder={t('0 = \u4e0d\u81ea\u52a8\u5173\u95ed')}
+                              value={closeDisplayValue}
+                              onChange={(value) =>
+                                updateUserGroupWelcomeOverlay(groupName, {
+                                  auto_close_seconds: Math.round(
+                                    Number(value || 0) * closeUnitSeconds,
+                                  ),
+                                })
+                              }
+                            />
+                            <Select
+                              style={{ width: 110 }}
+                              optionList={welcomeOverlayUnitOptions}
+                              value={selectedCloseUnit}
+                              onChange={(value) =>
+                                setWelcomeOverlayCloseUnits((prev) => ({
+                                  ...prev,
+                                  [groupName]: value,
+                                }))
+                              }
+                            />
+                          </div>
+                          <div className='mt-1 text-xs text-semi-color-text-2'>
+                            {t('\u586b 0 \u8868\u793a\u53ea\u5141\u8bb8\u7528\u6237\u624b\u52a8\u70b9\u51fb\u5173\u95ed\uff0c\u652f\u6301\u79d2\u3001\u5206\u949f\u3001\u5c0f\u65f6\uff0c\u6700\u957f 168 \u5c0f\u65f6\u3002')}
+                          </div>
+                        </Col>
+                        <Col xs={24} md={12}>
+                          <div className='mb-1 text-sm font-medium text-semi-color-text-0'>
+                            {t('\u91cd\u590d\u51fa\u73b0\u95f4\u9694')}
+                          </div>
+                          <div className='flex gap-2'>
+                            <InputNumber
+                              min={0}
+                              max={repeatInputMax}
+                              step={repeatInputStep}
+                              precision={repeatInputPrecision}
+                              style={{ width: '100%' }}
+                              placeholder={t('0 = \u53ea\u5728\u5347\u7ea7\u6216\u914d\u7f6e\u53d8\u5316\u65f6\u51fa\u73b0')}
+                              value={repeatDisplayValue}
+                              onChange={(value) =>
+                                updateUserGroupWelcomeOverlay(groupName, {
+                                  repeat_interval_seconds: Math.round(
+                                    Number(value || 0) * repeatUnitSeconds,
+                                  ),
+                                })
+                              }
+                            />
+                            <Select
+                              style={{ width: 110 }}
+                              optionList={welcomeOverlayUnitOptions}
+                              value={selectedRepeatUnit}
+                              onChange={(value) =>
+                                setWelcomeOverlayRepeatUnits((prev) => ({
+                                  ...prev,
+                                  [groupName]: value,
+                                }))
+                              }
+                            />
+                          </div>
+                          <div className='mt-1 text-xs text-semi-color-text-2'>
+                            {t('\u586b 0 \u8868\u793a\u53ea\u5728\u7528\u6237\u5347\u7ea7\u5230\u8be5\u5206\u7ec4\u6216\u4f60\u4fee\u6539\u6b22\u8fce\u56fe\u914d\u7f6e\u540e\u51fa\u73b0\uff1b\u5426\u5219\u4f1a\u6309\u8bbe\u7f6e\u7684\u95f4\u9694\u91cd\u590d\u51fa\u73b0\u3002')}
+                          </div>
+                        </Col>
+                      </Row>
+                      <Row gutter={12} style={{ marginTop: 12 }}>
+                        <Col xs={24}>
+                          <div className='mb-1 text-sm font-medium text-semi-color-text-0'>
+                            {t('\u6b22\u8fce\u5f39\u5c42 SVG')}
+                          </div>
+                          <TextArea
+                            style={{ height: 120, minHeight: 120 }}
+                            placeholder={t('\u652f\u6301\u76f4\u63a5\u7c98\u8d34 SVG \u4ee3\u7801\uff0c\u5efa\u8bae\u505a\u6210\u5168\u5c4f\u6bd4\u4f8b\u7684\u52a8\u6001\u56fe')}
+                            value={welcomeOverlay.svg}
+                            onChange={(value) =>
+                              updateUserGroupWelcomeOverlay(groupName, {
+                                svg: value,
+                              })
+                            }
+                          />
+                        </Col>
+                      </Row>
+                    </Card>
+                  );
+                })}
+              </Space>
+            )}
+          </>
+        )}
+      </Form.Section>
     </Form>
   );
 
@@ -258,6 +907,48 @@ export default function GroupRatioSettings(props) {
       refForm.current.setValues(inputs);
     }
   }, [editMode]);
+
+  useEffect(() => {
+    setIconEditorModes((prev) => {
+      const nextModes = {};
+      iconGroupNames.forEach((groupName) => {
+        if (prev[groupName]) {
+          nextModes[groupName] = prev[groupName];
+          return;
+        }
+        nextModes[groupName] = String(userGroupIcons?.[groupName] || '').trim()
+          ? 'custom'
+          : 'disabled';
+      });
+      return nextModes;
+    });
+  }, [iconGroupNames, userGroupIcons]);
+
+  useEffect(() => {
+    setSelectedIconGroups((prev) => {
+      const configuredGroups = Object.keys(userGroupIcons || {}).filter(Boolean);
+      const merged = Array.from(new Set([...configuredGroups, ...prev]));
+      return merged.filter(
+        (groupName) =>
+          Boolean(groupName) &&
+          (iconGroupNames.includes(groupName) || configuredGroups.includes(groupName)),
+      );
+    });
+  }, [iconGroupNames, userGroupIcons]);
+
+  useEffect(() => {
+    setSelectedWelcomeGroups((prev) => {
+      const configuredGroups = Object.keys(userGroupWelcomeOverlays || {}).filter(
+        Boolean,
+      );
+      const merged = Array.from(new Set([...configuredGroups, ...prev]));
+      return merged.filter(
+        (groupName) =>
+          Boolean(groupName) &&
+          (welcomeGroupNames.includes(groupName) || configuredGroups.includes(groupName)),
+      );
+    });
+  }, [welcomeGroupNames, userGroupWelcomeOverlays]);
 
   const renderManualMode = () => (
     <Form
@@ -313,6 +1004,57 @@ export default function GroupRatioSettings(props) {
               ]}
               onChange={(value) =>
                 setInputs((prev) => ({ ...prev, UserUsableGroups: value }))
+              }
+            />
+          </Col>
+        </Row>
+        <Row gutter={16}>
+          <Col xs={24} sm={16}>
+            <Form.TextArea
+              label={t('\u5206\u7ec4\u56fe\u6807')}
+              placeholder={t('\u8bf7\u8f93\u5165 JSON\uff0c\u952e\u662f\u5206\u7ec4\u540d\uff0c\u503c\u662f SVG \u4ee3\u7801\u6216\u56fe\u7247 URL')}
+              extraText={t(
+                '\u4f8b\u5982\uff1a{"svip": "<svg ...>...</svg>", "vip": "https://example.com/vip.svg"}',
+              )}
+              field={'UserGroupIcons'}
+              autosize={{ minRows: 6, maxRows: 12 }}
+              trigger='blur'
+              stopValidateWithError
+              rules={[
+                {
+                  validator: (rule, value) => verifyJSON(value),
+                  message: t('\u8bf7\u8f93\u5165\u5408\u6cd5\u7684 JSON \u5b57\u7b26\u4e32'),
+                },
+              ]}
+              onChange={(value) =>
+                setInputs((prev) => ({ ...prev, UserGroupIcons: value }))
+              }
+            />
+          </Col>
+        </Row>
+        <Row gutter={16}>
+          <Col xs={24} sm={16}>
+            <Form.TextArea
+              label={t('分组欢迎弹层')}
+              placeholder={t('请输入 JSON，键是分组名，值里包含 svg、auto_close_seconds 和 repeat_interval_seconds')}
+              extraText={t(
+                '例如：{"svip": {"svg": "<svg ...>...</svg>", "auto_close_seconds": 6, "repeat_interval_seconds": 3600}}',
+              )}
+              field={'UserGroupWelcomeOverlays'}
+              autosize={{ minRows: 6, maxRows: 12 }}
+              trigger='blur'
+              stopValidateWithError
+              rules={[
+                {
+                  validator: (rule, value) => verifyJSON(value),
+                  message: t('请输入合法的 JSON 字符串'),
+                },
+              ]}
+              onChange={(value) =>
+                setInputs((prev) => ({
+                  ...prev,
+                  UserGroupWelcomeOverlays: value,
+                }))
               }
             />
           </Col>

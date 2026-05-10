@@ -34,6 +34,7 @@ type Log struct {
 	ChannelName      string `json:"channel_name" gorm:"->"`
 	TokenId          int    `json:"token_id" gorm:"default:0;index"`
 	Group            string `json:"group" gorm:"index"`
+	UserGroup        string `json:"user_group" gorm:"-"`
 	Ip               string `json:"ip" gorm:"index;default:''"`
 	RequestId        string `json:"request_id,omitempty" gorm:"type:varchar(64);index:idx_logs_request_id;default:''"`
 	Other            string `json:"other"`
@@ -320,6 +321,29 @@ func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName
 		}
 		for i := range logs {
 			logs[i].ChannelName = channelMap[logs[i].ChannelId]
+		}
+	}
+
+	userIds := types.NewSet[int]()
+	for _, log := range logs {
+		if log.UserId != 0 {
+			userIds.Add(log.UserId)
+		}
+	}
+	if userIds.Len() > 0 {
+		var users []struct {
+			Id    int    `gorm:"column:id"`
+			Group string `gorm:"column:group"`
+		}
+		if err = DB.Model(&User{}).Select("id, "+commonGroupCol).Where("id IN ?", userIds.Items()).Find(&users).Error; err != nil {
+			return logs, total, err
+		}
+		userGroupMap := make(map[int]string, len(users))
+		for _, user := range users {
+			userGroupMap[user.Id] = user.Group
+		}
+		for i := range logs {
+			logs[i].UserGroup = userGroupMap[logs[i].UserId]
 		}
 	}
 

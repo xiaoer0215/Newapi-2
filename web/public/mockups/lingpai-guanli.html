@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>系统控制台 - 令牌管理</title>
+    <style>
+        :root {
+            --primary: #006FEE;
+            --primary-hover: #005BC4;
+            --primary-active: #004493;
+            --primary-glow: rgba(0, 111, 238, 0.4);
+            --danger: #F31260;
+            --danger-hover: #C80E4F;
+            --success: #17C964;
+            --warning: #F5A524;
+            --text-main: #11181C;
+            --text-secondary: #687076;
+            --text-tertiary: #879097;
+            --border-color: rgba(0, 0, 0, 0.08);
+            --border-highlight: rgba(255, 255, 255, 0.8);
+            --card-bg: rgba(255, 255, 255, 0.65);
+            --input-bg: rgba(255, 255, 255, 0.7);
+            --input-bg-focus: #ffffff;
+            --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.02), 0 1px 2px rgba(0, 0, 0, 0.04);
+            --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.04), 0 2px 4px rgba(0, 0, 0, 0.04);
+            --shadow-lg: 0 24px 48px rgba(0, 0, 0, 0.08), 0 12px 24px rgba(0, 0, 0, 0.06);
+            --glass-blur: 48px;
+            --radius-card: 28px;
+            --radius-btn: 14px;
+            --radius-input: 16px;
+            --spring-easing: cubic-bezier(0.175, 0.885, 0.32, 1.15);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --primary: #006FEE;
+                --primary-hover: #338EF7;
+                --text-main: #ECEDEE;
+                --text-secondary: #9BA1A6;
+                --border-color: rgba(255, 255, 255, 0.1);
+                --card-bg: rgba(17, 17, 17, 0.6);
+                --input-bg: rgba(255, 255, 255, 0.03);
+                --input-bg-focus: rgba(255, 255, 255, 0.08);
+            }
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: #f4f6f8;
+            background-image: radial-gradient(at 0% 0%, hsla(210, 100%, 95%, 1) 0, transparent 50%), radial-gradient(at 100% 0%, hsla(240, 100%, 95%, 1) 0, transparent 50%);
+            color: var(--text-main);
+            padding: 40px;
+            min-height: 100vh;
+        }
+
+        @media (prefers-color-scheme: dark) { body { background-color: #000000; } }
+
+        .dashboard-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.3));
+            backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+            border: 1px solid var(--border-highlight);
+            border-radius: var(--radius-card);
+            padding: 40px;
+            box-shadow: var(--shadow-lg);
+            animation: cardEntrance 1s var(--spring-easing) both;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .dashboard-container { background: linear-gradient(145deg, var(--card-bg), rgba(20, 20, 20, 0.8)); }
+        }
+
+        @keyframes cardEntrance {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 32px;
+        }
+
+        h1 {
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border-radius: var(--radius-btn);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s var(--spring-easing);
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 4px 12px var(--primary-glow);
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-hover);
+            transform: translateY(-2px);
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 24px;
+            align-items: center;
+        }
+
+        .search-box {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            background: var(--input-bg);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-input);
+            padding: 0 16px;
+            transition: all 0.3s ease;
+        }
+
+        .search-box:focus-within {
+            border-color: var(--primary);
+            background: var(--input-bg-focus);
+            box-shadow: 0 0 0 3px rgba(0, 111, 238, 0.12);
+        }
+
+        .search-box input {
+            border: none;
+            background: transparent;
+            padding: 12px 8px;
+            width: 100%;
+            outline: none;
+            color: var(--text-main);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin-top: 16px;
+        }
+
+        th {
+            text-align: left;
+            padding: 16px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--border-color);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        td {
+            padding: 16px;
+            font-size: 14px;
+            border-bottom: 1px solid rgba(0,0,0,0.04);
+            color: var(--text-main);
+            vertical-align: middle;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            td { border-bottom: 1px solid rgba(255,255,255,0.05); }
+        }
+
+        tr:last-child td { border-bottom: none; }
+
+        tr:hover td { background: rgba(0,0,0,0.02); }
+        @media (prefers-color-scheme: dark) { tr:hover td { background: rgba(255,255,255,0.02); } }
+
+        .token-name {
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .badge {
+            padding: 4px 8px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .badge-success { background: rgba(23, 201, 100, 0.15); color: var(--success); }
+        .badge-warning { background: rgba(245, 165, 36, 0.15); color: var(--warning); }
+        .badge-danger { background: rgba(243, 18, 96, 0.15); color: var(--danger); }
+
+        .actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .icon-btn {
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            color: var(--text-secondary);
+            padding: 6px;
+            border-radius: 8px;
+            transition: all 0.2s;
+            display: inline-flex;
+        }
+
+        .icon-btn:hover {
+            background: rgba(0,0,0,0.05);
+            color: var(--primary);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .icon-btn:hover { background: rgba(255,255,255,0.1); }
+        }
+
+        .usage-bar {
+            width: 100px;
+            height: 6px;
+            background: var(--border-color);
+            border-radius: 3px;
+            overflow: hidden;
+            display: inline-block;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+
+        .usage-fill {
+            height: 100%;
+            background: var(--primary);
+            border-radius: 3px;
+        }
+
+        .quota-text { font-size: 13px; color: var(--text-secondary); }
+
+        .token-hash {
+            font-family: monospace;
+            background: rgba(0,0,0,0.05);
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .token-hash { background: rgba(255,255,255,0.05); }
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 24px;
+            gap: 8px;
+        }
+
+        .page-btn {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: transparent;
+            cursor: pointer;
+            color: var(--text-secondary);
+        }
+
+        .page-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <div class="header">
+            <h1>令牌管理</h1>
+            <button class="btn btn-primary">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                添加新令牌
+            </button>
+        </div>
+
+        <div class="toolbar">
+            <div class="search-box">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                <input type="text" placeholder="搜索令牌名称...">
+            </div>
+            <button class="btn" style="background: var(--input-bg); border: 1px solid var(--border-color); color: var(--text-main);">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+                筛选
+            </button>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>名称</th>
+                    <th>状态</th>
+                    <th>额度使用量</th>
+                    <th>创建时间 / 过期时间</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>
+                        <div class="token-name">Default Key</div>
+                        <div class="token-hash">sk-a1b2c3d4...</div>
+                    </td>
+                    <td><span class="badge badge-success">正常</span></td>
+                    <td>
+                        <div class="usage-bar"><div class="usage-fill" style="width: 45%;"></div></div>
+                        <span class="quota-text">45.2k / 100k</span>
+                    </td>
+                    <td>
+                        <div style="font-size: 13px;">2026-04-01 10:23</div>
+                        <div class="quota-text">永不过期</div>
+                    </td>
+                    <td>
+                        <div class="actions">
+                            <button class="icon-btn" title="复制"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>
+                            <button class="icon-btn" title="编辑"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>
+                            <button class="icon-btn" style="color: var(--danger);" title="删除"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <div class="token-name">App Integration</div>
+                        <div class="token-hash">sk-x9y8z7w6...</div>
+                    </td>
+                    <td><span class="badge badge-warning">接近耗尽</span></td>
+                    <td>
+                        <div class="usage-bar"><div class="usage-fill" style="width: 92%; background: var(--warning);"></div></div>
+                        <span class="quota-text">9.2k / 10k</span>
+                    </td>
+                    <td>
+                        <div style="font-size: 13px;">2026-03-15 14:00</div>
+                        <div class="quota-text">2026-12-31</div>
+                    </td>
+                    <td>
+                        <div class="actions">
+                            <button class="icon-btn" title="复制"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>
+                            <button class="icon-btn" title="编辑"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>
+                            <button class="icon-btn" style="color: var(--danger);" title="删除"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <div class="token-name" style="color: var(--text-tertiary);">Test Token</div>
+                        <div class="token-hash">sk-q1w2e3r4...</div>
+                    </td>
+                    <td><span class="badge badge-danger">已禁用</span></td>
+                    <td>
+                        <div class="usage-bar"><div class="usage-fill" style="width: 15%; background: var(--text-tertiary);"></div></div>
+                        <span class="quota-text">1.5k / 10k</span>
+                    </td>
+                    <td>
+                        <div style="font-size: 13px; color: var(--text-tertiary);">2026-02-10 09:15</div>
+                        <div class="quota-text">2026-03-10</div>
+                    </td>
+                    <td>
+                        <div class="actions">
+                            <button class="icon-btn" title="复制"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>
+                            <button class="icon-btn" title="编辑"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>
+                            <button class="icon-btn" style="color: var(--danger);" title="删除"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
+                        </div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="pagination">
+            <button class="page-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+            <button class="page-btn active">1</button>
+            <button class="page-btn">2</button>
+            <button class="page-btn">3</button>
+            <button class="page-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
+        </div>
+    </div>
+</body>
+</html>

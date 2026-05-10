@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>分组状态监控 - 精美重设版</title>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --primary-light: #e0e7ff;
+            --success: #10b981;
+            --success-bg: #d1fae5;
+            --warning: #f59e0b;
+            --warning-bg: #fef3c7;
+            --danger: #ef4444;
+            --danger-bg: #ffe4e6;
+            --neutral: #94a3b8;
+            --neutral-bg: #f1f5f9;
+            --text-main: #1e293b;
+            --text-sub: #64748b;
+            --border: #e2e8f0;
+            --card-bg: #ffffff;
+            --body-bg: #f8fafc;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--body-bg);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+        }
+
+        /* 顶部毛玻璃导航 */
+        .top-navbar {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 64px;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(226, 232, 240, 0.6);
+            gap: 40px;
+        }
+
+        .nav-link {
+            text-decoration: none;
+            color: var(--text-sub);
+            font-weight: 500;
+            font-size: 15px;
+            padding: 8px 12px;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .nav-link:hover {
+            color: var(--primary);
+            background: var(--primary-light);
+        }
+
+        .nav-link.active {
+            color: var(--primary);
+            background: var(--primary-light);
+            font-weight: 600;
+        }
+
+        /* 页面主体 */
+        .page-container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 48px 24px;
+        }
+
+        /* 头部区域 */
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 32px;
+        }
+
+        .title-wrapper {
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+        }
+
+        .title-icon-box {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, var(--primary) 0%, #818cf8 100%);
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            box-shadow: 0 8px 16px -4px rgba(79, 70, 229, 0.3);
+        }
+
+        .title-text-box {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .main-heading {
+            font-size: 28px;
+            font-weight: 800;
+            color: var(--text-main);
+            margin: 0;
+            line-height: 1.2;
+            letter-spacing: -0.5px;
+        }
+
+        .sub-heading {
+            font-size: 14px;
+            color: var(--text-sub);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .sub-heading a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+        .sub-heading a:hover { text-decoration: underline; }
+
+        .refresh-button {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            color: var(--text-main);
+            font-weight: 500;
+            font-size: 14px;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .refresh-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .refresh-icon {
+            animation: spin 10s linear infinite;
+        }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        /* 状态图例 */
+        .status-legend {
+            display: flex;
+            gap: 24px;
+            margin-bottom: 24px;
+            padding: 16px 24px;
+            background: white;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            width: fit-content;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-main);
+        }
+
+        .legend-color {
+            width: 14px;
+            height: 14px;
+            border-radius: 4px;
+        }
+        .bg-normal { background-color: var(--success); box-shadow: 0 0 0 3px var(--success-bg); }
+        .bg-warning { background-color: var(--warning); box-shadow: 0 0 0 3px var(--warning-bg); }
+        .bg-error { background-color: var(--danger); box-shadow: 0 0 0 3px var(--danger-bg); }
+        .bg-none { background-color: var(--neutral); box-shadow: 0 0 0 3px var(--neutral-bg); }
+
+        /* 分组卡片样式 - 悬浮动效与精美投影 */
+        .group-card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 28px;
+            margin-bottom: 20px;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .group-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.05), 0 10px 10px -5px rgba(0,0,0,0.02);
+            border-color: rgba(79, 70, 229, 0.2);
+        }
+
+        /* 顶部信息行 */
+        .card-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .card-info {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .group-icon {
+            width: 44px;
+            height: 44px;
+            background: var(--neutral-bg);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            color: var(--text-sub);
+            transition: all 0.3s;
+        }
+
+        .group-card:hover .group-icon {
+            background: var(--primary-light);
+            color: var(--primary);
+            transform: scale(1.05);
+        }
+
+        .group-details {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .group-name {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        /* 圆润徽章设计 */
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            letter-spacing: 0.5px;
+        }
+
+        .badge-error { background: var(--danger-bg); color: var(--danger); }
+        .badge-nodata { background: var(--neutral-bg); color: var(--text-sub); }
+
+        .dot { width: 6px; height: 6px; border-radius: 50%; }
+        .badge-error .dot { background: var(--danger); box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2); }
+        .badge-nodata .dot { background: var(--neutral); box-shadow: 0 0 0 2px rgba(148, 163, 184, 0.2); }
+
+        .group-desc {
+            font-size: 13px;
+            color: var(--text-sub);
+        }
+
+        /* 统计数据突出 */
+        .card-stats {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            text-align: right;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: -1px;
+        }
+
+        .stat-value.error { color: var(--danger); }
+        .stat-value.nodata { color: var(--text-sub); }
+
+        .stat-label {
+            font-size: 14px;
+            color: var(--text-sub);
+            font-weight: 500;
+        }
+
+        .stat-badge {
+            background: var(--danger-bg);
+            color: var(--danger);
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 8px;
+        }
+
+        /* 状态条 - 更现代的圆角与间距 */
+        .timeline-container {
+            margin-top: 16px;
+        }
+
+        .status-blocks {
+            display: flex;
+            gap: 6px;
+            height: 48px;
+            margin-bottom: 12px;
+        }
+
+        .block {
+            flex: 1;
+            border-radius: 6px;
+            transition: transform 0.2s, opacity 0.2s;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .block:hover {
+            transform: scaleY(1.15);
+            opacity: 0.9;
+        }
+
+        .block-none { background-color: var(--neutral-bg); }
+        .block-error {
+            background-color: var(--danger);
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+        }
+
+        /* Tooltip 提示 */
+        .block::after {
+            content: "请求数: 0\n延迟: --";
+            position: absolute;
+            bottom: 110%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1e293b;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            white-space: pre;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s;
+            z-index: 10;
+            pointer-events: none;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .block-error::after {
+            content: "失败: 5次\n成功率: 0.0%";
+            background: var(--danger);
+        }
+
+        .block:hover::after {
+            opacity: 1;
+            visibility: visible;
+            bottom: 125%;
+        }
+
+        .timeline-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            color: var(--text-sub);
+            font-weight: 500;
+            padding: 0 4px;
+        }
+
+        /* 卡片侧边装饰线 */
+        .card-decorator {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: var(--neutral);
+            border-radius: 4px 0 0 4px;
+        }
+        .card-decorator.error { background: var(--danger); }
+
+    </style>
+</head>
+<body>
+
+    <!-- 精美毛玻璃导航 -->
+    <nav class="top-navbar">
+        <a href="#" class="nav-link">概览大盘</a>
+        <a href="#" class="nav-link active">分组监控</a>
+        <a href="#" class="nav-link">渠道管理</a>
+        <a href="#" class="nav-link">模型路由</a>
+        <a href="#" class="nav-link">日志分析</a>
+    </nav>
+
+    <main class="page-container">
+
+        <!-- 页面头部 -->
+        <header class="page-header">
+            <div class="title-wrapper">
+                <div class="title-icon-box">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                    </svg>
+                </div>
+                <div class="title-text-box">
+                    <h1 class="main-heading">服务连通性监控</h1>
+                    <div class="sub-heading">
+                        <span>当前共监控 <strong>4</strong> 个核心分组集群</span>
+                        <span>·</span>
+                        <span>上次数据同步于 00:47:19</span>
+                        <span>·</span>
+                        <a href="#">查看监控告警规则 &rarr;</a>
+                    </div>
+                </div>
+            </div>
+
+            <button class="refresh-button">
+                <svg class="refresh-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="23 4 23 10 17 10"></polyline>
+                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                </svg>
+                <span>自动刷新 (9s)</span>
+            </button>
+        </header>
+
+        <!-- 状态指示图例 -->
+        <div class="status-legend">
+            <div class="legend-item"><div class="legend-color bg-normal"></div>服务健康</div>
+            <div class="legend-item"><div class="legend-color bg-warning"></div>延迟/降级</div>
+            <div class="legend-item"><div class="legend-color bg-error"></div>完全阻断</div>
+            <div class="legend-item"><div class="legend-color bg-none"></div>无流量汇入</div>
+        </div>
+
+        <!-- 监控卡片 1：普通用户 (带异常状态) -->
+        <div class="group-card">
+            <div class="card-decorator error"></div>
+            <div class="card-top">
+                <div class="card-info">
+                    <div class="group-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                    </div>
+                    <div class="group-details">
+                        <div class="group-name">
+                            普通用户集群
+                            <span class="status-badge badge-error">
+                                <span class="dot"></span>服务异常
+                            </span>
+                        </div>
+                        <div class="group-desc">面向免费/普通配额用户的API调用池，当前部分节点阻断。</div>
+                    </div>
+                </div>
+                <div class="card-stats">
+                    <span class="stat-value error">0.0%</span>
+                    <span class="stat-label">连通率</span>
+                    <span class="stat-badge">5 次请求失败</span>
+                </div>
+            </div>
+
+            <div class="timeline-container">
+                <div class="status-blocks">
+                    <div class="block block-none"></div>
+                    <div class="block block-none"></div>
+                    <div class="block block-none"></div>
+                    <div class="block block-none"></div>
+                    <div class="block block-none"></div>
+                    <div class="block block-none"></div>
+                    <div class="block block-none"></div>
+                    <div class="block block-none"></div>
+                    <div class="block block-none"></div>
+                    <div class="block block-none"></div>
+                    <div class="block block-none"></div>
+                    <div class="block block-none"></div>
+                    <div class="block block-none"></div>
+                    <div class="block block-none"></div>
+                    <div class="block block-none"></div>
+                    <div class="block block-none"></div>
+                    <div class="block block-none"></div>
+                    <div class="block block-none"></div>
+                    <div class="block block-error"></div>
+                    <div class="block block-none"></div>
+                    <div class="block block-error"></div>
+                    <div class="block block-none"></div>
+                    <div class="block block-none"></div>
+                    <div class="block block-none"></div>
+                </div>
+                <div class="timeline-labels">
+                    <span>24 小时前</span>
+                    <span>12 小时前</span>
+                    <span>最新状态</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 监控卡片 2：测试1 -->
+        <div class="group-card">
+            <div class="card-decorator"></div>
+            <div class="card-top">
+                <div class="card-info">
+                    <div class="group-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                    </div>
+                    <div class="group-details">
+                        <div class="group-name">
+                            内部测试环境-1
+                            <span class="status-badge badge-nodata">
+                                <span class="dot"></span>暂无流量
+                            </span>
+                        </div>
+                        <div class="group-desc">开发环境的测试节点池。</div>
+                    </div>
+                </div>
+                <div class="card-stats">
+                    <span class="stat-value nodata">100.0%</span>
+                    <span class="stat-label">预期可用性</span>
+                </div>
+            </div>
+
+            <div class="timeline-container">
+                <div class="status-blocks">
+                    <!-- 24个空状态块 -->
+                    <div class="block block-none"></div><div class="block block-none"></div><div class="block block-none"></div><div class="block block-none"></div><div class="block block-none"></div><div class="block block-none"></div><div class="block block-none"></div><div class="block block-none"></div><div class="block block-none"></div><div class="block block-none"></div><div class="block block-none"></div><div class="block block-none"></div><div class="block block-none"></div><div class="block block-none"></div><div class="block block-none"></div><div class="block block-none"></div><div class="block block-none"></div><div class="block block-none"></div><div class="block block-none"></div><div class="block block-none"></div><div class="block block-none"></div><div class="block block-none"></div><div class="block block-none"></div><div class="block block-none"></div>
+                </div>
+                <div class="timeline-labels">
+                    <span>24 小时前</span>
+                    <span>12 小时前</span>
+                    <span>最新状态</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 监控卡片 3：测试2 -->
+        <div class="group-card">
+            <div class="card-decorator"></div>
+            <div class="card-top">
+                <div class="card-info">
+                    <div class="group-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                    </div>
+                    <div class="group-details">
+                        <div class="group-name">
+                            高频压测组-2
+                            <span class="status-badge badge-nodata">
+                                <span class="dot"></span>暂无流量
+                            </span>
+                        </div>
+                        <div class="group-desc">专门用于承担并发压测的节点池。</div>
+                    </div>
+                </div>
+                <div class="card-stats">
+                    <span class="stat-value nodata">100.0%</span>
+                    <span class="stat-label">预期可用性</span>
+                </div>
+            </div>
+
+            <div class="timeline-container">
+                <div class="status-blocks">
+                    <!-- 24个空状态块 -->
+                    <div class="block block-none"></div><div class="block block-none"></div><div class="block block-none"></div><div class="block block-none"></div><div class="block block-none"></div><div class="block block-none"></div><div class="block block-none"></div><div class="block block-none"></div><div class="block block-none"></div><div class="block block-none"></div><div class="block block-none"></div><div class="block block-none"></div><div class="block block-none"></div><div class="block block-none"></div><div class="block block-none"></div><div class="block block-none"></div><div class="block block-none"></div><div class="block block-none"></div><div class="block block-none"></div><div class="block block-none"></div><div class="block block-none"></div><div class="block block-none"></div><div class="block block-none"></div><div class="block block-none"></div>
+                </div>
+                <div class="timeline-labels">
+                    <span>24 小时前</span>
+                    <span>12 小时前</span>
+                    <span>最新状态</span>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+</body>
+</html>

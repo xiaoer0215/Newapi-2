@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>分组状态监控 - Mockup</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #f6f8fb 0%, #fdfbfb 100%);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+        }
+
+        /* Top Navigation */
+        .top-nav {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 60px;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(10px);
+            gap: 32px;
+            font-size: 15px;
+            font-weight: 600;
+        }
+        .top-nav a {
+            text-decoration: none;
+            color: #1f2937;
+            padding: 8px 0;
+        }
+        .top-nav a:hover {
+            color: #6366f1;
+        }
+        .top-nav a.active {
+            color: #6366f1;
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 1080px;
+            margin: 0 auto;
+            padding: 40px 24px;
+        }
+
+        /* Header Area */
+        .header-area {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 24px;
+        }
+
+        .title-section {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .title-icon {
+            color: #6366f1;
+            margin-top: 4px;
+        }
+
+        .title-content {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .main-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #111827;
+            display: flex;
+            align-items: baseline;
+            gap: 12px;
+        }
+
+        .sub-title {
+            font-size: 13px;
+            color: #9ca3af;
+            font-weight: normal;
+        }
+
+        .info-link {
+            font-size: 12px;
+            color: #9ca3af;
+            text-decoration: none;
+        }
+
+        .info-link:hover {
+            color: #6366f1;
+        }
+
+        .refresh-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            color: #4b5563;
+            font-size: 13px;
+            cursor: pointer;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+            transition: all 0.2s;
+        }
+
+        .refresh-btn:hover {
+            background: #f9fafb;
+            border-color: #d1d5db;
+        }
+
+        /* Legend */
+        .legend {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 32px;
+            margin-left: 36px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            color: #6b7280;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+        }
+        .color-normal { background-color: #34d399; }
+        .color-warning { background-color: #fbbf24; }
+        .color-error { background-color: #f43f5e; }
+        .color-none { background-color: #e2e8f0; }
+
+        /* Cards */
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 16px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .card-title-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .card-icon {
+            width: 32px;
+            height: 32px;
+            background: #eef2ff;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #6366f1;
+        }
+
+        .group-name {
+            font-size: 16px;
+            font-weight: bold;
+            color: #1f2937;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .badge-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+        }
+
+        .badge-error {
+            background: #ffe4e6;
+            color: #e11d48;
+            border: 1px solid #fecdd3;
+        }
+        .badge-error .badge-dot { background: #e11d48; }
+
+        .badge-nodata {
+            background: #f1f5f9;
+            color: #64748b;
+            border: 1px solid #e2e8f0;
+        }
+        .badge-nodata .badge-dot { background: #64748b; }
+
+        .card-stats-right {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+        }
+
+        .stat-percent {
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .stat-percent.error { color: #e11d48; }
+        .stat-percent.nodata { color: #94a3b8; }
+
+        .stat-label {
+            font-size: 13px;
+            color: #9ca3af;
+        }
+
+        .stat-count {
+            font-size: 12px;
+            color: #e11d48;
+        }
+
+        /* Status Bar (24 hours) */
+        .status-bar {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+
+        .status-block {
+            flex: 1;
+            height: 36px;
+            border-radius: 6px;
+        }
+
+        .block-none { background: #e2e8f0; }
+        .block-error { background: #f43f5e; }
+
+        /* Timeline Labels */
+        .timeline-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #9ca3af;
+            padding: 0 4px;
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- Top Navigation -->
+    <div class="top-nav">
+        <a href="#">首页</a>
+        <a href="#" class="active">控制台</a>
+        <a href="#">模型广场</a>
+        <a href="#">文档</a>
+        <a href="#">关于</a>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container">
+
+        <!-- Header -->
+        <div class="header-area">
+            <div class="title-section">
+                <div class="title-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                    </svg>
+                </div>
+                <div class="title-content">
+                    <div class="main-title">
+                        分组状态监控
+                        <span class="sub-title">4 个分组 · 更新于 00:47:19</span>
+                    </div>
+                    <a href="#" class="info-link">监控说明</a>
+                </div>
+            </div>
+
+            <button class="refresh-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+                9s 后刷新
+            </button>
+        </div>
+
+        <!-- Legend -->
+        <div class="legend">
+            <div class="legend-item"><div class="legend-color color-normal"></div>状态正常</div>
+            <div class="legend-item"><div class="legend-color color-warning"></div>状态降级</div>
+            <div class="legend-item"><div class="legend-color color-error"></div>状态异常</div>
+            <div class="legend-item"><div class="legend-color color-none"></div>无请求</div>
+        </div>
+
+        <!-- Card 1: 普通用户 -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title-left">
+                    <div class="card-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                            <polyline points="2 17 12 22 22 17"></polyline>
+                            <polyline points="2 12 12 17 22 12"></polyline>
+                        </svg>
+                    </div>
+                    <div class="group-name">普通用户</div>
+                    <div class="status-badge badge-error">
+                        <div class="badge-dot"></div>状态异常
+                    </div>
+                </div>
+                <div class="card-stats-right">
+                    <span class="stat-percent error">0.0%</span>
+                    <span class="stat-label">成功率</span>
+                    <span class="stat-count">· X 5</span>
+                </div>
+            </div>
+
+            <!-- 24 Status Blocks -->
+            <div class="status-bar">
+                <div class="status-block block-none"></div>
+                <div class="status-block block-none"></div>
+                <div class="status-block block-none"></div>
+                <div class="status-block block-none"></div>
+                <div class="status-block block-none"></div>
+                <div class="status-block block-none"></div>
+                <div class="status-block block-none"></div>
+                <div class="status-block block-none"></div>
+                <div class="status-block block-none"></div>
+                <div class="status-block block-none"></div>
+                <div class="status-block block-none"></div>
+                <div class="status-block block-none"></div>
+                <div class="status-block block-none"></div>
+                <div class="status-block block-none"></div>
+                <div class="status-block block-none"></div>
+                <div class="status-block block-none"></div>
+                <div class="status-block block-none"></div>
+                <div class="status-block block-none"></div>
+                <div class="status-block block-error"></div>
+                <div class="status-block block-none"></div>
+                <div class="status-block block-error"></div>
+                <div class="status-block block-none"></div>
+                <div class="status-block block-none"></div>
+                <div class="status-block block-none"></div>
+            </div>
+
+            <div class="timeline-labels">
+                <span>24小时前</span>
+                <span>12小时前</span>
+                <span>现在</span>
+            </div>
+        </div>
+
+        <!-- Card 2: 测试1 -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title-left">
+                    <div class="card-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                            <polyline points="2 17 12 22 22 17"></polyline>
+                            <polyline points="2 12 12 17 22 12"></polyline>
+                        </svg>
+                    </div>
+                    <div class="group-name">测试1</div>
+                    <div class="status-badge badge-nodata">
+                        <div class="badge-dot"></div>无数据
+                    </div>
+                </div>
+                <div class="card-stats-right">
+                    <span class="stat-percent nodata">100.0%</span>
+                    <span class="stat-label">成功率</span>
+                </div>
+            </div>
+
+            <!-- 24 Status Blocks -->
+            <div class="status-bar">
+                <!-- 24 gray blocks -->
+                <div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div>
+            </div>
+
+            <div class="timeline-labels">
+                <span>24小时前</span>
+                <span>12小时前</span>
+                <span>现在</span>
+            </div>
+        </div>
+
+        <!-- Card 3: 测试2 -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title-left">
+                    <div class="card-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                            <polyline points="2 17 12 22 22 17"></polyline>
+                            <polyline points="2 12 12 17 22 12"></polyline>
+                        </svg>
+                    </div>
+                    <div class="group-name">测试2</div>
+                    <div class="status-badge badge-nodata">
+                        <div class="badge-dot"></div>无数据
+                    </div>
+                </div>
+                <div class="card-stats-right">
+                    <span class="stat-percent nodata">100.0%</span>
+                    <span class="stat-label">成功率</span>
+                </div>
+            </div>
+
+            <!-- 24 Status Blocks -->
+            <div class="status-bar">
+                <!-- 24 gray blocks -->
+                <div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div>
+            </div>
+
+            <div class="timeline-labels">
+                <span>24小时前</span>
+                <span>12小时前</span>
+                <span>现在</span>
+            </div>
+        </div>
+
+        <!-- Card 4: 测试3 -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title-left">
+                    <div class="card-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                            <polyline points="2 17 12 22 22 17"></polyline>
+                            <polyline points="2 12 12 17 22 12"></polyline>
+                        </svg>
+                    </div>
+                    <div class="group-name">测试3</div>
+                    <div class="status-badge badge-nodata">
+                        <div class="badge-dot"></div>无数据
+                    </div>
+                </div>
+                <div class="card-stats-right">
+                    <span class="stat-percent nodata">100.0%</span>
+                    <span class="stat-label">成功率</span>
+                </div>
+            </div>
+
+            <!-- 24 Status Blocks -->
+            <div class="status-bar">
+                <!-- 24 gray blocks -->
+                <div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div><div class="status-block block-none"></div>
+            </div>
+
+            <div class="timeline-labels">
+                <span>24小时前</span>
+                <span>12小时前</span>
+                <span>现在</span>
+            </div>
+        </div>
+
+    </div>
+
+</body>
+</html>

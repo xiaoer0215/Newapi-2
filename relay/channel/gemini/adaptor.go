@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
@@ -115,15 +116,53 @@ func resolveGeminiImageAspectRatio(size string) string {
 	case "1792x1024":
 		return "16:9"
 	default:
-		return aspectRatio
+		return resolveGeminiImageAspectRatioFromDimensions(size, aspectRatio)
 	}
+}
+
+func resolveGeminiImageAspectRatioFromDimensions(size string, fallback string) string {
+	parts := strings.Split(strings.ToLower(strings.TrimSpace(size)), "x")
+	if len(parts) != 2 {
+		return fallback
+	}
+	w, err1 := strconv.Atoi(strings.TrimSpace(parts[0]))
+	h, err2 := strconv.Atoi(strings.TrimSpace(parts[1]))
+	if err1 != nil || err2 != nil || w <= 0 || h <= 0 {
+		return fallback
+	}
+	rw, rh := reduceImageRatio(w, h)
+	ratioStr := fmt.Sprintf("%d:%d", rw, rh)
+	switch ratioStr {
+	case "1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3":
+		return ratioStr
+	default:
+		return fallback
+	}
+}
+
+func reduceImageRatio(w, h int) (int, int) {
+	g := gcdImageDimensions(w, h)
+	if g == 0 {
+		return w, h
+	}
+	return w / g, h / g
+}
+
+func gcdImageDimensions(a, b int) int {
+	for b != 0 {
+		a, b = b, a%b
+	}
+	if a < 0 {
+		return -a
+	}
+	return a
 }
 
 func resolveGeminiImageSize(request dto.ImageRequest) string {
 	size := strings.TrimSpace(request.Size)
-	switch size {
+	switch strings.ToUpper(size) {
 	case "1K", "2K", "4K":
-		return size
+		return strings.ToUpper(size)
 	}
 
 	switch strings.ToLower(strings.TrimSpace(request.Quality)) {
@@ -243,25 +282,13 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 		},
 	}
 
-	// Set imageSize when quality parameter is specified
+	// Set imageSize from explicit size/quality parameter.
 	// Map quality parameter to imageSize (only supported by Standard and Ultra models)
 	// quality values: auto, high, medium, low (for gpt-image-1), hd, standard (for dall-e-3)
-	// imageSize values: 1K (default), 2K
+	// imageSize values: 1K (default), 2K, 4K
 	// https://ai.google.dev/gemini-api/docs/imagen
 	// https://platform.openai.com/docs/api-reference/images/create
-	if request.Quality != "" {
-		imageSize := "1K" // default
-		switch request.Quality {
-		case "hd", "high":
-			imageSize = "2K"
-		case "2K":
-			imageSize = "2K"
-		case "standard", "medium", "low", "auto", "1K":
-			imageSize = "1K"
-		default:
-			// unknown quality value, default to 1K
-			imageSize = "1K"
-		}
+	if imageSize := resolveGeminiImageSize(request); imageSize != "" {
 		geminiRequest.Parameters.ImageSize = imageSize
 	}
 

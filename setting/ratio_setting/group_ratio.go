@@ -3,6 +3,8 @@ package ratio_setting
 import (
 	"encoding/json"
 	"errors"
+	"sort"
+	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/setting/config"
@@ -66,6 +68,46 @@ func GetGroupRatioCopy() map[string]float64 {
 func ContainsGroupRatio(name string) bool {
 	_, ok := groupRatioMap.Get(name)
 	return ok
+}
+
+func GetAllGroupNames() []string {
+	groupSet := make(map[string]struct{})
+	for name := range defaultGroupRatio {
+		groupSet[name] = struct{}{}
+	}
+	for name := range GetGroupRatioCopy() {
+		groupSet[name] = struct{}{}
+	}
+	for name := range common.GetTopupGroupRatioCopy() {
+		groupSet[name] = struct{}{}
+	}
+	for name := range common.GetTopupGroupCreditRatioCopy() {
+		groupSet[name] = struct{}{}
+	}
+
+	groupNames := make([]string, 0, len(groupSet))
+	for name := range groupSet {
+		trimmed := strings.TrimSpace(name)
+		if trimmed == "" {
+			continue
+		}
+		groupNames = append(groupNames, trimmed)
+	}
+	sort.Strings(groupNames)
+	return groupNames
+}
+
+func ContainsGroup(name string) bool {
+	trimmed := strings.TrimSpace(name)
+	if trimmed == "" {
+		return false
+	}
+	for _, groupName := range GetAllGroupNames() {
+		if groupName == trimmed {
+			return true
+		}
+	}
+	return false
 }
 
 func GroupRatio2JSONString() string {

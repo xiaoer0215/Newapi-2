@@ -101,6 +101,10 @@ func createInvitationRewardTx(tx *gorm.DB, inviterId int, user *User, registerIP
 	if tx == nil || user == nil || inviterId == 0 || user.Id == 0 {
 		return nil
 	}
+	user.InviterId = inviterId
+	if err := tx.Model(&User{}).Where("id = ? AND (inviter_id = 0 OR inviter_id IS NULL)", user.Id).Update("inviter_id", inviterId).Error; err != nil {
+		return err
+	}
 
 	now := common.GetTimestamp()
 	registerRewardQuota := 0
@@ -306,11 +310,15 @@ func ListInvitationRewardsForAdmin(pageInfo *common.PageInfo, keyword string, st
 
 	switch strings.TrimSpace(status) {
 	case "pending_any":
-		query = query.Where("register_reward_status = ? OR first_topup_reward_status = ?", InvitationRewardStatusPending, InvitationRewardStatusPending)
+		query = query.Where(
+			"(register_reward_status = ? AND register_reward_quota > 0) OR (first_topup_reward_status = ? AND first_topup_reward_quota > 0)",
+			InvitationRewardStatusPending,
+			InvitationRewardStatusPending,
+		)
 	case "pending_register":
-		query = query.Where("register_reward_status = ?", InvitationRewardStatusPending)
+		query = query.Where("register_reward_status = ? AND register_reward_quota > 0", InvitationRewardStatusPending)
 	case "pending_first_topup":
-		query = query.Where("first_topup_reward_status = ?", InvitationRewardStatusPending)
+		query = query.Where("first_topup_reward_status = ? AND first_topup_reward_quota > 0", InvitationRewardStatusPending)
 	case "approved_any":
 		query = query.Where("register_reward_status = ? OR first_topup_reward_status = ?", InvitationRewardStatusApproved, InvitationRewardStatusApproved)
 	case "rejected_any":

@@ -1,4 +1,4 @@
-/*
+﻿/*
 Copyright (C) 2025 QuantumNous
 
 This program is free software: you can redistribute it and/or modify
@@ -22,13 +22,14 @@ import ModelPricingPage from '../../components/table/model-pricing/layout/Pricin
 
 const Pricing = () => (
   <div style={{
-    minHeight: 'calc(100vh - 60px)',
-    background: 'linear-gradient(135deg, #eef2ff 0%, #f8fafc 50%, #e0f2fe 100%)',
-    paddingTop: '20px',
-    paddingBottom: '40px'
+    minHeight: 'calc(100dvh - var(--header-height, 60px))',
+    background: '#f6f9ff',
+    paddingTop: 0,
+    paddingBottom: 0
   }}>
     <ModelPricingPage />
   </div>
 );
 
 export default Pricing;
+

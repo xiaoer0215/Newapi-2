@@ -37,23 +37,25 @@ const Navigation = ({
         ? location.pathname === '/'
         : location.pathname.startsWith(link.to);
 
-      const inactiveColor = 'var(--text-main, var(--semi-color-text-0))';
-      const activeColor = 'var(--primary, #4F46E5)';
-      const hoverColor = 'var(--primary, #4F46E5)';
+      const inactiveColor = '#61708a';
+      const activeColor = '#4f6fff';
+      const hoverColor = '#1f2937';
 
       const baseStyle = {
         flexShrink: 0,
         display: 'inline-flex',
         alignItems: 'center',
         gap: 4,
-        fontWeight: 700,
-        borderRadius: 8,
-        padding: isMobile ? '4px 8px' : '5px 14px',
-        fontSize: isMobile ? 15 : 16,
+        height: isMobile ? 34 : 60,
+        fontWeight: isActive ? 800 : 700,
+        borderRadius: isMobile ? 999 : 0,
+        padding: isMobile ? '0 10px' : '0 8px',
+        fontSize: isMobile ? 14 : 14,
         textDecoration: 'none',
-        transition: 'color 0.2s',
+        transition: 'color 0.16s ease',
         position: 'relative',
         color: isActive ? activeColor : inactiveColor,
+        background: 'transparent',
       };
 
       const linkContent = (
@@ -74,6 +76,7 @@ const Navigation = ({
             href={link.externalLink}
             target='_blank'
             rel='noopener noreferrer'
+            className={`app-nav-link-v2 ${isActive ? 'is-active' : ''}`}
             style={baseStyle}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
@@ -91,6 +94,7 @@ const Navigation = ({
         <Link
           key={link.itemKey}
           to={targetPath}
+          className={`app-nav-link-v2 ${isActive ? 'is-active' : ''}`}
           style={baseStyle}
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
@@ -102,7 +106,7 @@ const Navigation = ({
   };
 
   return (
-    <nav className='flex items-center justify-center gap-1 overflow-x-auto whitespace-nowrap scrollbar-hide' style={{ minWidth: 0 }}>
+    <nav className='app-nav-menu-v2 flex items-center justify-center overflow-x-auto whitespace-nowrap scrollbar-hide' style={{ minWidth: 0 }}>
       <SkeletonWrapper
         loading={isLoading}
         type='navigation'

@@ -37,18 +37,18 @@ const AnnouncementsPanel = ({
   return (
     <Card
       {...CARD_PROPS}
-      className='shadow-sm !rounded-2xl lg:col-span-2'
-      style={{ background: 'rgba(255, 255, 255, 0.75)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(148, 163, 184, 0.2)', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)' }}
+      className='dashboard-glass-card shadow-sm !rounded-2xl lg:col-span-2'
       title={
         <div className='flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2 w-full'>
           <div className='flex items-center gap-2'>
-            <Bell size={16} />
-            {t('系统公告')}
-            <Tag color='white' shape='circle'>
-              {t('显示最新20条')}
+            <span className='dashboard-title-icon blue'>
+              <Bell size={16} />
+            </span>
+            {t('\u7cfb\u7edf\u516c\u544a')}
+            <Tag color='white' shape='circle' className='dashboard-glass-pill'>
+              {t('\u663e\u793a\u6700\u65b020\u6761')}
             </Tag>
           </div>
-          {/* 图例 */}
           <div className='flex flex-wrap gap-3 text-xs'>
             {announcementLegendData.map((legend, index) => (
               <div key={index} className='flex items-center gap-1'>
@@ -77,7 +77,7 @@ const AnnouncementsPanel = ({
       }
       bodyStyle={{ padding: 0 }}
     >
-      <ScrollableContainer maxHeight='24rem'>
+      <ScrollableContainer maxHeight='18.5rem'>
         {announcementData.length > 0 ? (
           <Timeline mode='left'>
             {announcementData.map((item, idx) => {
@@ -114,8 +114,8 @@ const AnnouncementsPanel = ({
               darkModeImage={
                 <IllustrationConstructionDark style={ILLUSTRATION_SIZE} />
               }
-              title={t('暂无系统公告')}
-              description={t('请联系管理员在系统设置中配置公告信息')}
+              title={t('\u6682\u65e0\u7cfb\u7edf\u516c\u544a')}
+              description={t('\u8bf7\u8054\u7cfb\u7ba1\u7406\u5458\u5728\u7cfb\u7edf\u8bbe\u7f6e\u4e2d\u914d\u7f6e\u516c\u544a\u4fe1\u606f')}
             />
           </div>
         )}

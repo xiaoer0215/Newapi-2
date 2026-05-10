@@ -1,4 +1,4 @@
-/*
+﻿/*
 Copyright (C) 2025 QuantumNous
 
 This program is free software: you can redistribute it and/or modify
@@ -35,6 +35,8 @@ const routerMap = {
   token: '/console/token',
   redemption: '/console/redemption',
   topup: '/console/topup',
+  member_upgrade: '/console/member_upgrade',
+  affiliate: '/console/affiliate',
   user: '/console/user',
   subscription: '/console/subscription',
   auto_delivery: '/console/auto_delivery',
@@ -129,6 +131,14 @@ const SiderBar = ({ onNavigate = () => {} }) => {
         itemKey: 'topup',
       },
       {
+        text: t('会员升级'),
+        itemKey: 'member_upgrade',
+      },
+      {
+        text: t('推广中心'),
+        itemKey: 'affiliate',
+      },
+      {
         text: t('个人设置'),
         itemKey: 'personal',
       },
@@ -146,11 +156,6 @@ const SiderBar = ({ onNavigate = () => {} }) => {
           admin && localStorage.getItem('auto_delivery_enabled') === 'true'
             ? ''
             : 'tableHiddle',
-      },
-      {
-        text: t('分组监控'),
-        itemKey: 'group_monitor',
-        className: admin ? '' : 'tableHiddle',
       },
       {
         text: t('渠道管理'),
@@ -289,7 +294,7 @@ const SiderBar = ({ onNavigate = () => {} }) => {
     }
   }, [collapsed]);
 
-  const selectedColor = 'var(--semi-color-primary)';
+  const selectedColor = '#2563eb';
 
   const renderNavItem = (item) => {
     if (item.className === 'tableHiddle') {
@@ -503,3 +508,4 @@ const SiderBar = ({ onNavigate = () => {} }) => {
 };
 
 export default SiderBar;
+

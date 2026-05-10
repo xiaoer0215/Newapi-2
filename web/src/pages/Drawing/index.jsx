@@ -29,13 +29,19 @@ import {
   Typography,
 } from '@douyinfe/semi-ui';
 import {
+  ChevronLeft,
+  ChevronRight,
   Download,
+  Eye,
   ExternalLink,
+  History,
   Image as ImageIcon,
+  Pencil,
   RefreshCw,
   Sparkles,
   Trash2,
   Upload,
+  X,
 } from 'lucide-react';
 import {
   API,
@@ -49,6 +55,7 @@ const { Text, Paragraph } = Typography;
 const MAX_REFERENCE_IMAGES = 3;
 const MAX_REFERENCE_IMAGE_BYTES = 5 * 1024 * 1024;
 const DRAWING_HISTORY_LIMIT = 12;
+const DRAWING_HISTORY_PAGE_SIZE = 8;
 const DRAWING_HISTORY_DB = 'new-api-drawing-history';
 const DRAWING_HISTORY_STORE = 'records';
 const SYSTEM_DRAWING_TOKEN_NAME = '\u7cfb\u7edf\uff1a\u751f\u56fe\u4e13\u7528';
@@ -65,12 +72,51 @@ const DEFAULT_FORM = {
 
 const DRAWING_REQUEST_MODE_IMAGE_GENERATION = 'image_generation';
 const DRAWING_REQUEST_MODE_GEMINI_NATIVE = 'gemini_generate_content';
+const DRAWING_REQUEST_MODE_RESPONSES_IMAGE_GENERATION =
+  'responses_image_generation';
+const DRAWING_REQUEST_MODE_OPENAI_IMAGE_EDIT = 'openai_image_edit';
 
 const getDrawingTokenName = (tokenName) =>
   String(tokenName || '').trim() || SYSTEM_DRAWING_TOKEN_NAME;
 
 const getDrawingHistoryKey = (tokenName) =>
   `drawing-history:${getDrawingTokenName(tokenName)}`;
+
+const isInlineDrawingImage = (src) =>
+  /^data:image\/[a-zA-Z0-9.+-]+;base64,/i.test(String(src || '').trim());
+
+const isFreeCdnDrawingImage = (src) =>
+  /^https?:\/\/(?:files\.catbox\.moe|litterbox\.catbox\.moe|skyimg\.net|img\.scdn\.io|(?:cloudflarecnimg|edgeoneimg|anycastimg)\.(?:scdn\.io|cdn\.sn)|tuchuang\.xqd\.cn|wzapi\.com)\//i.test(
+    String(src || '').trim(),
+  );
+
+const normalizeDrawingUploadSource = (src) => {
+  const value = String(src || '').trim();
+  if (!value) {
+    return '';
+  }
+  if (/^(?:data:image\/|https?:\/\/)/i.test(value)) {
+    return value;
+  }
+  if (typeof window !== 'undefined') {
+    try {
+      return new URL(value, window.location.origin).href;
+    } catch (_) {
+      return value;
+    }
+  }
+  return value;
+};
+
+const sanitizeDrawingHistoryRecords = (records) =>
+  (Array.isArray(records) ? records : [])
+    .map((record) => ({
+      ...record,
+      images: (Array.isArray(record?.images) ? record.images : []).filter(
+        (image) => image?.src && !isInlineDrawingImage(image.src),
+      ),
+    }))
+    .filter((record) => record.images.length > 0);
 
 const ASPECT_RATIO_OPTIONS = [
   { label: '1:1 正方形', value: '1:1' },
@@ -99,6 +145,48 @@ const DRAWING_IMAGE_SIZE_OPTIONS = [
   { label: '2K', value: '2K' },
   { label: '4K', value: '4K' },
 ];
+
+const isResponsesImageGenerationModel = (model) => {
+  const name = String(model || '').trim().toLowerCase();
+  if (!name) {
+    return false;
+  }
+
+  return [
+    'gpt-4o',
+    'chatgpt-4o',
+    'gpt-4.1',
+    'gpt-4.5',
+    'gpt-5',
+  ].some((prefix) => name.startsWith(prefix));
+};
+
+const isOpenAIImageEditModel = (model) => {
+  const name = String(model || '').trim().toLowerCase();
+  if (!name) {
+    return false;
+  }
+
+  return name.startsWith('gpt-image-') || name === 'chatgpt-image-latest';
+};
+
+const isDalle2Model = (model) => {
+  const name = String(model || '').trim().toLowerCase();
+  return name === 'dall-e' || name === 'dall-e-2';
+};
+
+const isDalle3Model = (model) =>
+  String(model || '').trim().toLowerCase() === 'dall-e-3';
+
+const isGPTImageApiSizeModel = (model) => {
+  const name = String(model || '').trim().toLowerCase();
+  return name.startsWith('gpt-image-') || name === 'chatgpt-image-latest';
+};
+
+const supportsReferenceImages = (requestMode) =>
+  requestMode === DRAWING_REQUEST_MODE_GEMINI_NATIVE ||
+  requestMode === DRAWING_REQUEST_MODE_RESPONSES_IMAGE_GENERATION ||
+  requestMode === DRAWING_REQUEST_MODE_OPENAI_IMAGE_EDIT;
 
 const resolveApiUrl = (endpoint) => {
   if (!endpoint) {
@@ -144,27 +232,125 @@ const resolveDrawingRequestMode = (requestModes, defaultRequestMode, model) => {
   if (String(model || '').startsWith('gemini-')) {
     return DRAWING_REQUEST_MODE_GEMINI_NATIVE;
   }
+  if (isOpenAIImageEditModel(model)) {
+    return DRAWING_REQUEST_MODE_OPENAI_IMAGE_EDIT;
+  }
+  if (isResponsesImageGenerationModel(model)) {
+    return DRAWING_REQUEST_MODE_RESPONSES_IMAGE_GENERATION;
+  }
   return DRAWING_REQUEST_MODE_IMAGE_GENERATION;
 };
 
-const aspectRatioToImageGenerationSize = (aspectRatio) => {
-  switch (String(aspectRatio || '1:1')) {
-    case '3:2':
-      return '1536x1024';
-    case '2:3':
-      return '1024x1536';
-    case '4:3':
-      return '1536x1152';
-    case '3:4':
-      return '1152x1536';
-    case '16:9':
-      return '1792x1024';
-    case '9:16':
-      return '1024x1792';
-    default:
-      return '1024x1024';
+const isPortraitAspectRatio = (aspectRatio) =>
+  ['2:3', '3:4', '9:16'].includes(String(aspectRatio || '').trim());
+
+const isLandscapeAspectRatio = (aspectRatio) =>
+  ['3:2', '4:3', '16:9'].includes(String(aspectRatio || '').trim());
+
+const normalizeDrawingImageSizeLevel = (imageSize) => {
+  const size = String(imageSize || '1K').trim().toUpperCase();
+  if (['1K', '2K', '4K'].includes(size)) {
+    return size;
   }
+  return '1K';
 };
+
+const IMAGE_GENERATION_SIZE_PRESETS = {
+  '1K': {
+    '1:1': '1024x1024',
+    '3:2': '1536x1024',
+    '2:3': '1024x1536',
+    '4:3': '1536x1152',
+    '3:4': '1152x1536',
+    '16:9': '1792x1024',
+    '9:16': '1024x1792',
+  },
+  '2K': {
+    '1:1': '2048x2048',
+    '3:2': '1920x1280',
+    '2:3': '1280x1920',
+    '4:3': '2048x1536',
+    '3:4': '1536x2048',
+    '16:9': '2048x1152',
+    '9:16': '1152x2048',
+  },
+  '4K': {
+    '1:1': '4096x4096',
+    '3:2': '3840x2560',
+    '2:3': '2560x3840',
+    '4:3': '4096x3072',
+    '3:4': '3072x4096',
+    '16:9': '4096x2304',
+    '9:16': '2304x4096',
+  },
+};
+
+const aspectRatioToImageGenerationSize = (
+  aspectRatio,
+  model,
+  { forceGPTImageSize = false, imageSize = '1K' } = {},
+) => {
+  const ratio = String(aspectRatio || '1:1').trim();
+  const sizeLevel = normalizeDrawingImageSizeLevel(imageSize);
+
+  if (isDalle2Model(model)) {
+    return '1024x1024';
+  }
+
+  if (forceGPTImageSize || isGPTImageApiSizeModel(model)) {
+    if (isPortraitAspectRatio(ratio)) {
+      return '1024x1536';
+    }
+    if (isLandscapeAspectRatio(ratio)) {
+      return '1536x1024';
+    }
+    return '1024x1024';
+  }
+
+  if (isDalle3Model(model)) {
+    if (isPortraitAspectRatio(ratio)) {
+      return '1024x1792';
+    }
+    if (isLandscapeAspectRatio(ratio)) {
+      return '1792x1024';
+    }
+    return '1024x1024';
+  }
+
+  const presets = IMAGE_GENERATION_SIZE_PRESETS[sizeLevel] || IMAGE_GENERATION_SIZE_PRESETS['1K'];
+  return presets[ratio] || presets['1:1'];
+};
+
+const imageSizeToGenerationQuality = (
+  imageSize,
+  model,
+  { forceGPTImageQuality = false, requestMode = '' } = {},
+) => {
+  const size = String(imageSize || '1K').trim().toUpperCase();
+  if (size === '1K') {
+    return '';
+  }
+
+  if (isDalle3Model(model)) {
+    return 'hd';
+  }
+
+  if (
+    forceGPTImageQuality ||
+    isGPTImageApiSizeModel(model) ||
+    requestMode === DRAWING_REQUEST_MODE_RESPONSES_IMAGE_GENERATION ||
+    requestMode === DRAWING_REQUEST_MODE_OPENAI_IMAGE_EDIT
+  ) {
+    return size === '4K' ? 'high' : 'medium';
+  }
+
+  return size === '4K' ? '4k' : 'high';
+};
+
+const formatDrawingSizeLabel = ({ aspectRatio, imageSize, actualSize }) =>
+  [aspectRatio || '1:1', imageSize || '1K', actualSize]
+    .filter(Boolean)
+    .join(' · ');
 
 const buildDrawingPrompt = ({
   prompt,
@@ -260,7 +446,9 @@ const readDrawingHistory = async (key) => {
       const records = Array.isArray(request.result?.records)
         ? request.result.records
         : [];
-      resolve(records.slice(0, DRAWING_HISTORY_LIMIT));
+      resolve(
+        sanitizeDrawingHistoryRecords(records).slice(0, DRAWING_HISTORY_LIMIT),
+      );
     };
     request.onerror = () => reject(request.error);
     transaction.oncomplete = () => db.close();
@@ -272,12 +460,13 @@ const writeDrawingHistory = async (key, records) => {
   if (!db) {
     return;
   }
+  const safeRecords = sanitizeDrawingHistoryRecords(records);
 
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(DRAWING_HISTORY_STORE, 'readwrite');
     transaction.objectStore(DRAWING_HISTORY_STORE).put(
       {
-        records: records.slice(0, DRAWING_HISTORY_LIMIT),
+        records: safeRecords.slice(0, DRAWING_HISTORY_LIMIT),
         updatedAt: Date.now(),
       },
       key,
@@ -468,6 +657,71 @@ const buildGeminiGenerateContentPayload = ({
   return deepMerge(basePayload, normalizeGeminiNativeExtraBody(extraBody || {}));
 };
 
+const buildResponsesImageGenerationPayload = ({
+  model,
+  prompt,
+  aspectRatio,
+  imageSize,
+  extraBody,
+  referenceImages,
+}) => {
+  const imageTool = {
+    type: 'image_generation',
+    size: aspectRatioToImageGenerationSize(aspectRatio, model, {
+      forceGPTImageSize: true,
+    }),
+  };
+
+  const quality = imageSizeToGenerationQuality(imageSize, model, {
+    forceGPTImageQuality: true,
+    requestMode: DRAWING_REQUEST_MODE_RESPONSES_IMAGE_GENERATION,
+  });
+  if (quality) {
+    imageTool.quality = quality;
+  }
+
+  if (Array.isArray(referenceImages) && referenceImages.length > 0) {
+    imageTool.action = 'edit';
+  }
+
+  const content = [
+    {
+      type: 'input_text',
+      text: prompt,
+    },
+  ];
+
+  (referenceImages || []).forEach((item) => {
+    const dataUrl =
+      item?.previewUrl ||
+      `data:${item?.mimeType || 'image/png'};base64,${item?.base64 || ''}`;
+    if (!dataUrl) {
+      return;
+    }
+    content.push({
+      type: 'input_image',
+      image_url: dataUrl,
+      detail: 'high',
+    });
+  });
+
+  const basePayload = {
+    model,
+    input: [
+      {
+        role: 'user',
+        content,
+      },
+    ],
+    tools: [imageTool],
+    tool_choice: {
+      type: 'image_generation',
+    },
+  };
+
+  return deepMerge(basePayload, extraBody || {});
+};
+
 const normalizeGeminiImageItem = (part, index) => {
   const inlineData = part?.inlineData || part?.inline_data;
   const data = inlineData?.data;
@@ -524,6 +778,135 @@ const normalizeGeminiGenerateContentResponse = (body) => {
   };
 };
 
+const normalizeResponsesImageSource = (value, prefix, revisedPrompt = '') => {
+  const rawValue = String(value || '').trim();
+  if (!rawValue) {
+    return null;
+  }
+
+  if (/^https?:\/\//i.test(rawValue)) {
+    return {
+      id: `responses-${prefix}`,
+      src: rawValue,
+      link: rawValue,
+      revisedPrompt,
+    };
+  }
+
+  if (/^data:image\//i.test(rawValue)) {
+    return {
+      id: `responses-${prefix}`,
+      src: rawValue,
+      link: '',
+      revisedPrompt,
+    };
+  }
+
+  return {
+    id: `responses-${prefix}`,
+    src: `data:image/png;base64,${rawValue}`,
+    link: '',
+    revisedPrompt,
+  };
+};
+
+const getImageSourceDedupKey = (src) =>
+  String(src || '')
+    .trim()
+    .replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/i, '')
+    .replace(/\s+/g, '');
+
+const getResponsesContentImageSource = (content) => {
+  if (!content) {
+    return '';
+  }
+  if (typeof content.image_url === 'string') {
+    return content.image_url;
+  }
+  if (content.image_url?.url) {
+    return content.image_url.url;
+  }
+  if (typeof content.url === 'string') {
+    return content.url;
+  }
+  if (typeof content.result === 'string') {
+    return content.result;
+  }
+  if (content.b64_json) {
+    return `data:image/png;base64,${content.b64_json}`;
+  }
+  return '';
+};
+
+const normalizeResponsesImageGenerationResponse = (body) => {
+  const images = [];
+  const textParts = [];
+  const seenSources = new Set();
+  const outputs = Array.isArray(body?.output) ? body.output : [];
+
+  const appendImage = (image) => {
+    const sourceKey = getImageSourceDedupKey(image?.src);
+    if (!image || !image.src || seenSources.has(sourceKey)) {
+      return;
+    }
+    seenSources.add(sourceKey);
+    images.push(image);
+  };
+
+  outputs.forEach((output, outputIndex) => {
+    const revisedPrompt = String(output?.revised_prompt || '').trim();
+    const resultItems = Array.isArray(output?.result)
+      ? output.result
+      : [output?.result];
+
+    resultItems.forEach((item, resultIndex) => {
+      appendImage(
+        normalizeResponsesImageSource(
+          item,
+          `${outputIndex}-${resultIndex}`,
+          revisedPrompt,
+        ),
+      );
+    });
+
+    const outputContents = Array.isArray(output?.content) ? output.content : [];
+    outputContents.forEach((content, contentIndex) => {
+      const directImageSource = getResponsesContentImageSource(content);
+      if (directImageSource) {
+        appendImage(
+          normalizeResponsesImageSource(
+            directImageSource,
+            `content-${outputIndex}-${contentIndex}`,
+            revisedPrompt,
+          ),
+        );
+        return;
+      }
+
+      if (content?.text) {
+        const extracted = extractImageSourcesFromText(
+          content.text,
+          `responses-${outputIndex}-${contentIndex}`,
+        );
+        extracted.images.forEach((image) =>
+          appendImage({
+            ...image,
+            revisedPrompt: image.revisedPrompt || revisedPrompt,
+          }),
+        );
+        if (extracted.text) {
+          textParts.push(extracted.text);
+        }
+      }
+    });
+  });
+
+  return {
+    images,
+    responseText: textParts.join('\n').trim(),
+  };
+};
+
 const normalizeDrawingErrorMessage = (message, t) => {
   const rawMessage = String(message || '').trim();
   if (!rawMessage) {
@@ -537,6 +920,12 @@ const normalizeDrawingErrorMessage = (message, t) => {
   ) {
     return t('当前生图服务负载较高，请稍后重试');
   }
+  if (
+    loweredMessage.includes('system memory overloaded') ||
+    loweredMessage.includes('memory overloaded')
+  ) {
+    return t('当前生图服务负载较高，请稍后重试');
+  }
   if (loweredMessage.includes('no space left on device')) {
     return t('当前生图服务磁盘空间不足，请联系管理员处理');
   }
@@ -546,6 +935,55 @@ const normalizeDrawingErrorMessage = (message, t) => {
 
   return rawMessage.replace(/^error:\s*/i, '').trim();
 };
+
+const normalizeDrawingImages = (images, limit = 1) => {
+  const seenSources = new Set();
+  const normalized = [];
+
+  (Array.isArray(images) ? images : []).forEach((image) => {
+    const sourceKey = getImageSourceDedupKey(image?.src);
+    if (!image?.src || !sourceKey || seenSources.has(sourceKey)) {
+      return;
+    }
+    seenSources.add(sourceKey);
+    normalized.push(image);
+  });
+
+  return normalized.slice(0, Math.max(1, Number(limit) || 1));
+};
+
+const uploadDrawingImageToFreeCdn = async (image, recordId, index) => {
+  if (!image?.src || isFreeCdnDrawingImage(image.src)) {
+    return image;
+  }
+
+  const uploadSource = normalizeDrawingUploadSource(image.src);
+  if (!uploadSource) {
+    return image;
+  }
+
+  const res = await API.post('/api/user/self/drawing/upload', {
+    image: uploadSource,
+    filename: `drawing-${recordId}-${index + 1}.png`,
+  });
+  if (!res.data?.success || !res.data?.data?.url) {
+    throw new Error(res.data?.message || 'upload image to free cdn failed');
+  }
+
+  return {
+    ...image,
+    src: res.data.data.url,
+    link: res.data.data.url,
+    cdnProvider: res.data.data.provider || 'catbox',
+  };
+};
+
+const uploadDrawingImagesToFreeCdn = async (images, recordId) =>
+  Promise.all(
+    images.map((image, index) =>
+      uploadDrawingImageToFreeCdn(image, recordId, index),
+    ),
+  );
 
 const formatTime = (timestamp) => {
   if (!timestamp) {
@@ -618,6 +1056,105 @@ const readFileAsDataUrl = (file) =>
     reader.readAsDataURL(file);
   });
 
+const dataUrlToFile = (dataUrl, filename, mimeType) => {
+  const [header, base64] = String(dataUrl || '').split(',');
+  if (!header || !base64) {
+    throw new Error('参考图片数据无效');
+  }
+
+  const detectedMimeType =
+    mimeType ||
+    header.match(/^data:([^;]+);base64$/i)?.[1] ||
+    'image/png';
+  const binary = window.atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+
+  return new File([bytes], filename, { type: detectedMimeType });
+};
+
+const appendFormDataValue = (formData, key, value) => {
+  if (value === undefined || value === null || value === '') {
+    return;
+  }
+
+  if (Array.isArray(value)) {
+    value.forEach((item) => appendFormDataValue(formData, `${key}[]`, item));
+    return;
+  }
+
+  if (isPlainObject(value)) {
+    formData.append(key, JSON.stringify(value));
+    return;
+  }
+
+  formData.append(key, String(value));
+};
+
+const buildOpenAIImageEditFormData = ({
+  model,
+  prompt,
+  n,
+  aspectRatio,
+  imageSize,
+  extraBody,
+  referenceImages,
+}) => {
+  const size = aspectRatioToImageGenerationSize(aspectRatio, model, {
+    forceGPTImageSize: true,
+  });
+  const fields = {
+    ...(extraBody || {}),
+    model,
+    prompt,
+    n: Math.max(1, Number(n) || 1),
+    size,
+  };
+
+  const quality = imageSizeToGenerationQuality(imageSize, model, {
+    forceGPTImageQuality: true,
+    requestMode: DRAWING_REQUEST_MODE_OPENAI_IMAGE_EDIT,
+  });
+  if (quality && fields.quality === undefined) {
+    fields.quality = quality;
+  }
+
+  const formData = new FormData();
+  Object.entries(fields).forEach(([key, value]) => {
+    if (key === 'image' || key === 'image[]') {
+      return;
+    }
+    appendFormDataValue(formData, key, value);
+  });
+
+  (referenceImages || []).forEach((item, index) => {
+    const dataUrl =
+      item?.previewUrl ||
+      `data:${item?.mimeType || 'image/png'};base64,${item?.base64 || ''}`;
+    if (!dataUrl) {
+      return;
+    }
+
+    const file = dataUrlToFile(
+      dataUrl,
+      item?.name || `reference-${index + 1}.png`,
+      item?.mimeType,
+    );
+    formData.append(
+      referenceImages.length > 1 ? 'image[]' : 'image',
+      file,
+      file.name,
+    );
+  });
+
+  return {
+    formData,
+    sizeLabel: size,
+  };
+};
+
 export default function Drawing() {
   const { t } = useTranslation();
   const fileInputRef = useRef(null);
@@ -633,15 +1170,27 @@ export default function Drawing() {
     token_name: '',
     authorization: '',
     endpoint: '/v1/images/generations',
+    responses_endpoint: '/v1/responses',
+    edit_endpoint: '/v1/images/edits',
   });
   const [form, setForm] = useState(DEFAULT_FORM);
   const [referenceImages, setReferenceImages] = useState([]);
   const [resultHistory, setResultHistory] = useState([]);
   const [activeRecordId, setActiveRecordId] = useState('');
   const [historyReady, setHistoryReady] = useState(false);
+  const [historyDrawerOpen, setHistoryDrawerOpen] = useState(false);
+  const [historyPage, setHistoryPage] = useState(1);
   const [latestError, setLatestError] = useState('');
   const [generationStartedAt, setGenerationStartedAt] = useState(0);
   const [generationElapsedSeconds, setGenerationElapsedSeconds] = useState(0);
+
+  useEffect(() => {
+    document.body.classList.add('drawing-clean-page');
+
+    return () => {
+      document.body.classList.remove('drawing-clean-page');
+    };
+  }, []);
 
   const loadInit = useCallback(async () => {
     try {
@@ -668,6 +1217,8 @@ export default function Drawing() {
         token_name: nextConfig.token_name || '',
         authorization: nextConfig.authorization || '',
         endpoint: nextConfig.endpoint || '/v1/images/generations',
+        responses_endpoint: nextConfig.responses_endpoint || '/v1/responses',
+        edit_endpoint: nextConfig.edit_endpoint || '/v1/images/edits',
       });
       setForm((prev) => ({
         ...prev,
@@ -725,6 +1276,10 @@ export default function Drawing() {
     const historyKey = getDrawingHistoryKey(config.token_name);
     writeDrawingHistory(historyKey, resultHistory).catch(() => {});
   }, [config.token_name, historyReady, resultHistory]);
+
+  useEffect(() => {
+    setHistoryPage(1);
+  }, [resultHistory.length]);
 
   useEffect(() => {
     if (!submitting || !generationStartedAt) {
@@ -817,7 +1372,50 @@ export default function Drawing() {
     await appendReferenceFiles(event.dataTransfer.files);
   };
 
+  const addHistoryImageAsReference = async (record, image, index) => {
+    if (!image?.src) {
+      showError(t('图片地址无效'));
+      return;
+    }
+    if (referenceImages.length >= MAX_REFERENCE_IMAGES) {
+      showError(t('最多只能上传 3 张参考图片'));
+      return;
+    }
+
+    try {
+      const resolveSource = normalizeDrawingUploadSource(image.src);
+      const res = await API.post('/api/user/self/drawing/resolve', {
+        image: resolveSource,
+        filename: `history-${record.id}-${index + 1}.png`,
+      });
+      if (!res.data?.success || !res.data?.data?.base64) {
+        throw new Error(t('参考图片数据无效'));
+      }
+      const data = res.data.data || {};
+      const mimeType = data.mimeType || data.mime_type || 'image/png';
+      const base64 = data.base64;
+      const dataUrl = data.data_url || `data:${mimeType};base64,${base64}`;
+
+      const nextItem = {
+        id: `history-${record.id}-${index}-${Date.now()}`,
+        name: `history-${record.id}-${index + 1}.png`,
+        mimeType,
+        size: Number(data.size || 0),
+        base64,
+        previewUrl: dataUrl,
+      };
+
+      setReferenceImages((prev) => [...prev, nextItem].slice(0, MAX_REFERENCE_IMAGES));
+      showSuccess(t('已添加到参考图片'));
+    } catch (error) {
+      showError(error?.message || t('读取历史图片失败'));
+    }
+  };
+
   const handleGenerate = async () => {
+    // 生成前清空上一次错误，避免旧提示干扰当前任务
+    setLatestError('');
+
     const prompt = String(form.prompt || '').trim();
     const generationCount = 1;
     const finalPrompt = buildDrawingPrompt({
@@ -859,11 +1457,8 @@ export default function Drawing() {
       form.model,
     );
 
-    if (
-      referenceImages.length > 0 &&
-      requestMode !== DRAWING_REQUEST_MODE_GEMINI_NATIVE
-    ) {
-      showError(t('当前模型暂不支持参考图片，请切换到 Gemini 生图模型'));
+    if (referenceImages.length > 0 && !supportsReferenceImages(requestMode)) {
+      showError(t('当前模型暂不支持参考图片，请切换到支持参考图的生图模型'));
       return;
     }
 
@@ -876,6 +1471,7 @@ export default function Drawing() {
     try {
       let requestUrl = resolveApiUrl(config.endpoint);
       let payload = {};
+      let requestBody = null;
       let sizeLabel = form.aspectRatio;
       if (requestMode === DRAWING_REQUEST_MODE_GEMINI_NATIVE) {
         requestUrl = resolveGeminiGenerateContentUrl(form.model);
@@ -887,10 +1483,52 @@ export default function Drawing() {
           extraBody,
           referenceImages,
         });
-        sizeLabel = `${form.aspectRatio} · ${form.imageSize}`;
+        sizeLabel = formatDrawingSizeLabel({
+          aspectRatio: form.aspectRatio,
+          imageSize: form.imageSize,
+        });
+      } else if (
+        requestMode === DRAWING_REQUEST_MODE_RESPONSES_IMAGE_GENERATION
+      ) {
+        requestUrl = resolveApiUrl(config.responses_endpoint);
+        payload = buildResponsesImageGenerationPayload({
+          model: form.model,
+          prompt: finalPrompt,
+          aspectRatio: form.aspectRatio,
+          imageSize: form.imageSize,
+          extraBody,
+          referenceImages,
+        });
+        sizeLabel = formatDrawingSizeLabel({
+          aspectRatio: form.aspectRatio,
+          imageSize: form.imageSize,
+          actualSize: payload?.tools?.[0]?.size,
+        });
+      } else if (
+        requestMode === DRAWING_REQUEST_MODE_OPENAI_IMAGE_EDIT &&
+        referenceImages.length > 0
+      ) {
+        requestUrl = resolveApiUrl(config.edit_endpoint);
+        const editRequest = buildOpenAIImageEditFormData({
+          model: form.model,
+          prompt: finalPrompt,
+          n: generationCount,
+          aspectRatio: form.aspectRatio,
+          imageSize: form.imageSize,
+          extraBody,
+          referenceImages,
+        });
+        requestBody = editRequest.formData;
+        sizeLabel = formatDrawingSizeLabel({
+          aspectRatio: form.aspectRatio,
+          imageSize: form.imageSize,
+          actualSize: editRequest.sizeLabel,
+        });
       } else {
         const imageGenerationSize = aspectRatioToImageGenerationSize(
           form.aspectRatio,
+          form.model,
+          { imageSize: form.imageSize },
         );
         payload = {
           ...extraBody,
@@ -899,22 +1537,31 @@ export default function Drawing() {
           n: generationCount,
           size: imageGenerationSize,
         };
-        if (
-          (form.imageSize === '2K' || form.imageSize === '4K') &&
-          payload.quality === undefined
-        ) {
-          payload.quality = 'high';
+        const quality = imageSizeToGenerationQuality(form.imageSize, form.model, {
+          requestMode,
+        });
+        if (quality && payload.quality === undefined) {
+          payload.quality = quality;
         }
-        sizeLabel = imageGenerationSize;
+        sizeLabel = formatDrawingSizeLabel({
+          aspectRatio: form.aspectRatio,
+          imageSize: form.imageSize,
+          actualSize: imageGenerationSize,
+        });
+      }
+
+      const headers = {
+        Authorization: config.authorization,
+      };
+      if (requestBody === null) {
+        headers['Content-Type'] = 'application/json';
+        requestBody = JSON.stringify(payload);
       }
 
       const response = await fetch(requestUrl, {
         method: 'POST',
-        headers: {
-          Authorization: config.authorization,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
+        headers,
+        body: requestBody,
       });
 
       const rawText = await response.text();
@@ -960,6 +1607,14 @@ export default function Drawing() {
             `Gemini blocked the request: ${normalizedResponse.blockReason}`,
           );
         }
+      } else if (
+        requestMode === DRAWING_REQUEST_MODE_RESPONSES_IMAGE_GENERATION
+      ) {
+        const normalizedResponse = normalizeResponsesImageGenerationResponse(
+          parsedBody || {},
+        );
+        images = normalizedResponse.images;
+        responseText = normalizedResponse.responseText;
       } else {
         images = Array.isArray(parsedBody?.data)
           ? parsedBody.data
@@ -974,8 +1629,25 @@ export default function Drawing() {
         );
       }
 
+      images = normalizeDrawingImages(images, generationCount);
+      const recordId = `${Date.now()}`;
+      const needsCdnUpload = images.some((image) =>
+        image?.src && !isFreeCdnDrawingImage(image.src),
+      );
+      if (needsCdnUpload) {
+        try {
+          images = await uploadDrawingImagesToFreeCdn(images, recordId);
+        } catch (uploadError) {
+          showError(
+            `${t('图片生成完成，但上传免费 CDN 失败，将临时使用上游图片地址')}：${
+              uploadError?.message || ''
+            }`,
+          );
+        }
+      }
+
       const nextRecord = {
-        id: `${Date.now()}`,
+        id: recordId,
         createdAt: new Date().toISOString(),
         prompt: finalPrompt,
         rawPrompt: prompt,
@@ -1015,6 +1687,23 @@ export default function Drawing() {
     form.model,
   );
   const promptLength = String(form.prompt || '').length;
+  const historyImageEntries = resultHistory.flatMap((record) =>
+    (record.images || []).map((image, index) => ({
+      record,
+      image,
+      index,
+      key: `${record.id}-${image.id || index}`,
+    })),
+  );
+  const historyTotalPages = Math.max(
+    1,
+    Math.ceil(historyImageEntries.length / DRAWING_HISTORY_PAGE_SIZE),
+  );
+  const safeHistoryPage = Math.min(historyPage, historyTotalPages);
+  const pagedHistoryImages = historyImageEntries.slice(
+    (safeHistoryPage - 1) * DRAWING_HISTORY_PAGE_SIZE,
+    safeHistoryPage * DRAWING_HISTORY_PAGE_SIZE,
+  );
 
   return (
     <div className='drawing-page-shell'>
@@ -1122,7 +1811,7 @@ export default function Drawing() {
                     <div className='drawing-field-head'>
                       <Text strong>{t('参考图片（可选，1-3张）')}</Text>
                       <Text type='tertiary'>
-                        {currentRequestMode === DRAWING_REQUEST_MODE_GEMINI_NATIVE
+                        {supportsReferenceImages(currentRequestMode)
                           ? t('当前模型会携带参考图片一起生成')
                           : t('当前模型暂不使用参考图片')}
                       </Text>
@@ -1139,7 +1828,7 @@ export default function Drawing() {
 
                     <div
                       className={`drawing-upload-panel ${
-                        currentRequestMode !== DRAWING_REQUEST_MODE_GEMINI_NATIVE
+                        !supportsReferenceImages(currentRequestMode)
                           ? 'is-muted'
                           : ''
                       }`}
@@ -1201,22 +1890,6 @@ export default function Drawing() {
                       )}
                     </div>
 
-                    <div className='drawing-upload-foot'>
-                      <Text type='tertiary'>
-                        {`${referenceImages.length} / ${MAX_REFERENCE_IMAGES} ${t('张图片')}`}
-                      </Text>
-                      {referenceImages.length > 0 ? (
-                        <Button
-                          theme='borderless'
-                          type='danger'
-                          size='small'
-                          icon={<Trash2 size={13} />}
-                          onClick={() => setReferenceImages([])}
-                        >
-                          {t('清空')}
-                        </Button>
-                      ) : null}
-                    </div>
                   </div>
 
                   <div className='drawing-setup-shell'>
@@ -1355,7 +2028,7 @@ export default function Drawing() {
             <div>
               <Text strong>{t('最近结果')}</Text>
               <Text type='tertiary' className='drawing-preview-subtitle'>
-                {t('保留最近 12 条浏览器历史记录，刷新页面后仍可继续查看。')}
+                {t('最近生成的图片会保留 CDN 链接，点击右下角历史按钮查看。')}
               </Text>
             </div>
             {resultHistory.length > 0 ? (
@@ -1497,192 +2170,182 @@ export default function Drawing() {
             </div>
           ) : null}
 
-          {submitting && resultHistory.length === 0 ? (
-            <div
-              style={{
-                minHeight: 260,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Spin size='large' />
-            </div>
-          ) : resultHistory.length === 0 ? (
-            <Empty
-              description={t('生成成功后，图片会显示在这里。')}
-              image={<ImageIcon size={48} color='var(--semi-color-text-2)' />}
-              style={{ padding: '36px 0' }}
-            />
-          ) : (
-            <>
-              <div className='drawing-history-head'>
-                <div>
-                  <Text strong>{t('历史记录')}</Text>
-                  <Text type='tertiary' className='drawing-preview-subtitle'>
-                    {t('点击下方缩略记录可快速切换右侧主预览')}
-                  </Text>
-                </div>
-                <Tag color='blue'>{`${resultHistory.length} ${t('条记录')}`}</Tag>
-              </div>
-
-              <div className='drawing-history-strip'>
-                {resultHistory.map((record) => (
-                  <button
-                    key={`preview-${record.id}`}
-                    type='button'
-                    className={`drawing-history-pill ${
-                      record.id === activeRecord?.id ? 'is-active' : ''
-                    }`}
-                    onClick={() => setActiveRecordId(record.id)}
-                  >
-                    {record.images[0]?.src ? (
-                      <img
-                        src={record.images[0].src}
-                        alt={record.model}
-                        className='drawing-history-pill-image'
-                      />
-                    ) : (
-                      <div className='drawing-history-pill-fallback'>
-                        <ImageIcon size={18} />
-                      </div>
-                    )}
-                    <div className='drawing-history-pill-text'>
-                      <span>{record.model}</span>
-                      <span>{`${formatTime(record.createdAt)} · ${record.sizeLabel}`}</span>
-                      <span className='drawing-history-pill-meta'>
-                        {`${record.count}${t('张')} · ${
-                          record.id === activeRecord?.id
-                            ? t('当前查看')
-                            : t('点击查看')
-                        }`}
-                      </span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-
-              <div className='drawing-history-list'>
-              {resultHistory.map((record) => (
-                <div key={record.id} className='drawing-history-card'>
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'flex-start',
-                      gap: 12,
-                      marginBottom: 12,
-                    }}
-                  >
-                    <div style={{ minWidth: 0 }}>
-                      <Text strong>{record.model}</Text>
-                      <Text
-                        type='tertiary'
-                        style={{ display: 'block', marginTop: 4, fontSize: 12 }}
-                      >
-                        {`${formatTime(record.createdAt)} · ${record.sizeLabel} · ${record.count}${t('张')}`}
-                      </Text>
-                    </div>
-                    <Tag color='green'>{t('已完成')}</Tag>
-                  </div>
-
-                  <Paragraph
-                    ellipsis={{ rows: 3, expandable: true }}
-                    style={{ marginBottom: 14 }}
-                  >
-                    {record.prompt}
-                  </Paragraph>
-
-                  {record.responseText ? (
-                    <Text
-                      type='tertiary'
-                      style={{
-                        display: 'block',
-                        marginBottom: 14,
-                        fontSize: 12,
-                        lineHeight: 1.6,
-                        whiteSpace: 'pre-wrap',
-                      }}
-                    >
-                      {record.responseText}
-                    </Text>
-                  ) : null}
-
-                  <div className='drawing-image-grid'>
-                    {record.images.map((image, index) => (
-                      <div key={image.id} className='drawing-image-shell'>
-                        <img
-                          src={image.src}
-                          alt={`drawing-${index + 1}`}
-                          className='drawing-image-preview'
-                        />
-
-                        <div className='drawing-image-actions'>
-                          <Button
-                            size='small'
-                            theme='light'
-                            icon={<Download size={13} />}
-                            onClick={() =>
-                              downloadImage(
-                                image.src,
-                                `drawing-${record.id}-${index + 1}.png`,
-                              )
-                            }
-                          >
-                            {t('下载')}
-                          </Button>
-                          {image.link ? (
-                            <Button
-                              size='small'
-                              theme='light'
-                              icon={<ExternalLink size={13} />}
-                              onClick={() => window.open(image.link, '_blank')}
-                            >
-                              {t('打开原图')}
-                            </Button>
-                          ) : null}
-                        </div>
-
-                        {image.revisedPrompt ? (
-                          <Text
-                            type='tertiary'
-                            style={{
-                              display: 'block',
-                              marginTop: 10,
-                              fontSize: 12,
-                              lineHeight: 1.6,
-                            }}
-                          >
-                            {`${t('修订提示词')}：${image.revisedPrompt}`}
-                          </Text>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-              </div>
-            </>
-          )}
         </Card>
       </div>
 
+      <button
+        type='button'
+        className='drawing-history-fab'
+        onClick={() => setHistoryDrawerOpen(true)}
+      >
+        <History size={18} />
+        <span>{t('历史记录')}</span>
+        <em>{historyImageEntries.length}</em>
+      </button>
+
+      {historyDrawerOpen ? (
+        <div
+          className='drawing-history-drawer-mask'
+          onClick={() => setHistoryDrawerOpen(false)}
+        >
+          <aside
+            className='drawing-history-drawer'
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className='drawing-history-drawer-head'>
+              <div>
+                <Text strong>{t('历史记录')}</Text>
+                <Text type='tertiary' className='drawing-history-drawer-subtitle'>
+                  {t('点击图片切换预览，点击小笔可添加为参考图。')}
+                </Text>
+              </div>
+              <button
+                type='button'
+                className='drawing-history-close'
+                onClick={() => setHistoryDrawerOpen(false)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {historyImageEntries.length === 0 ? (
+              <Empty
+                description={t('暂无历史图片')}
+                image={<ImageIcon size={48} color='var(--semi-color-text-2)' />}
+                style={{ padding: '52px 0' }}
+              />
+            ) : (
+              <>
+                <div className='drawing-history-drawer-grid'>
+                  {pagedHistoryImages.map(({ record, image, index, key }) => (
+                    <div
+                      key={key}
+                      role='button'
+                      tabIndex={0}
+                      className={`drawing-history-drawer-card ${
+                        record.id === activeRecord?.id ? 'is-active' : ''
+                      }`}
+                      onClick={() => setActiveRecordId(record.id)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          setActiveRecordId(record.id);
+                        }
+                      }}
+                    >
+                      <img
+                        src={image.src}
+                        alt={`history-${index + 1}`}
+                        className='drawing-history-drawer-image'
+                      />
+                      <button
+                        type='button'
+                        className='drawing-history-edit-tip'
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          addHistoryImageAsReference(record, image, index);
+                        }}
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <div className='drawing-history-card-overlay'>
+                        <button
+                          type='button'
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            addHistoryImageAsReference(record, image, index);
+                          }}
+                        >
+                          <Pencil size={13} />
+                          {t('参考图')}
+                        </button>
+                        <button
+                          type='button'
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            window.open(image.link || image.src, '_blank', 'noopener,noreferrer');
+                          }}
+                        >
+                          <Eye size={13} />
+                          {t('原图')}
+                        </button>
+                        <button
+                          type='button'
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            downloadImage(
+                              image.src,
+                              `drawing-${record.id}-${index + 1}.png`,
+                            );
+                          }}
+                        >
+                          <Download size={13} />
+                          {t('下载')}
+                        </button>
+                      </div>
+                      <div className='drawing-history-card-info'>
+                        <span>{record.model}</span>
+                        <small>{`${formatTime(record.createdAt)} · ${record.sizeLabel}`}</small>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className='drawing-history-pagination'>
+                  <button
+                    type='button'
+                    disabled={safeHistoryPage <= 1}
+                    onClick={() => setHistoryPage((page) => Math.max(1, page - 1))}
+                  >
+                    <ChevronLeft size={15} />
+                  </button>
+                  {Array.from({ length: historyTotalPages }, (_, i) => i + 1).map((page) => (
+                    <button
+                      key={page}
+                      type='button'
+                      className={page === safeHistoryPage ? 'is-active' : ''}
+                      onClick={() => setHistoryPage(page)}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                  <button
+                    type='button'
+                    disabled={safeHistoryPage >= historyTotalPages}
+                    onClick={() => setHistoryPage((page) => Math.min(historyTotalPages, page + 1))}
+                  >
+                    <ChevronRight size={15} />
+                  </button>
+                </div>
+              </>
+            )}
+          </aside>
+        </div>
+      ) : null}
+
       <style>{`
         .drawing-page-shell {
-          padding: 24px 20px 48px;
-          margin: 20px auto 0;
-          min-height: calc(100dvh - 20px);
-          max-width: 1440px;
+          width: 100%;
+          padding: 0 28px 48px;
+          margin: 0;
+          min-height: calc(100dvh - var(--header-height, 60px));
+          max-width: none;
           box-sizing: border-box;
+          background: #fafafa;
+          border-left: 1px solid rgba(203, 213, 225, 0.85);
+          box-shadow: none;
         }
 
         .drawing-page-header {
           display: flex;
           justify-content: space-between;
-          align-items: flex-start;
+          align-items: flex-end;
           gap: 16px;
           flex-wrap: wrap;
-          margin-bottom: 18px;
+          margin: 0 -28px 22px;
+          padding: 22px 28px 20px;
+          background: #ffffff;
+          border-bottom: 1px solid rgba(226, 232, 240, 0.9);
         }
 
         .drawing-page-header > div {
@@ -1694,13 +2357,13 @@ export default function Drawing() {
           display: inline-flex;
           align-items: center;
           gap: 8px;
-          padding: 8px 12px;
+          padding: 0;
           border-radius: 999px;
-          background: rgba(245, 158, 11, 0.12);
-          color: #b45309;
+          background: transparent;
+          color: #f59e0b;
           font-size: 13px;
           font-weight: 600;
-          margin-bottom: 12px;
+          margin-bottom: 8px;
         }
 
         .drawing-page-hero {
@@ -1715,22 +2378,23 @@ export default function Drawing() {
         }
 
         .drawing-page-hero-copy-title {
-          font-size: 18px;
+          font-size: 22px;
           line-height: 1.45;
-          font-weight: 700;
-          color: #334155;
+          font-weight: 800;
+          color: #1f2937;
         }
 
         .drawing-page-hero-copy-summary {
-          padding: 14px 16px;
-          border-radius: 18px;
-          border: 1px solid rgba(251, 191, 36, 0.24);
-          background: linear-gradient(135deg, rgba(255, 247, 237, 0.98), rgba(255, 255, 255, 0.96));
-          color: #9a3412;
+          padding: 0;
+          border-radius: 0;
+          border: 0;
+          background: transparent;
+          color: #64748b;
           line-height: 1.75;
-          box-shadow: 0 14px 30px rgba(245, 158, 11, 0.08);
+          box-shadow: none;
           white-space: normal;
           word-break: break-word;
+          max-width: 1080px;
         }
 
         .drawing-page-summary,
@@ -1740,24 +2404,28 @@ export default function Drawing() {
 
         .drawing-stage-grid {
           display: grid;
-          grid-template-columns: minmax(0, 0.96fr) minmax(0, 1fr);
-          gap: 20px;
+          grid-template-columns: minmax(420px, 0.95fr) minmax(520px, 1fr);
+          gap: 26px;
           align-items: start;
         }
 
         .drawing-panel-card {
-          border: 0 !important;
-          border-radius: 26px !important;
-          box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
-          background:
-            radial-gradient(circle at top right, rgba(250, 204, 21, 0.12), transparent 28%),
-            linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.94));
+          border: 1px solid rgba(203, 213, 225, 0.85) !important;
+          border-radius: 16px !important;
+          box-shadow: none !important;
+          background: #ffffff !important;
+          overflow: hidden;
+        }
+
+        .drawing-panel-card > .semi-card-body {
+          padding: 20px 24px !important;
+          background: #ffffff !important;
         }
 
         .drawing-form-stack {
           display: flex;
           flex-direction: column;
-          gap: 18px;
+          gap: 16px;
         }
 
         .drawing-config-pills {
@@ -1805,9 +2473,9 @@ export default function Drawing() {
         }
 
         .drawing-token-panel {
-          padding: 16px 18px;
-          border-radius: 22px;
-          border: 1px solid rgba(226, 232, 240, 0.96);
+          padding: 14px 16px;
+          border-radius: 16px;
+          border: 1px solid rgba(229, 231, 235, 0.98);
           background: #ffffff;
           box-shadow: none;
         }
@@ -1831,9 +2499,9 @@ export default function Drawing() {
         }
 
         .drawing-control-card {
-          padding: 16px 18px;
-          border-radius: 22px;
-          border: 1px solid rgba(226, 232, 240, 0.96);
+          padding: 14px 16px;
+          border-radius: 16px;
+          border: 1px solid rgba(229, 231, 235, 0.98);
           background: #ffffff;
           box-shadow: none;
           transition: border-color 0.2s ease, background 0.2s ease;
@@ -1885,7 +2553,7 @@ export default function Drawing() {
         .drawing-token-panel .semi-select:focus-within,
         .drawing-control-card .semi-select:focus-within {
           border-color: #f59e0b !important;
-          box-shadow: 0 0 0 4px rgba(251, 191, 36, 0.14) !important;
+          box-shadow: none !important;
         }
 
         .drawing-select .semi-select-selection-text,
@@ -1963,7 +2631,7 @@ export default function Drawing() {
           border: 0 !important;
           border-radius: 18px !important;
           background: linear-gradient(90deg, #fbbf24 0%, #f59e0b 100%) !important;
-          box-shadow: 0 14px 30px rgba(245, 158, 11, 0.24);
+          box-shadow: none !important;
           font-size: 16px;
           font-weight: 700;
         }
@@ -1996,7 +2664,7 @@ export default function Drawing() {
 
         .drawing-upload-panel:hover {
           border-color: rgba(245, 158, 11, 0.55);
-          box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.08);
+          box-shadow: none;
         }
 
         .drawing-upload-panel.is-muted {
@@ -2116,21 +2784,16 @@ export default function Drawing() {
 
         .drawing-preview-stage {
           position: relative;
-          min-height: 520px;
-          border-radius: 24px;
+          min-height: 500px;
+          border-radius: 18px;
           overflow: hidden;
-          border: 1px solid rgba(148, 163, 184, 0.16);
-          background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(250, 250, 249, 0.98));
+          border: 1px solid rgba(229, 231, 235, 0.92);
+          background: #ffffff;
           margin-bottom: 18px;
         }
 
         .drawing-preview-glow {
-          position: absolute;
-          inset: 0;
-          pointer-events: none;
-          background:
-            radial-gradient(circle at top right, rgba(250, 204, 21, 0.26), transparent 24%),
-            radial-gradient(circle at 72% 18%, rgba(59, 130, 246, 0.08), transparent 16%);
+          display: none;
         }
 
         .drawing-preview-empty {
@@ -2154,7 +2817,7 @@ export default function Drawing() {
           background: rgba(255, 255, 255, 0.92);
           border: 1px solid rgba(251, 191, 36, 0.28);
           color: #92400e;
-          box-shadow: 0 10px 24px rgba(245, 158, 11, 0.08);
+          box-shadow: none;
         }
 
         .drawing-preview-timer span {
@@ -2183,15 +2846,13 @@ export default function Drawing() {
             radial-gradient(circle at 72% 28%, rgba(244, 114, 182, 0.32), transparent 34%),
             radial-gradient(circle at 50% 76%, rgba(34, 197, 94, 0.24), transparent 34%),
             linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(238, 242, 255, 0.82));
-          box-shadow:
-            inset 0 1px 0 rgba(255, 255, 255, 0.86),
-            0 14px 30px rgba(99, 102, 241, 0.14);
+          box-shadow: none;
         }
 
         .drawing-single-preview {
           position: absolute;
           inset: 0;
-          padding: 18px;
+          padding: 20px;
         }
 
         .drawing-single-preview-image {
@@ -2199,8 +2860,8 @@ export default function Drawing() {
           height: 100%;
           object-fit: contain;
           display: block;
-          border-radius: 18px;
-          background: rgba(248, 250, 252, 0.92);
+          border-radius: 16px;
+          background: #ffffff;
         }
 
         .drawing-single-preview-actions {
@@ -2214,7 +2875,7 @@ export default function Drawing() {
         .drawing-preview-grid {
           position: absolute;
           inset: 0;
-          padding: 18px;
+          padding: 20px;
           display: grid;
           grid-template-columns: repeat(2, minmax(0, 1fr));
           gap: 14px;
@@ -2222,17 +2883,18 @@ export default function Drawing() {
 
         .drawing-preview-grid-item {
           position: relative;
-          border-radius: 18px;
+          border-radius: 16px;
           overflow: hidden;
-          background: rgba(248, 250, 252, 0.96);
-          border: 1px solid rgba(148, 163, 184, 0.14);
+          background: #ffffff;
+          border: 1px solid rgba(226, 232, 240, 0.9);
         }
 
         .drawing-preview-grid-item img {
           width: 100%;
           height: 100%;
-          object-fit: cover;
+          object-fit: contain;
           display: block;
+          background: #ffffff;
         }
 
         .drawing-preview-grid-actions {
@@ -2294,6 +2956,243 @@ export default function Drawing() {
           white-space: pre-wrap;
         }
 
+        .drawing-history-fab {
+          position: fixed;
+          right: 28px;
+          bottom: 28px;
+          z-index: 88;
+          height: 48px;
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          border: 0;
+          border-radius: 16px;
+          padding: 0 16px;
+          background: #111827;
+          color: #ffffff;
+          box-shadow: 0 18px 45px rgba(15, 23, 42, 0.22);
+          cursor: pointer;
+          font-weight: 800;
+          transition: transform 0.18s ease, box-shadow 0.18s ease;
+        }
+
+        .drawing-history-fab:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 22px 54px rgba(15, 23, 42, 0.28);
+        }
+
+        .drawing-history-fab em {
+          min-width: 22px;
+          height: 22px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 8px;
+          background: rgba(255, 255, 255, 0.16);
+          font-style: normal;
+          font-size: 12px;
+        }
+
+        .drawing-history-drawer-mask {
+          position: fixed;
+          inset: 0;
+          z-index: 92;
+          display: flex;
+          justify-content: flex-end;
+          background: rgba(15, 23, 42, 0.28);
+          backdrop-filter: blur(2px);
+          -webkit-backdrop-filter: blur(2px);
+        }
+
+        .drawing-history-drawer {
+          width: min(480px, calc(100vw - 24px));
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+          background: rgba(255, 255, 255, 0.96);
+          border-left: 1px solid rgba(226, 232, 240, 0.92);
+          box-shadow: -22px 0 60px rgba(15, 23, 42, 0.18);
+          padding: 18px;
+          overflow: hidden;
+        }
+
+        .drawing-history-drawer-head {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 16px;
+          padding-bottom: 14px;
+          border-bottom: 1px solid rgba(226, 232, 240, 0.92);
+        }
+
+        .drawing-history-drawer-subtitle {
+          display: block;
+          margin-top: 6px;
+          font-size: 12px;
+          line-height: 1.65;
+        }
+
+        .drawing-history-close {
+          width: 36px;
+          height: 36px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid rgba(226, 232, 240, 0.95);
+          border-radius: 12px;
+          background: #ffffff;
+          color: #64748b;
+          cursor: pointer;
+        }
+
+        .drawing-history-drawer-grid {
+          flex: 1;
+          min-height: 0;
+          overflow-y: auto;
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+          align-content: start;
+          gap: 12px;
+          padding: 16px 2px 12px;
+        }
+
+        .drawing-history-drawer-card {
+          position: relative;
+          overflow: hidden;
+          border-radius: 18px;
+          border: 1px solid rgba(226, 232, 240, 0.95);
+          background: #ffffff;
+          cursor: pointer;
+          outline: none;
+          box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+        }
+
+        .drawing-history-drawer-card.is-active {
+          border-color: rgba(245, 158, 11, 0.68);
+          box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.14);
+        }
+
+        .drawing-history-drawer-image {
+          width: 100%;
+          aspect-ratio: 1 / 1;
+          display: block;
+          object-fit: cover;
+          background: #f1f5f9;
+        }
+
+        .drawing-history-edit-tip {
+          position: absolute;
+          top: 8px;
+          right: 8px;
+          width: 30px;
+          height: 30px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 11px;
+          border: 0;
+          background: rgba(15, 23, 42, 0.72);
+          color: #fff;
+          cursor: pointer;
+          z-index: 2;
+        }
+
+        .drawing-history-card-overlay {
+          position: absolute;
+          inset: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 7px;
+          padding: 12px;
+          background: rgba(15, 23, 42, 0.52);
+          opacity: 0;
+          pointer-events: none;
+          transition: opacity 0.18s ease;
+        }
+
+        .drawing-history-drawer-card:hover .drawing-history-card-overlay,
+        .drawing-history-drawer-card:focus-within .drawing-history-card-overlay {
+          opacity: 1;
+          pointer-events: auto;
+        }
+
+        .drawing-history-card-overlay button {
+          min-width: 0;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          border: 0;
+          border-radius: 10px;
+          padding: 8px 9px;
+          background: rgba(255, 255, 255, 0.92);
+          color: #0f172a;
+          font-size: 12px;
+          font-weight: 800;
+          cursor: pointer;
+        }
+
+        .drawing-history-card-info {
+          padding: 9px 10px 10px;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .drawing-history-card-info span,
+        .drawing-history-card-info small {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .drawing-history-card-info span {
+          color: #0f172a;
+          font-size: 13px;
+          font-weight: 800;
+        }
+
+        .drawing-history-card-info small {
+          color: #64748b;
+          font-size: 11px;
+          font-weight: 650;
+        }
+
+        .drawing-history-pagination {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          padding-top: 12px;
+          border-top: 1px solid rgba(226, 232, 240, 0.92);
+        }
+
+        .drawing-history-pagination button {
+          min-width: 34px;
+          height: 34px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid rgba(226, 232, 240, 0.96);
+          border-radius: 10px;
+          background: #ffffff;
+          color: #64748b;
+          cursor: pointer;
+          font-size: 13px;
+          font-weight: 800;
+        }
+
+        .drawing-history-pagination button.is-active {
+          border-color: #111827;
+          background: #111827;
+          color: #ffffff;
+        }
+
+        .drawing-history-pagination button:disabled {
+          cursor: not-allowed;
+          opacity: 0.45;
+        }
+
         .drawing-history-head {
           display: flex;
           justify-content: space-between;
@@ -2330,8 +3229,8 @@ export default function Drawing() {
         .drawing-history-pill:hover,
         .drawing-history-pill.is-active {
           border-color: rgba(245, 158, 11, 0.42);
-          box-shadow: 0 10px 24px rgba(245, 158, 11, 0.12);
-          transform: translateY(-1px);
+          box-shadow: none;
+          transform: none;
         }
 
         .drawing-history-pill-image {
@@ -2439,6 +3338,19 @@ export default function Drawing() {
         }
 
         @media (max-width: 768px) {
+          .drawing-page-shell {
+            padding: 0 12px 32px;
+            min-height: calc(100dvh - var(--header-height, 60px));
+            border-left: 0;
+            box-shadow: none;
+          }
+
+          .drawing-page-header {
+            margin: 0 -12px 16px;
+            padding: 14px 12px 12px;
+            align-items: flex-start;
+          }
+
           .drawing-page-hero-copy-title {
             font-size: 16px;
           }
@@ -2476,6 +3388,33 @@ export default function Drawing() {
           .drawing-single-preview-actions {
             top: 22px;
             right: 22px;
+          }
+
+          .drawing-history-fab {
+            right: 14px;
+            bottom: 14px;
+            height: 44px;
+            border-radius: 14px;
+            padding: 0 13px;
+          }
+
+          .drawing-history-drawer {
+            width: 100%;
+            padding: 14px;
+          }
+
+          .drawing-history-drawer-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+          }
+
+          .drawing-history-card-overlay {
+            gap: 5px;
+          }
+
+          .drawing-history-card-overlay button {
+            padding: 7px 7px;
+            font-size: 11px;
           }
         }
       `}</style>

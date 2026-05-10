@@ -13,7 +13,6 @@ import (
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
-	"github.com/QuantumNous/new-api/setting/system_setting"
 	"github.com/gin-gonic/gin"
 	"github.com/thanhpk/randstr"
 	waffo "github.com/waffo-com/waffo-go"
@@ -76,17 +75,15 @@ func formatWaffoAmount(amount float64, currency string) string {
 
 func getWaffoPayMoney(amount float64, group string) float64 {
 	originalAmount := amount
+	if payMoney, ok := getConfiguredTopupPayMoney(int64(originalAmount), group, setting.WaffoUnitPrice); ok {
+		return payMoney
+	}
 	if operation_setting.GetQuotaDisplayType() == operation_setting.QuotaDisplayTypeTokens {
 		amount = amount / common.QuotaPerUnit
 	}
 
-	topupGroupRatio := common.GetTopupGroupRatio(group)
-	if topupGroupRatio == 0 {
-		topupGroupRatio = 1
-	}
-
-	discount := operation_setting.GetPaymentSetting().GetDiscount(int64(originalAmount))
-	return amount * setting.WaffoUnitPrice * topupGroupRatio * discount
+	topupGroupRatio := getEffectiveTopupGroupRatio(group)
+	return amount * setting.WaffoUnitPrice * topupGroupRatio
 }
 
 type WaffoPayRequest struct {
@@ -163,16 +160,20 @@ func RequestWaffoPay(c *gin.Context) {
 	if amount <= 0 {
 		amount = 1
 	}
-	giftAmount := getStoredGiftAmount(req.Amount)
+	giftAmount, creditAmount := buildTopupStoredCredit(
+		amount,
+		getStoredGiftAmount(req.Amount, group),
+	)
 
 	topUp := &model.TopUp{
 		UserId:            id,
 		Amount:            amount,
 		GiftAmount:        giftAmount,
-		CreditAmount:      amount + giftAmount,
+		CreditAmount:      creditAmount,
 		Money:             payMoney,
 		TradeNo:           merchantOrderId,
 		PaymentMethod:     "waffo",
+		GroupSnapshot:     group,
 		ClientIP:          c.ClientIP(),
 		DeviceFingerprint: getRequestDeviceFingerprint(c),
 		CreateTime:        time.Now().Unix(),
@@ -198,7 +199,7 @@ func RequestWaffoPay(c *gin.Context) {
 	if setting.WaffoNotifyUrl != "" {
 		notifyURL = setting.WaffoNotifyUrl
 	}
-	returnURL := system_setting.ServerAddress + "/console/topup?show_history=true"
+	returnURL := callbackAddr + consoleTopupRedirect("show_history=true")
 	if setting.WaffoReturnUrl != "" {
 		returnURL = setting.WaffoReturnUrl
 	}

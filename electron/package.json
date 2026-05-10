@@ -21,11 +21,11 @@
   "author": "QuantumNous",
   "repository": {
     "type": "git",
-    "url": "https://github.com/QuantumNous/new-api"
+    "url": "https://github.com/xiaoer0215/Newapi-2"
   },
   "devDependencies": {
     "cross-env": "^7.0.3",
-    "electron": "35.7.5",
+    "electron": "39.8.5",
     "electron-builder": "^26.7.0"
   },
   "build": {

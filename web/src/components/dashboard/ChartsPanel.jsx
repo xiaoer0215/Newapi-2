@@ -38,41 +38,34 @@ const ChartsPanel = ({
   return (
     <Card
       {...CARD_PROPS}
-      className={`!rounded-2xl ${hasApiInfoPanel ? 'lg:col-span-3' : ''}`}
-      style={{ background: 'rgba(255, 255, 255, 0.75)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(148, 163, 184, 0.2)', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)' }}
+      className={`dashboard-glass-card !rounded-2xl ${hasApiInfoPanel ? 'lg:col-span-3' : ''}`}
       title={
         <div className='flex flex-col lg:flex-row lg:items-center lg:justify-between w-full gap-3'>
           <div className={FLEX_CENTER_GAP2}>
-            <PieChart size={16} />
-            {t('模型数据分析')}
+            <span className='dashboard-title-icon purple'>
+              <PieChart size={16} />
+            </span>
+            {t('\u6a21\u578b\u6570\u636e\u5206\u6790')}
           </div>
           <Tabs
             type='slash'
             activeKey={activeChartTab}
             onChange={setActiveChartTab}
           >
-            <TabPane tab={<span>{t('消耗分布')}</span>} itemKey='1' />
-            <TabPane tab={<span>{t('消耗趋势')}</span>} itemKey='2' />
-            <TabPane tab={<span>{t('调用次数分布')}</span>} itemKey='3' />
-            <TabPane tab={<span>{t('调用次数排行')}</span>} itemKey='4' />
+            <TabPane tab={<span>{t('\u6d88\u8017\u5206\u5e03')}</span>} itemKey='1' />
+            <TabPane tab={<span>{t('\u6d88\u8017\u8d8b\u52bf')}</span>} itemKey='2' />
+            <TabPane tab={<span>{t('\u8c03\u7528\u6b21\u6570\u5206\u5e03')}</span>} itemKey='3' />
+            <TabPane tab={<span>{t('\u8c03\u7528\u6b21\u6570\u6392\u884c')}</span>} itemKey='4' />
           </Tabs>
         </div>
       }
       bodyStyle={{ padding: 0 }}
     >
       <div className='h-96 p-2'>
-        {activeChartTab === '1' && (
-          <VChart spec={spec_line} option={CHART_CONFIG} />
-        )}
-        {activeChartTab === '2' && (
-          <VChart spec={spec_model_line} option={CHART_CONFIG} />
-        )}
-        {activeChartTab === '3' && (
-          <VChart spec={spec_pie} option={CHART_CONFIG} />
-        )}
-        {activeChartTab === '4' && (
-          <VChart spec={spec_rank_bar} option={CHART_CONFIG} />
-        )}
+        {activeChartTab === '1' && <VChart spec={spec_line} option={CHART_CONFIG} />}
+        {activeChartTab === '2' && <VChart spec={spec_model_line} option={CHART_CONFIG} />}
+        {activeChartTab === '3' && <VChart spec={spec_pie} option={CHART_CONFIG} />}
+        {activeChartTab === '4' && <VChart spec={spec_rank_bar} option={CHART_CONFIG} />}
       </div>
     </Card>
   );

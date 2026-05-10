@@ -17,7 +17,7 @@ const ActionButtons = ({
   t,
 }) => {
   return (
-    <div className='flex items-center gap-4'>
+    <div className='app-header-actions-v2 flex items-center gap-4'>
       <div className='flex items-center'>
         <NotificationButton
           unreadCount={unreadCount}

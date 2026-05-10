@@ -112,15 +112,19 @@ func (*StripeAdaptor) RequestPay(c *gin.Context, req *StripePayRequest) {
 	}
 
 	storedAmount := normalizeTopUpStoredAmount(req.Amount)
-	giftAmount := getStoredGiftAmount(req.Amount)
+	giftAmount, creditAmount := buildTopupStoredCredit(
+		storedAmount,
+		getStoredGiftAmount(req.Amount, user.Group),
+	)
 	topUp := &model.TopUp{
 		UserId:            id,
 		Amount:            storedAmount,
 		GiftAmount:        giftAmount,
-		CreditAmount:      storedAmount + giftAmount,
+		CreditAmount:      creditAmount,
 		Money:             chargedMoney,
 		TradeNo:           referenceId,
 		PaymentMethod:     PaymentMethodStripe,
+		GroupSnapshot:     user.Group,
 		ClientIP:          c.ClientIP(),
 		DeviceFingerprint: getRequestDeviceFingerprint(c),
 		CreateTime:        time.Now().Unix(),
@@ -403,27 +407,20 @@ func genStripeLink(referenceId string, customerId string, email string, amount i
 }
 
 func GetChargedAmount(count float64, user model.User) float64 {
-	topUpGroupRatio := common.GetTopupGroupRatio(user.Group)
-	if topUpGroupRatio == 0 {
-		topUpGroupRatio = 1
-	}
-
-	return count * topUpGroupRatio
+	return getStripePayMoney(count, user.Group)
 }
 
 func getStripePayMoney(amount float64, group string) float64 {
 	originalAmount := amount
+	if payMoney, ok := getConfiguredTopupPayMoney(int64(originalAmount), group, setting.StripeUnitPrice); ok {
+		return payMoney
+	}
 	if operation_setting.GetQuotaDisplayType() == operation_setting.QuotaDisplayTypeTokens {
 		amount = amount / common.QuotaPerUnit
 	}
 	// Using float64 for monetary calculations is acceptable here due to the small amounts involved
-	topupGroupRatio := common.GetTopupGroupRatio(group)
-	if topupGroupRatio == 0 {
-		topupGroupRatio = 1
-	}
-	// apply optional preset discount by the original request amount (if configured), default 1.0
-	discount := operation_setting.GetPaymentSetting().GetDiscount(int64(originalAmount))
-	payMoney := amount * setting.StripeUnitPrice * topupGroupRatio * discount
+	topupGroupRatio := getEffectiveTopupGroupRatio(group)
+	payMoney := amount * setting.StripeUnitPrice * topupGroupRatio
 	return payMoney
 }
 

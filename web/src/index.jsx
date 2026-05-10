@@ -20,6 +20,7 @@ For commercial licensing, please contact support@quantumnous.com
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
+import '@douyinfe/semi-ui/dist/css/semi.css';
 import { UserProvider } from './context/User';
 import 'react-toastify/dist/ReactToastify.css';
 import { StatusProvider } from './context/Status';
@@ -30,19 +31,13 @@ import './index.css';
 import { LocaleProvider } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
 import zh_CN from '@douyinfe/semi-ui/lib/es/locale/source/zh_CN';
-import zh_TW from '@douyinfe/semi-ui/lib/es/locale/source/zh_TW';
 import en_GB from '@douyinfe/semi-ui/lib/es/locale/source/en_GB';
-import fr from '@douyinfe/semi-ui/lib/es/locale/source/fr';
-import ja_JP from '@douyinfe/semi-ui/lib/es/locale/source/ja_JP';
-import ru_RU from '@douyinfe/semi-ui/lib/es/locale/source/ru_RU';
-import vi_VN from '@douyinfe/semi-ui/lib/es/locale/source/vi_VN';
-import { normalizeLanguage } from './i18n/language';
 
 // 欢迎信息（二次开发者未经允许不准将此移除）
 // Welcome message (Do not remove this without permission from the original developer)
 if (typeof window !== 'undefined') {
   console.log(
-    '%cWE ❤ NEWAPI%c Github: https://github.com/QuantumNous/new-api',
+    '%cWE ❤ NEWAPI%c Github: https://github.com/xiaoer0215/Newapi-2',
     'color: #10b981; font-weight: bold; font-size: 24px;',
     'color: inherit; font-size: 14px;',
   );
@@ -50,21 +45,9 @@ if (typeof window !== 'undefined') {
 
 function SemiLocaleWrapper({ children }) {
   const { i18n } = useTranslation();
-  const currentLanguage = normalizeLanguage(i18n.language) || 'zh-CN';
   const semiLocale = React.useMemo(
-    () =>
-      (
-        {
-          'zh-CN': zh_CN,
-          'zh-TW': zh_TW,
-          en: en_GB,
-          fr,
-          ja: ja_JP,
-          ru: ru_RU,
-          vi: vi_VN,
-        }
-      )[currentLanguage] || zh_CN,
-    [currentLanguage],
+    () => ({ zh: zh_CN, en: en_GB })[i18n.language] || zh_CN,
+    [i18n.language],
   );
   return <LocaleProvider locale={semiLocale}>{children}</LocaleProvider>;
 }

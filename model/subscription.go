@@ -3,12 +3,14 @@ package model
 import (
 	"errors"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/pkg/cachex"
 	"github.com/samber/hot"
 	"gorm.io/gorm"
@@ -167,6 +169,9 @@ type SubscriptionPlan struct {
 
 	// Upgrade user group after purchase (empty = no change)
 	UpgradeGroup string `json:"upgrade_group" gorm:"type:varchar(64);default:''"`
+
+	// When enabled, this plan is only shown on the member upgrade page.
+	ShowInMemberUpgrade bool `json:"show_in_member_upgrade" gorm:"default:false"`
 
 	// Total quota (amount in quota units, 0 = unlimited)
 	TotalAmount int64 `json:"total_amount" gorm:"type:bigint;not null;default:0"`
@@ -425,20 +430,56 @@ func getUserGroupByIdTx(tx *gorm.DB, userId int) (string, error) {
 	return group, nil
 }
 
-func downgradeUserGroupForSubscriptionTx(tx *gorm.DB, sub *UserSubscription, now int64) (string, error) {
+func getUserGroupQuotaByIdTx(tx *gorm.DB, userId int) (string, int, error) {
+	if userId <= 0 {
+		return "", 0, errors.New("invalid userId")
+	}
+	if tx == nil {
+		tx = DB
+	}
+	var user User
+	if err := tx.Select(commonGroupCol, "quota").Where("id = ?", userId).Take(&user).Error; err != nil {
+		return "", 0, err
+	}
+	return user.Group, user.Quota, nil
+}
+
+func updateUserGroupWithScaledQuotaTx(tx *gorm.DB, userId int, currentGroup string, currentQuota int, targetGroup string) (int, error) {
+	if tx == nil {
+		tx = DB
+	}
+	targetGroup = strings.TrimSpace(targetGroup)
+	if userId <= 0 || targetGroup == "" {
+		return currentQuota, errors.New("invalid user group update args")
+	}
+	if strings.TrimSpace(currentGroup) == targetGroup {
+		return currentQuota, nil
+	}
+
+	targetQuota := common.ScaleQuotaByTopupGroupCreditRatio(currentQuota, currentGroup, targetGroup)
+	if err := tx.Model(&User{}).Where("id = ?", userId).Updates(map[string]interface{}{
+		"group": targetGroup,
+		"quota": targetQuota,
+	}).Error; err != nil {
+		return currentQuota, err
+	}
+	return targetQuota, nil
+}
+
+func downgradeUserGroupForSubscriptionTx(tx *gorm.DB, sub *UserSubscription, now int64) (string, int, error) {
 	if tx == nil || sub == nil {
-		return "", errors.New("invalid downgrade args")
+		return "", 0, errors.New("invalid downgrade args")
 	}
 	upgradeGroup := strings.TrimSpace(sub.UpgradeGroup)
 	if upgradeGroup == "" {
-		return "", nil
+		return "", 0, nil
 	}
-	currentGroup, err := getUserGroupByIdTx(tx, sub.UserId)
+	currentGroup, currentQuota, err := getUserGroupQuotaByIdTx(tx, sub.UserId)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 	if currentGroup != upgradeGroup {
-		return "", nil
+		return "", 0, nil
 	}
 	var activeSub UserSubscription
 	activeQuery := tx.Where("user_id = ? AND status = ? AND end_time > ? AND id <> ? AND upgrade_group <> ''",
@@ -447,45 +488,50 @@ func downgradeUserGroupForSubscriptionTx(tx *gorm.DB, sub *UserSubscription, now
 		Limit(1).
 		Find(&activeSub)
 	if activeQuery.Error == nil && activeQuery.RowsAffected > 0 {
-		return "", nil
+		return "", 0, nil
 	}
 	prevGroup := strings.TrimSpace(sub.PrevUserGroup)
 	if prevGroup == "" || prevGroup == currentGroup {
-		return "", nil
+		return "", 0, nil
 	}
-	if err := tx.Model(&User{}).Where("id = ?", sub.UserId).
-		Update("group", prevGroup).Error; err != nil {
-		return "", err
+	targetQuota, err := updateUserGroupWithScaledQuotaTx(tx, sub.UserId, currentGroup, currentQuota, prevGroup)
+	if err != nil {
+		return "", 0, err
 	}
-	return prevGroup, nil
+	return prevGroup, targetQuota, nil
 }
 
-func CreateUserSubscriptionFromPlanTx(tx *gorm.DB, userId int, plan *SubscriptionPlan, source string) (*UserSubscription, error) {
+func CreateUserSubscriptionFromPlanTx(tx *gorm.DB, userId int, plan *SubscriptionPlan, source string) (*UserSubscription, int, error) {
 	if tx == nil {
-		return nil, errors.New("tx is nil")
+		return nil, 0, errors.New("tx is nil")
 	}
 	if plan == nil || plan.Id == 0 {
-		return nil, errors.New("invalid plan")
+		return nil, 0, errors.New("invalid plan")
 	}
 	if userId <= 0 {
-		return nil, errors.New("invalid user id")
+		return nil, 0, errors.New("invalid user id")
 	}
 	if plan.MaxPurchasePerUser > 0 {
+		log.Printf("subscription create: counting existing subs user_id=%d plan_id=%d", userId, plan.Id)
 		var count int64
 		if err := tx.Model(&UserSubscription{}).
 			Where("user_id = ? AND plan_id = ?", userId, plan.Id).
 			Count(&count).Error; err != nil {
-			return nil, err
+			log.Printf("subscription create: count failed user_id=%d plan_id=%d err=%v", userId, plan.Id, err)
+			return nil, 0, err
 		}
+		log.Printf("subscription create: existing count=%d user_id=%d plan_id=%d", count, userId, plan.Id)
 		if count >= int64(plan.MaxPurchasePerUser) {
-			return nil, errors.New("已达到该套餐购买上限")
+			return nil, 0, errors.New("\u5df2\u8fbe\u5230\u8be5\u5957\u9910\u8d2d\u4e70\u4e0a\u9650")
 		}
 	}
-	nowUnix := GetDBTimestamp()
+	nowUnix := GetDBTimestampTx(tx)
 	now := time.Unix(nowUnix, 0)
+	log.Printf("subscription create: calc schedule user_id=%d plan_id=%d now=%d", userId, plan.Id, nowUnix)
 	endUnix, err := calcPlanEndTime(now, plan)
 	if err != nil {
-		return nil, err
+		log.Printf("subscription create: calc end time failed user_id=%d plan_id=%d err=%v", userId, plan.Id, err)
+		return nil, 0, err
 	}
 	resetBase := now
 	nextReset := calcNextResetTime(resetBase, plan, endUnix)
@@ -495,17 +541,25 @@ func CreateUserSubscriptionFromPlanTx(tx *gorm.DB, userId int, plan *Subscriptio
 	}
 	upgradeGroup := strings.TrimSpace(plan.UpgradeGroup)
 	prevGroup := ""
+	updatedQuota := 0
 	if upgradeGroup != "" {
-		currentGroup, err := getUserGroupByIdTx(tx, userId)
+		log.Printf("subscription create: loading current group user_id=%d target_group=%s", userId, upgradeGroup)
+		currentGroup, currentQuota, err := getUserGroupQuotaByIdTx(tx, userId)
 		if err != nil {
-			return nil, err
+			log.Printf("subscription create: load current group failed user_id=%d err=%v", userId, err)
+			return nil, 0, err
 		}
+		log.Printf("subscription create: current group=%s quota=%d user_id=%d target_group=%s", currentGroup, currentQuota, userId, upgradeGroup)
+		updatedQuota = currentQuota
 		if currentGroup != upgradeGroup {
 			prevGroup = currentGroup
-			if err := tx.Model(&User{}).Where("id = ?", userId).
-				Update("group", upgradeGroup).Error; err != nil {
-				return nil, err
+			log.Printf("subscription create: updating group user_id=%d from=%s to=%s", userId, currentGroup, upgradeGroup)
+			updatedQuota, err = updateUserGroupWithScaledQuotaTx(tx, userId, currentGroup, currentQuota, upgradeGroup)
+			if err != nil {
+				log.Printf("subscription create: update group failed user_id=%d from=%s to=%s err=%v", userId, currentGroup, upgradeGroup, err)
+				return nil, 0, err
 			}
+			log.Printf("subscription create: updated group user_id=%d to=%s quota=%d", userId, upgradeGroup, updatedQuota)
 		}
 	}
 	sub := &UserSubscription{
@@ -524,10 +578,13 @@ func CreateUserSubscriptionFromPlanTx(tx *gorm.DB, userId int, plan *Subscriptio
 		CreatedAt:     common.GetTimestamp(),
 		UpdatedAt:     common.GetTimestamp(),
 	}
+	log.Printf("subscription create: inserting subscription user_id=%d plan_id=%d start=%d end=%d upgrade_group=%s", userId, plan.Id, sub.StartTime, sub.EndTime, sub.UpgradeGroup)
 	if err := tx.Create(sub).Error; err != nil {
-		return nil, err
+		log.Printf("subscription create: insert failed user_id=%d plan_id=%d err=%v", userId, plan.Id, err)
+		return nil, 0, err
 	}
-	return sub, nil
+	log.Printf("subscription create: inserted subscription id=%d user_id=%d plan_id=%d", sub.Id, userId, plan.Id)
+	return sub, updatedQuota, nil
 }
 
 // Complete a subscription order (idempotent). Creates a UserSubscription snapshot from the plan.
@@ -543,44 +600,79 @@ func CompleteSubscriptionOrder(tradeNo string, providerPayload string, paymentOr
 	var logPlanTitle string
 	var logMoney float64
 	var logPaymentMethod string
+	var logPrevGroup string
+	var logCurrentGroup string
+	var logQuotaBefore int
+	var logQuotaAfter int
 	var upgradeGroup string
+	cacheQuota := 0
 	err := DB.Transaction(func(tx *gorm.DB) error {
+		log.Printf("subscription complete: tx begin trade_no=%s", tradeNo)
 		var order SubscriptionOrder
 		if err := tx.Set("gorm:query_option", "FOR UPDATE").Where(refCol+" = ?", tradeNo).First(&order).Error; err != nil {
+			log.Printf("subscription complete: load order failed trade_no=%s err=%v", tradeNo, err)
 			return ErrSubscriptionOrderNotFound
 		}
+		log.Printf("subscription complete: order loaded trade_no=%s status=%s plan_id=%d user_id=%d", tradeNo, order.Status, order.PlanId, order.UserId)
 		if order.Status == common.TopUpStatusSuccess {
+			log.Printf("subscription complete: already success trade_no=%s", tradeNo)
 			return nil
 		}
 		if order.Status != common.TopUpStatusPending {
+			log.Printf("subscription complete: invalid status trade_no=%s status=%s", tradeNo, order.Status)
 			return ErrSubscriptionOrderStatusInvalid
 		}
 		if trimmedPaymentOrderNo := strings.TrimSpace(paymentOrderNo); trimmedPaymentOrderNo != "" {
 			order.PaymentOrderNo = trimmedPaymentOrderNo
 		}
-		plan, err := GetSubscriptionPlanById(order.PlanId)
+		plan, err := getSubscriptionPlanByIdTx(tx, order.PlanId)
 		if err != nil {
+			log.Printf("subscription complete: load plan failed trade_no=%s plan_id=%d err=%v", tradeNo, order.PlanId, err)
 			return err
 		}
+		log.Printf("subscription complete: plan loaded trade_no=%s plan_id=%d upgrade_group=%s", tradeNo, plan.Id, strings.TrimSpace(plan.UpgradeGroup))
 		if !plan.Enabled {
 			// still allow completion for already purchased orders
 		}
 		upgradeGroup = strings.TrimSpace(plan.UpgradeGroup)
-		_, err = CreateUserSubscriptionFromPlanTx(tx, order.UserId, plan, "order")
+		beforeGroup, beforeQuota, _ := getUserGroupQuotaByIdTx(tx, order.UserId)
+		log.Printf("subscription complete: creating user subscription trade_no=%s user_id=%d", tradeNo, order.UserId)
+		createdSub, updatedQuota, err := CreateUserSubscriptionFromPlanTx(tx, order.UserId, plan, "order")
 		if err != nil {
+			log.Printf("subscription complete: create user subscription failed trade_no=%s err=%v", tradeNo, err)
 			return err
 		}
+		cacheQuota = updatedQuota
+		afterGroup, afterQuota, _ := getUserGroupQuotaByIdTx(tx, order.UserId)
+		logPrevGroup = strings.TrimSpace(beforeGroup)
+		logCurrentGroup = strings.TrimSpace(afterGroup)
+		logQuotaBefore = beforeQuota
+		logQuotaAfter = afterQuota
+		if createdSub != nil {
+			if pg := strings.TrimSpace(createdSub.PrevUserGroup); pg != "" {
+				logPrevGroup = pg
+			}
+			if ug := strings.TrimSpace(createdSub.UpgradeGroup); ug != "" {
+				logCurrentGroup = ug
+			}
+		}
+		log.Printf("subscription complete: user subscription created trade_no=%s cache_quota=%d", tradeNo, cacheQuota)
+		log.Printf("subscription complete: upserting topup trade_no=%s", tradeNo)
 		if err := upsertSubscriptionTopUpTx(tx, &order); err != nil {
+			log.Printf("subscription complete: upsert topup failed trade_no=%s err=%v", tradeNo, err)
 			return err
 		}
+		log.Printf("subscription complete: topup upserted trade_no=%s", tradeNo)
 		order.Status = common.TopUpStatusSuccess
 		order.CompleteTime = common.GetTimestamp()
 		if providerPayload != "" {
 			order.ProviderPayload = providerPayload
 		}
 		if err := tx.Save(&order).Error; err != nil {
+			log.Printf("subscription complete: save order failed trade_no=%s err=%v", tradeNo, err)
 			return err
 		}
+		log.Printf("subscription complete: order saved trade_no=%s", tradeNo)
 		logUserId = order.UserId
 		logPlanTitle = plan.Title
 		logMoney = order.Money
@@ -588,14 +680,29 @@ func CompleteSubscriptionOrder(tradeNo string, providerPayload string, paymentOr
 		return nil
 	})
 	if err != nil {
+		log.Printf("subscription complete: tx failed trade_no=%s err=%v", tradeNo, err)
 		return err
 	}
+	log.Printf("subscription complete: tx committed trade_no=%s", tradeNo)
 	if upgradeGroup != "" && logUserId > 0 {
 		_ = UpdateUserGroupCache(logUserId, upgradeGroup)
+		_ = updateUserQuotaCache(logUserId, cacheQuota)
 	}
 	if logUserId > 0 {
 		msg := fmt.Sprintf("订阅购买成功，套餐: %s，支付金额: %.2f，支付方式: %s", logPlanTitle, logMoney, logPaymentMethod)
 		RecordLog(logUserId, LogTypeTopup, msg)
+		if logPrevGroup != "" &&
+			logCurrentGroup != "" &&
+			logPrevGroup != logCurrentGroup {
+			switchMsg := fmt.Sprintf(
+				"订阅开通后用户分组从 %s 调整为 %s，并按到账倍率自动换算余额 %s -> %s",
+				logPrevGroup,
+				logCurrentGroup,
+				logger.LogQuota(logQuotaBefore),
+				logger.LogQuota(logQuotaAfter),
+			)
+			RecordLog(logUserId, LogTypeManage, switchMsg)
+		}
 	}
 	return nil
 }
@@ -619,7 +726,10 @@ func upsertSubscriptionTopUpTx(tx *gorm.DB, order *SubscriptionOrder) error {
 				CompleteTime:   now,
 				Status:         common.TopUpStatusSuccess,
 			}
-			return tx.Create(&topup).Error
+			if err := tx.Create(&topup).Error; err != nil {
+				return err
+			}
+			return nil
 		}
 		return err
 	}
@@ -669,16 +779,61 @@ func AdminBindSubscription(userId int, planId int, sourceNote string) (string, e
 	if err != nil {
 		return "", err
 	}
+	cacheQuota := 0
+	logPlanTitle := strings.TrimSpace(plan.Title)
+	if logPlanTitle == "" {
+		logPlanTitle = "未命名套餐"
+	}
+	logPrevGroup := ""
+	logCurrentGroup := ""
+	logQuotaBefore := 0
+	logQuotaAfter := 0
 	err = DB.Transaction(func(tx *gorm.DB) error {
-		_, err := CreateUserSubscriptionFromPlanTx(tx, userId, plan, "admin")
+		beforeGroup, beforeQuota, _ := getUserGroupQuotaByIdTx(tx, userId)
+		createdSub, updatedQuota, err := CreateUserSubscriptionFromPlanTx(tx, userId, plan, "admin")
+		if strings.TrimSpace(plan.UpgradeGroup) != "" {
+			cacheQuota = updatedQuota
+		}
+		afterGroup, afterQuota, _ := getUserGroupQuotaByIdTx(tx, userId)
+		logPrevGroup = strings.TrimSpace(beforeGroup)
+		logCurrentGroup = strings.TrimSpace(afterGroup)
+		logQuotaBefore = beforeQuota
+		logQuotaAfter = afterQuota
+		if createdSub != nil {
+			if pg := strings.TrimSpace(createdSub.PrevUserGroup); pg != "" {
+				logPrevGroup = pg
+			}
+			if ug := strings.TrimSpace(createdSub.UpgradeGroup); ug != "" {
+				logCurrentGroup = ug
+			}
+		}
 		return err
 	})
 	if err != nil {
 		return "", err
 	}
+	logPrefix := "管理员手动开通订阅成功"
+	if trimmedSourceNote := strings.TrimSpace(sourceNote); trimmedSourceNote != "" {
+		logPrefix = fmt.Sprintf("管理员 %s 手动开通订阅成功", trimmedSourceNote)
+	}
+	RecordLog(userId, LogTypeTopup, fmt.Sprintf("%s，套餐: %s", logPrefix, logPlanTitle))
+	if logPrevGroup != "" && logCurrentGroup != "" && logPrevGroup != logCurrentGroup {
+		RecordLog(
+			userId,
+			LogTypeManage,
+			fmt.Sprintf(
+				"手动开通订阅后用户分组从 %s 调整为 %s，并按到账倍率自动换算余额 %s -> %s",
+				logPrevGroup,
+				logCurrentGroup,
+				logger.LogQuota(logQuotaBefore),
+				logger.LogQuota(logQuotaAfter),
+			),
+		)
+	}
 	if strings.TrimSpace(plan.UpgradeGroup) != "" {
 		_ = UpdateUserGroupCache(userId, plan.UpgradeGroup)
-		return fmt.Sprintf("用户分组将升级到 %s", plan.UpgradeGroup), nil
+		_ = updateUserQuotaCache(userId, cacheQuota)
+		return fmt.Sprintf("\u7528\u6237\u5206\u7ec4\u5c06\u5347\u7ea7\u5230 %s", plan.UpgradeGroup), nil
 	}
 	return "", nil
 }
@@ -834,14 +989,21 @@ func buildSubscriptionSummaries(subs []UserSubscription) []SubscriptionSummary {
 }
 
 // AdminInvalidateUserSubscription marks a user subscription as cancelled and ends it immediately.
-func AdminInvalidateUserSubscription(userSubscriptionId int) (string, error) {
+func AdminInvalidateUserSubscription(userSubscriptionId int, operator string) (string, error) {
 	if userSubscriptionId <= 0 {
 		return "", errors.New("invalid userSubscriptionId")
 	}
 	now := common.GetTimestamp()
 	cacheGroup := ""
+	cacheQuota := 0
 	downgradeGroup := ""
 	var userId int
+	logPlanTitle := "未命名套餐"
+	logGroupBefore := ""
+	logGroupAfter := ""
+	logQuotaBefore := 0
+	logQuotaAfter := 0
+	logEndTime := "-"
 	err := DB.Transaction(func(tx *gorm.DB) error {
 		var sub UserSubscription
 		if err := tx.Set("gorm:query_option", "FOR UPDATE").
@@ -849,6 +1011,18 @@ func AdminInvalidateUserSubscription(userSubscriptionId int) (string, error) {
 			return err
 		}
 		userId = sub.UserId
+		logEndTime = func(ts int64) string {
+			if ts <= 0 {
+				return "-"
+			}
+			return time.Unix(ts, 0).Format("2006-01-02 15:04:05")
+		}(sub.EndTime)
+		if plan, err := getSubscriptionPlanByIdTx(tx, sub.PlanId); err == nil && plan != nil {
+			if title := strings.TrimSpace(plan.Title); title != "" {
+				logPlanTitle = title
+			}
+		}
+		beforeGroup, beforeQuota, _ := getUserGroupQuotaByIdTx(tx, sub.UserId)
 		if err := tx.Model(&sub).Updates(map[string]interface{}{
 			"status":     "cancelled",
 			"end_time":   now,
@@ -856,12 +1030,18 @@ func AdminInvalidateUserSubscription(userSubscriptionId int) (string, error) {
 		}).Error; err != nil {
 			return err
 		}
-		target, err := downgradeUserGroupForSubscriptionTx(tx, &sub, now)
+		target, targetQuota, err := downgradeUserGroupForSubscriptionTx(tx, &sub, now)
 		if err != nil {
 			return err
 		}
+		afterGroup, afterQuota, _ := getUserGroupQuotaByIdTx(tx, sub.UserId)
+		logGroupBefore = beforeGroup
+		logGroupAfter = afterGroup
+		logQuotaBefore = beforeQuota
+		logQuotaAfter = afterQuota
 		if target != "" {
 			cacheGroup = target
+			cacheQuota = targetQuota
 			downgradeGroup = target
 		}
 		return nil
@@ -869,8 +1049,27 @@ func AdminInvalidateUserSubscription(userSubscriptionId int) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	logPrefix := "管理员已手动作废订阅"
+	if trimmedOperator := strings.TrimSpace(operator); trimmedOperator != "" {
+		logPrefix = fmt.Sprintf("管理员 %s 已手动作废订阅", trimmedOperator)
+	}
+	RecordLog(userId, LogTypeSystem, fmt.Sprintf("%s，套餐: %s，原到期时间: %s", logPrefix, logPlanTitle, logEndTime))
+	if logGroupBefore != "" && logGroupAfter != "" && logGroupBefore != logGroupAfter {
+		RecordLog(
+			userId,
+			LogTypeManage,
+			fmt.Sprintf(
+				"订阅作废后用户分组从 %s 恢复为 %s，并按到账倍率自动换算余额 %s -> %s",
+				logGroupBefore,
+				logGroupAfter,
+				logger.LogQuota(logQuotaBefore),
+				logger.LogQuota(logQuotaAfter),
+			),
+		)
+	}
 	if cacheGroup != "" && userId > 0 {
 		_ = UpdateUserGroupCache(userId, cacheGroup)
+		_ = updateUserQuotaCache(userId, cacheQuota)
 	}
 	if downgradeGroup != "" {
 		return fmt.Sprintf("用户分组将回退到 %s", downgradeGroup), nil
@@ -879,14 +1078,21 @@ func AdminInvalidateUserSubscription(userSubscriptionId int) (string, error) {
 }
 
 // AdminDeleteUserSubscription hard-deletes a user subscription.
-func AdminDeleteUserSubscription(userSubscriptionId int) (string, error) {
+func AdminDeleteUserSubscription(userSubscriptionId int, operator string) (string, error) {
 	if userSubscriptionId <= 0 {
 		return "", errors.New("invalid userSubscriptionId")
 	}
 	now := common.GetTimestamp()
 	cacheGroup := ""
+	cacheQuota := 0
 	downgradeGroup := ""
 	var userId int
+	logPlanTitle := "未命名套餐"
+	logGroupBefore := ""
+	logGroupAfter := ""
+	logQuotaBefore := 0
+	logQuotaAfter := 0
+	logEndTime := "-"
 	err := DB.Transaction(func(tx *gorm.DB) error {
 		var sub UserSubscription
 		if err := tx.Set("gorm:query_option", "FOR UPDATE").
@@ -894,12 +1100,30 @@ func AdminDeleteUserSubscription(userSubscriptionId int) (string, error) {
 			return err
 		}
 		userId = sub.UserId
-		target, err := downgradeUserGroupForSubscriptionTx(tx, &sub, now)
+		logEndTime = func(ts int64) string {
+			if ts <= 0 {
+				return "-"
+			}
+			return time.Unix(ts, 0).Format("2006-01-02 15:04:05")
+		}(sub.EndTime)
+		if plan, err := getSubscriptionPlanByIdTx(tx, sub.PlanId); err == nil && plan != nil {
+			if title := strings.TrimSpace(plan.Title); title != "" {
+				logPlanTitle = title
+			}
+		}
+		beforeGroup, beforeQuota, _ := getUserGroupQuotaByIdTx(tx, sub.UserId)
+		target, targetQuota, err := downgradeUserGroupForSubscriptionTx(tx, &sub, now)
 		if err != nil {
 			return err
 		}
+		afterGroup, afterQuota, _ := getUserGroupQuotaByIdTx(tx, sub.UserId)
+		logGroupBefore = beforeGroup
+		logGroupAfter = afterGroup
+		logQuotaBefore = beforeQuota
+		logQuotaAfter = afterQuota
 		if target != "" {
 			cacheGroup = target
+			cacheQuota = targetQuota
 			downgradeGroup = target
 		}
 		if err := tx.Where("id = ?", userSubscriptionId).Delete(&UserSubscription{}).Error; err != nil {
@@ -910,8 +1134,27 @@ func AdminDeleteUserSubscription(userSubscriptionId int) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	logPrefix := "管理员已删除订阅记录"
+	if trimmedOperator := strings.TrimSpace(operator); trimmedOperator != "" {
+		logPrefix = fmt.Sprintf("管理员 %s 已删除订阅记录", trimmedOperator)
+	}
+	RecordLog(userId, LogTypeSystem, fmt.Sprintf("%s，套餐: %s，原到期时间: %s", logPrefix, logPlanTitle, logEndTime))
+	if logGroupBefore != "" && logGroupAfter != "" && logGroupBefore != logGroupAfter {
+		RecordLog(
+			userId,
+			LogTypeManage,
+			fmt.Sprintf(
+				"删除订阅后用户分组从 %s 恢复为 %s，并按到账倍率自动换算余额 %s -> %s",
+				logGroupBefore,
+				logGroupAfter,
+				logger.LogQuota(logQuotaBefore),
+				logger.LogQuota(logQuotaAfter),
+			),
+		)
+	}
 	if cacheGroup != "" && userId > 0 {
 		_ = UpdateUserGroupCache(userId, cacheGroup)
+		_ = updateUserQuotaCache(userId, cacheQuota)
 	}
 	if downgradeGroup != "" {
 		return fmt.Sprintf("用户分组将回退到 %s", downgradeGroup), nil
@@ -1002,6 +1245,7 @@ func AdminAdjustUserSubscriptionDuration(userSubscriptionId int, action string, 
 
 	now := GetDBTimestamp()
 	cacheGroup := ""
+	cacheQuota := 0
 	groupMessage := ""
 	var userId int
 
@@ -1039,7 +1283,7 @@ func AdminAdjustUserSubscriptionDuration(userSubscriptionId int, action string, 
 
 			upgradeGroup := strings.TrimSpace(sub.UpgradeGroup)
 			if upgradeGroup != "" {
-				currentGroup, groupErr := getUserGroupByIdTx(tx, sub.UserId)
+				currentGroup, currentQuota, groupErr := getUserGroupQuotaByIdTx(tx, sub.UserId)
 				if groupErr != nil {
 					return groupErr
 				}
@@ -1047,12 +1291,12 @@ func AdminAdjustUserSubscriptionDuration(userSubscriptionId int, action string, 
 					if sub.PrevUserGroup == "" {
 						sub.PrevUserGroup = currentGroup
 					}
-					if err = tx.Model(&User{}).Where("id = ?", sub.UserId).
-						Update("group", upgradeGroup).Error; err != nil {
+					cacheQuota, err = updateUserGroupWithScaledQuotaTx(tx, sub.UserId, currentGroup, currentQuota, upgradeGroup)
+					if err != nil {
 						return err
 					}
 					cacheGroup = upgradeGroup
-					groupMessage = fmt.Sprintf("用户分组已恢复到 %s", upgradeGroup)
+					groupMessage = fmt.Sprintf("\u7528\u6237\u5206\u7ec4\u5df2\u6062\u590d\u5230 %s", upgradeGroup)
 				}
 			}
 		} else {
@@ -1072,6 +1316,7 @@ func AdminAdjustUserSubscriptionDuration(userSubscriptionId int, action string, 
 
 	if cacheGroup != "" && userId > 0 {
 		_ = UpdateUserGroupCache(userId, cacheGroup)
+		_ = updateUserQuotaCache(userId, cacheQuota)
 	}
 
 	return groupMessage, nil
@@ -1103,13 +1348,43 @@ func ExpireDueSubscriptions(limit int) (int, error) {
 	}
 	expiredCount := 0
 	userIds := make(map[int]struct{}, len(subs))
+	expiredSubsByUser := make(map[int][]UserSubscription, len(subs))
 	for _, sub := range subs {
 		if sub.UserId > 0 {
 			userIds[sub.UserId] = struct{}{}
+			expiredSubsByUser[sub.UserId] = append(expiredSubsByUser[sub.UserId], sub)
 		}
 	}
+	planTitleCache := make(map[int]string)
+	getPlanTitle := func(planId int) string {
+		if planId <= 0 {
+			return ""
+		}
+		if title, ok := planTitleCache[planId]; ok {
+			return title
+		}
+		title := ""
+		plan, err := getSubscriptionPlanByIdTx(nil, planId)
+		if err == nil && plan != nil {
+			title = strings.TrimSpace(plan.Title)
+		}
+		planTitleCache[planId] = title
+		return title
+	}
+	formatEndTime := func(ts int64) string {
+		if ts <= 0 {
+			return "-"
+		}
+		return time.Unix(ts, 0).Format("2006-01-02 15:04:05")
+	}
 	for userId := range userIds {
+		expiredSubs := expiredSubsByUser[userId]
 		cacheGroup := ""
+		cacheQuota := 0
+		groupBefore := ""
+		groupAfter := ""
+		quotaBefore := 0
+		quotaAfter := 0
 		err := DB.Transaction(func(tx *gorm.DB) error {
 			res := tx.Model(&UserSubscription{}).
 				Where("user_id = ? AND status = ? AND end_time > 0 AND end_time <= ?", userId, "active", now).
@@ -1148,18 +1423,22 @@ func ExpireDueSubscriptions(limit int) (int, error) {
 			if upgradeGroup == "" || prevGroup == "" {
 				return nil
 			}
-			currentGroup, err := getUserGroupByIdTx(tx, userId)
+			currentGroup, currentQuota, err := getUserGroupQuotaByIdTx(tx, userId)
 			if err != nil {
 				return err
 			}
 			if currentGroup != upgradeGroup || currentGroup == prevGroup {
 				return nil
 			}
-			if err := tx.Model(&User{}).Where("id = ?", userId).
-				Update("group", prevGroup).Error; err != nil {
+			groupBefore = currentGroup
+			quotaBefore = currentQuota
+			cacheQuota, err = updateUserGroupWithScaledQuotaTx(tx, userId, currentGroup, currentQuota, prevGroup)
+			if err != nil {
 				return err
 			}
 			cacheGroup = prevGroup
+			groupAfter = prevGroup
+			quotaAfter = cacheQuota
 			return nil
 		})
 		if err != nil {
@@ -1167,6 +1446,41 @@ func ExpireDueSubscriptions(limit int) (int, error) {
 		}
 		if cacheGroup != "" {
 			_ = UpdateUserGroupCache(userId, cacheGroup)
+			_ = updateUserQuotaCache(userId, cacheQuota)
+		}
+		for _, sub := range expiredSubs {
+			planTitle := strings.TrimSpace(getPlanTitle(sub.PlanId))
+			if planTitle == "" {
+				planTitle = "未命名套餐"
+			}
+			expiredAt := formatEndTime(sub.EndTime)
+			upgradeGroup := strings.TrimSpace(sub.UpgradeGroup)
+			switch {
+			case strings.EqualFold(upgradeGroup, "svip"):
+				RecordLog(userId, LogTypeSystem, fmt.Sprintf("SVIP 已到期失效，套餐: %s，到期时间: %s。", planTitle, expiredAt))
+			case upgradeGroup != "":
+				RecordLog(userId, LogTypeSystem, fmt.Sprintf("会员订阅已到期，套餐: %s，到期时间: %s。", planTitle, expiredAt))
+			default:
+				RecordLog(userId, LogTypeSystem, fmt.Sprintf("订阅已到期，套餐: %s，到期时间: %s。", planTitle, expiredAt))
+			}
+		}
+		if groupBefore != "" && groupAfter != "" && groupBefore != groupAfter {
+			prefix := "会员到期后"
+			if strings.EqualFold(groupBefore, "svip") {
+				prefix = "SVIP 到期后"
+			}
+			RecordLog(
+				userId,
+				LogTypeManage,
+				fmt.Sprintf(
+					"%s用户分组从 %s 恢复为 %s，并按到账倍率自动换算余额 %s -> %s",
+					prefix,
+					groupBefore,
+					groupAfter,
+					logger.LogQuota(quotaBefore),
+					logger.LogQuota(quotaAfter),
+				),
+			)
 		}
 	}
 	return expiredCount, nil

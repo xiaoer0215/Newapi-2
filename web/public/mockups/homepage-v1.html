@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>首页草图 - Nez Api</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+
+        :root {
+            /* 采用之前设计的现代玻璃态和渐变风格，但更适合首页展示 */
+            --primary: #4F46E5;
+            --primary-hover: #4338CA;
+            --secondary: #0ea5e9;
+            --accent: #d946ef;
+            --text-main: #0F172A;
+            --text-secondary: #475569;
+            --text-light: #f8fafc;
+            --bg-color: #f8fafc;
+            --glass-bg: rgba(255, 255, 255, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.5);
+            --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            --shadow-glow: 0 0 30px rgba(79, 70, 229, 0.3);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --text-main: #f8fafc;
+                --text-secondary: #94a3b8;
+                --bg-color: #0f172a;
+                --glass-bg: rgba(30, 41, 59, 0.7);
+                --glass-border: rgba(255, 255, 255, 0.1);
+            }
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            overflow-x: hidden;
+            line-height: 1.6;
+        }
+
+        /* 动态背景 */
+        .bg-elements {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+            overflow: hidden;
+        }
+
+        .blob {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.5;
+            animation: float 20s infinite ease-in-out alternate;
+        }
+
+        .blob-1 {
+            width: 500px;
+            height: 500px;
+            background: rgba(79, 70, 229, 0.3);
+            top: -100px;
+            left: -100px;
+            animation-delay: 0s;
+        }
+
+        .blob-2 {
+            width: 400px;
+            height: 400px;
+            background: rgba(14, 165, 233, 0.3);
+            bottom: 10%;
+            right: -50px;
+            animation-delay: -5s;
+        }
+
+        .blob-3 {
+            width: 300px;
+            height: 300px;
+            background: rgba(217, 70, 239, 0.2);
+            top: 40%;
+            left: 30%;
+            animation-delay: -10s;
+        }
+
+        @keyframes float {
+            0% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(50px, 50px) scale(1.1); }
+            66% { transform: translate(-30px, 20px) scale(0.9); }
+            100% { transform: translate(0, -40px) scale(1); }
+        }
+
+        /* 导航栏草图 */
+        nav {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--glass-border);
+            z-index: 100;
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 30px;
+        }
+
+        .nav-links a {
+            color: var(--text-main);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+
+        .nav-links a:hover {
+            color: var(--primary);
+        }
+
+        .nav-actions {
+            display: flex;
+            gap: 15px;
+        }
+
+        .btn {
+            padding: 10px 24px;
+            border-radius: 12px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .btn-ghost {
+            color: var(--text-main);
+            background: transparent;
+            border: 1px solid transparent;
+        }
+
+        .btn-ghost:hover {
+            background: rgba(148, 163, 184, 0.1);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            border: none;
+            box-shadow: 0 4px 15px rgba(79, 70, 229, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(79, 70, 229, 0.4);
+        }
+
+        /* 英雄区 (Hero Section) */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 120px 20px 60px;
+            position: relative;
+        }
+
+        .hero-badge {
+            background: rgba(79, 70, 229, 0.1);
+            color: var(--primary);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 24px;
+            border: 1px solid rgba(79, 70, 229, 0.2);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .hero-title {
+            font-size: 64px;
+            font-weight: 800;
+            line-height: 1.1;
+            margin-bottom: 24px;
+            max-width: 900px;
+            background: linear-gradient(135deg, var(--text-main), var(--text-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero-title span {
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero-subtitle {
+            font-size: 20px;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin-bottom: 40px;
+        }
+
+        .hero-cta {
+            display: flex;
+            gap: 20px;
+        }
+
+        .hero-cta .btn {
+            padding: 16px 32px;
+            font-size: 18px;
+            border-radius: 16px;
+        }
+
+        .btn-outline {
+            border: 1px solid var(--glass-border);
+            background: var(--glass-bg);
+            color: var(--text-main);
+            backdrop-filter: blur(10px);
+        }
+
+        .btn-outline:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        /* 终端打字效果框 (致敬原有界面的科技感) */
+        .terminal-container {
+            margin-top: 60px;
+            width: 100%;
+            max-width: 800px;
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(20px);
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            overflow: hidden;
+            box-shadow: var(--shadow-lg), 0 0 40px rgba(79, 70, 229, 0.2);
+            text-align: left;
+        }
+
+        .terminal-header {
+            background: rgba(15, 23, 42, 0.95);
+            padding: 12px 20px;
+            display: flex;
+            gap: 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        .dot-red { background: #ef4444; }
+        .dot-yellow { background: #f59e0b; }
+        .dot-green { background: #10b981; }
+
+        .terminal-body {
+            padding: 30px;
+            font-family: 'JetBrains Mono', monospace;
+            color: #10b981;
+            font-size: 16px;
+            min-height: 200px;
+        }
+
+        .code-line { margin-bottom: 10px; color: #a8b2d1; }
+        .code-cmd { color: #60a5fa; }
+        .code-string { color: #34d399; }
+        .code-comment { color: #64748b; }
+
+        .cursor {
+            display: inline-block;
+            width: 10px;
+            height: 20px;
+            background: #10b981;
+            animation: blink 1s step-end infinite;
+            vertical-align: middle;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        /* 特性卡片区 */
+        .features {
+            padding: 100px 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+
+        .section-title {
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+        }
+
+        .feature-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            padding: 40px 30px;
+            border-radius: 24px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-lg), 0 0 20px rgba(79, 70, 229, 0.1);
+            border-color: rgba(79, 70, 229, 0.3);
+        }
+
+        .feature-icon {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, rgba(79, 70, 229, 0.1), rgba(14, 165, 233, 0.1));
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 24px;
+            color: var(--primary);
+        }
+
+        .feature-title {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .feature-desc {
+            color: var(--text-secondary);
+            font-size: 15px;
+        }
+
+        /* 响应式调整 */
+        @media (max-width: 768px) {
+            .hero-title { font-size: 40px; }
+            .nav-links { display: none; }
+            .hero-cta { flex-direction: column; }
+            .terminal-container { margin-top: 40px; }
+        }
+    </style>
+</head>
+<body>
+    <!-- 动态模糊背景 -->
+    <div class="bg-elements">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
+
+    <!-- 顶部导航 -->
+    <nav>
+        <div class="logo">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+                <path d="M2 17l10 5 10-5"></path>
+                <path d="M2 12l10 5 10-5"></path>
+            </svg>
+            Nez Api
+        </div>
+        <div class="nav-links">
+            <a href="#">首页</a>
+            <a href="mxgc.html">模型广场</a>
+            <a href="#">计费说明</a>
+            <a href="#">开发者文档</a>
+        </div>
+        <div class="nav-actions">
+            <a href="#" class="btn btn-ghost">登录</a>
+            <a href="#" class="btn btn-primary">免费注册</a>
+        </div>
+    </nav>
+
+    <!-- 英雄首屏区 -->
+    <div class="hero">
+        <div class="hero-badge">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
+            全新架构 API 网关已上线
+        </div>
+
+        <h1 class="hero-title">
+            统一大模型接口<br>
+            <span>无缝接入，极致性能</span>
+        </h1>
+
+        <p class="hero-subtitle">
+            一个 API 密钥，连接全球顶尖 AI 模型。兼容 OpenAI 格式，提供低延迟、高并发的流式输出体验，让 AI 应用开发更简单。
+        </p>
+
+        <div class="hero-cta">
+            <a href="#" class="btn btn-primary">开始使用</a>
+            <a href="mxgc.html" class="btn btn-outline">探索模型广场</a>
+        </div>
+
+        <!-- 极客风终端代码演示 -->
+        <div class="terminal-container">
+            <div class="terminal-header">
+                <div class="dot dot-red"></div>
+                <div class="dot dot-yellow"></div>
+                <div class="dot dot-green"></div>
+            </div>
+            <div class="terminal-body" id="typed-text">
+                <div class="code-line"><span class="code-comment">// 只需要修改 BaseURL 和 Key 即可无缝切换</span></div>
+                <div class="code-line"><span class="code-cmd">import</span> { OpenAI } <span class="code-cmd">from</span> <span class="code-string">'openai'</span>;</div>
+                <br>
+                <div class="code-line"><span class="code-cmd">const</span> client = <span class="code-cmd">new</span> OpenAI({</div>
+                <div class="code-line">&nbsp;&nbsp;baseURL: <span class="code-string">'https://api.your-domain.com/v1'</span>,</div>
+                <div class="code-line">&nbsp;&nbsp;apiKey: <span class="code-string">'sk-xxxxxxxxxxxxxxxxxxx'</span></div>
+                <div class="code-line">});</div>
+                <br>
+                <div class="code-line"><span class="code-cmd">const</span> response = <span class="code-cmd">await</span> client.chat.completions.create({</div>
+                <div class="code-line">&nbsp;&nbsp;model: <span class="code-string">'claude-3-5-sonnet-20240620'</span>,</div>
+                <div class="code-line">&nbsp;&nbsp;messages: [{ role: <span class="code-string">'user'</span>, content: <span class="code-string">'Hello World'</span> }]</div>
+                <div class="code-line">});<span class="cursor"></span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 特性介绍区 -->
+    <div class="features">
+        <div class="section-header">
+            <h2 class="section-title">核心优势</h2>
+            <p style="color: var(--text-secondary); font-size: 18px;">专为企业和开发者打造的高性能 AI 接口分发系统</p>
+        </div>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                </div>
+                <h3 class="feature-title">全模型兼容</h3>
+                <p class="feature-desc">内置支持 OpenAI、Anthropic、Google、Midjourney 等数十家主流厂商的数百个模型，统一格式调用。</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                </div>
+                <h3 class="feature-title">高并发与负载均衡</h3>
+                <p class="feature-desc">支持多渠道轮询与权重分配，内置智能重试与熔断机制，确保在高并发场景下依然稳定输出。</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                </div>
+                <h3 class="feature-title">精细化数据统计</h3>
+                <p class="feature-desc">详细记录每一笔调用的 Tokens 消耗、响应时间、IP 来源，提供可视化图表，方便用户掌握使用情况。</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

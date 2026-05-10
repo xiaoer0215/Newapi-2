@@ -1,17 +1,33 @@
 package middleware
 
 import (
+	"strings"
+
 	"github.com/gin-gonic/gin"
 )
 
 func Cache() func(c *gin.Context) {
 	return func(c *gin.Context) {
-		if c.Request.RequestURI == "/" {
-			c.Header("Cache-Control", "no-cache")
+		path := c.Request.URL.Path
+		isStaticAsset := strings.HasPrefix(path, "/assets/") ||
+			strings.HasSuffix(path, ".js") ||
+			strings.HasSuffix(path, ".css") ||
+			strings.HasSuffix(path, ".png") ||
+			strings.HasSuffix(path, ".jpg") ||
+			strings.HasSuffix(path, ".jpeg") ||
+			strings.HasSuffix(path, ".svg") ||
+			strings.HasSuffix(path, ".ico") ||
+			strings.HasSuffix(path, ".woff") ||
+			strings.HasSuffix(path, ".woff2") ||
+			strings.HasSuffix(path, ".ttf")
+		if !isStaticAsset {
+			c.Header("Cache-Control", "no-store, no-cache, must-revalidate, private, max-age=0")
+			c.Header("Pragma", "no-cache")
+			c.Header("Expires", "0")
 		} else {
 			c.Header("Cache-Control", "max-age=604800") // one week
 		}
-		c.Header("Cache-Version", "b688f2fb5be447c25e5aa3bd063087a83db32a288bf6a4f35f2d8db310e40b14")
+		c.Header("Cache-Version", "20260504-0135-register-cn-green-buckets")
 		c.Next()
 	}
 }

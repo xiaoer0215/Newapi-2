@@ -21,10 +21,10 @@ import React from 'react';
 import Dashboard from '../../components/dashboard';
 
 const Detail = () => (
-  <div className='mt-[60px] px-2' style={{
-      minHeight: 'calc(100vh - 60px)',
-      background: 'linear-gradient(135deg, #eef2ff 0%, #f8fafc 50%, #e0f2fe 100%)',
-      paddingTop: '20px',
+  <div className='console-dashboard-shell px-2' style={{
+      minHeight: 'calc(100dvh - var(--header-height, 60px))',
+      background: '#fafafa',
+      paddingTop: 0,
       paddingBottom: '40px'
   }}>
     <Dashboard />

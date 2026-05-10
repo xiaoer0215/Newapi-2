@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 
 export const useNotifications = (statusState) => {
   const [noticeVisible, setNoticeVisible] = useState(false);
@@ -26,69 +26,110 @@ export const useNotifications = (statusState) => {
   const announcements = statusState?.status?.announcements || [];
 
   // Helper functions
-  const getAnnouncementKey = (a) =>
-    `${a?.publishDate || ''}-${(a?.content || '').slice(0, 30)}`;
+  const getAnnouncementKey = useCallback((a) =>
+    `${a?.publishDate || ''}-${(a?.content || '').slice(0, 30)}`, []);
 
-  const calculateUnreadCount = () => {
-    if (!announcements.length) return 0;
-    let readKeys = [];
+  const getAnnouncementTimestamp = useCallback((announcement) => {
+    if (!announcement?.publishDate) return 0;
+    const timestamp = new Date(announcement.publishDate).getTime();
+    return Number.isNaN(timestamp) ? 0 : timestamp;
+  }, []);
+
+  const getStoredReadKeys = useCallback(() => {
     try {
-      readKeys = JSON.parse(localStorage.getItem('notice_read_keys')) || [];
+      return JSON.parse(localStorage.getItem('notice_read_keys')) || [];
     } catch (_) {
-      readKeys = [];
+      return [];
     }
+  }, []);
+
+  const saveReadKeys = useCallback((keys) => {
+    localStorage.setItem('notice_read_keys', JSON.stringify(keys));
+  }, []);
+
+  const sortedAnnouncements = useMemo(
+    () =>
+      announcements
+        .slice()
+        .sort(
+          (a, b) => getAnnouncementTimestamp(b) - getAnnouncementTimestamp(a),
+        ),
+    [announcements, getAnnouncementTimestamp],
+  );
+
+  const latestAnnouncement = sortedAnnouncements[0] || null;
+  const latestAnnouncementKey = latestAnnouncement
+    ? getAnnouncementKey(latestAnnouncement)
+    : '';
+  const latestAnnouncementReadSet = new Set(getStoredReadKeys());
+
+  const calculateUnreadCount = useCallback(() => {
+    if (!announcements.length) return 0;
+    const readKeys = getStoredReadKeys();
     const readSet = new Set(readKeys);
     return announcements.filter((a) => !readSet.has(getAnnouncementKey(a)))
       .length;
-  };
+  }, [announcements, getAnnouncementKey, getStoredReadKeys]);
 
-  const getUnreadKeys = () => {
+  const getUnreadKeys = useCallback(() => {
     if (!announcements.length) return [];
-    let readKeys = [];
-    try {
-      readKeys = JSON.parse(localStorage.getItem('notice_read_keys')) || [];
-    } catch (_) {
-      readKeys = [];
-    }
+    const readKeys = getStoredReadKeys();
     const readSet = new Set(readKeys);
     return announcements
       .filter((a) => !readSet.has(getAnnouncementKey(a)))
       .map(getAnnouncementKey);
-  };
+  }, [announcements, getAnnouncementKey, getStoredReadKeys]);
+
+  const isLatestAnnouncementUnread =
+    !!latestAnnouncementKey &&
+    !latestAnnouncementReadSet.has(latestAnnouncementKey);
+
+  const markAnnouncementsAsRead = useCallback(
+    (keys = []) => {
+      if (!keys.length) return;
+      const mergedKeys = Array.from(
+        new Set([...getStoredReadKeys(), ...keys.filter(Boolean)]),
+      );
+      saveReadKeys(mergedKeys);
+      setUnreadCount(calculateUnreadCount());
+    },
+    [calculateUnreadCount, getStoredReadKeys, saveReadKeys],
+  );
 
   // Effects
   useEffect(() => {
     setUnreadCount(calculateUnreadCount());
-  }, [announcements]);
+  }, [calculateUnreadCount]);
 
   // Actions
-  const handleNoticeOpen = () => {
+  const handleNoticeOpen = useCallback(() => {
     setNoticeVisible(true);
-  };
+  }, []);
 
-  const handleNoticeClose = () => {
+  const handleNoticeClose = useCallback(() => {
     setNoticeVisible(false);
     if (announcements.length) {
-      let readKeys = [];
-      try {
-        readKeys = JSON.parse(localStorage.getItem('notice_read_keys')) || [];
-      } catch (_) {
-        readKeys = [];
-      }
-      const mergedKeys = Array.from(
-        new Set([...readKeys, ...announcements.map(getAnnouncementKey)]),
-      );
-      localStorage.setItem('notice_read_keys', JSON.stringify(mergedKeys));
+      markAnnouncementsAsRead(announcements.map(getAnnouncementKey));
     }
-    setUnreadCount(0);
-  };
+  }, [announcements, getAnnouncementKey, markAnnouncementsAsRead]);
+
+  const handleLatestAnnouncementClose = useCallback(() => {
+    setNoticeVisible(false);
+    if (latestAnnouncementKey) {
+      markAnnouncementsAsRead([latestAnnouncementKey]);
+    }
+  }, [latestAnnouncementKey, markAnnouncementsAsRead]);
 
   return {
     noticeVisible,
     unreadCount,
     announcements,
+    latestAnnouncement,
+    latestAnnouncementKey,
+    isLatestAnnouncementUnread,
     handleNoticeOpen,
     handleNoticeClose,
+    handleLatestAnnouncementClose,
     getUnreadKeys,
   };
 };

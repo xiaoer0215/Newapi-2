@@ -22,10 +22,10 @@ import UsersTable from '../../components/table/users';
 
 const User = () => {
   return (
-    <div className='mt-[60px] px-2' style={{
-        minHeight: 'calc(100vh - 60px)',
-        background: 'linear-gradient(135deg, #eef2ff 0%, #f8fafc 50%, #e0f2fe 100%)',
-        paddingTop: '20px',
+    <div className='px-2' style={{
+        minHeight: 'calc(100dvh - var(--header-height, 60px))',
+        background: '#ffffff',
+        paddingTop: 0,
         paddingBottom: '40px'
     }}>
       <UsersTable />

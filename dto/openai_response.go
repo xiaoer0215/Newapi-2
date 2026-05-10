@@ -263,6 +263,7 @@ type OutputTokenDetails struct {
 	TextTokens      int `json:"text_tokens"`
 	AudioTokens     int `json:"audio_tokens"`
 	ReasoningTokens int `json:"reasoning_tokens"`
+	ImageTokens     int `json:"image_tokens"`
 }
 
 type OpenAIResponsesResponse struct {

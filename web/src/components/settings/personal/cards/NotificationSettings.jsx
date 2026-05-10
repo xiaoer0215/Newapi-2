@@ -405,9 +405,54 @@ const NotificationSettings = ({
         onSubmit={handleSubmit}
       >
         {() => (
+          <>
+            <div className='ps-wallet-tabs' role='tablist' aria-label={t('其他设置切换')}>
+              {[
+                {
+                  key: 'notification',
+                  label: t('通知配置'),
+                  icon: <Bell size={16} />,
+                },
+                {
+                  key: 'pricing',
+                  label: t('价格设置'),
+                  icon: <DollarSign size={16} />,
+                },
+                {
+                  key: 'privacy',
+                  label: t('隐私设置'),
+                  icon: <ShieldCheck size={16} />,
+                },
+                hasSidebarSettingsPermission()
+                  ? {
+                      key: 'sidebar',
+                      label: t('侧边栏设置'),
+                      icon: <Settings size={16} />,
+                    }
+                  : null,
+              ]
+                .filter(Boolean)
+                .map((item) => {
+                  const selected = activeTabKey === item.key;
+                  return (
+                    <button
+                      key={item.key}
+                      type='button'
+                      role='tab'
+                      aria-selected={selected}
+                      className={`ps-wallet-tab${selected ? ' is-active' : ''}`}
+                      onClick={() => setActiveTabKey(item.key)}
+                    >
+                      <span className='ps-wallet-tab__icon'>{item.icon}</span>
+                      <span className='ps-wallet-tab__label'>{item.label}</span>
+                    </button>
+                  );
+                })}
+            </div>
           <Tabs
-            type='card'
-            defaultActiveKey='notification'
+            type='line'
+            activeKey={activeTabKey}
+            className='ps-line-tabs ps-tabs-hidden-bar'
             onChange={(key) => setActiveTabKey(key)}
           >
             {/* 通知配置 Tab */}
@@ -944,6 +989,7 @@ const NotificationSettings = ({
               </TabPane>
             )}
           </Tabs>
+          </>
         )}
       </Form>
     </Card>

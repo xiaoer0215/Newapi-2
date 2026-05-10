@@ -34,6 +34,7 @@ import (
 	_ "net/http/pprof"
 )
 
+// Embed the built frontend so the standalone binary serves the current web UI.
 //go:embed web/dist
 var buildFS embed.FS
 

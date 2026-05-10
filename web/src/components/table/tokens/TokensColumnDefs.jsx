@@ -396,6 +396,13 @@ export const getTokensColumns = ({
     render: (text) => <span className='token-glass-time'>{renderTimestamp(text)}</span>,
   },
   {
+    title: t('最后访问时间'),
+    dataIndex: 'accessed_time',
+    render: (text) => (
+      <span className='token-glass-time'>{text ? renderTimestamp(text) : '-'}</span>
+    ),
+  },
+  {
     title: t('过期时间'),
     dataIndex: 'expired_time',
     render: (text, record) => (

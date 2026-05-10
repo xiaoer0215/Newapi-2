@@ -38,12 +38,13 @@ const FaqPanel = ({
   return (
     <Card
       {...CARD_PROPS}
-      className='shadow-sm !rounded-2xl lg:col-span-1'
-      style={{ background: 'rgba(255, 255, 255, 0.75)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(148, 163, 184, 0.2)', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)' }}
+      className='dashboard-glass-card shadow-sm !rounded-2xl lg:col-span-1'
       title={
         <div className={FLEX_CENTER_GAP2}>
-          <HelpCircle size={16} />
-          {t('常见问答')}
+          <span className='dashboard-title-icon orange'>
+            <HelpCircle size={16} />
+          </span>
+          {t('\u5e38\u89c1\u95ee\u7b54')}
         </div>
       }
       bodyStyle={{ padding: 0 }}
@@ -76,8 +77,8 @@ const FaqPanel = ({
               darkModeImage={
                 <IllustrationConstructionDark style={ILLUSTRATION_SIZE} />
               }
-              title={t('暂无常见问答')}
-              description={t('请联系管理员在系统设置中配置常见问答')}
+              title={t('\u6682\u65e0\u5e38\u89c1\u95ee\u7b54')}
+              description={t('\u8bf7\u8054\u7cfb\u7ba1\u7406\u5458\u5728\u7cfb\u7edf\u8bbe\u7f6e\u4e2d\u914d\u7f6e\u5e38\u89c1\u95ee\u7b54')}
             />
           </div>
         )}

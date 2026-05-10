@@ -20,7 +20,7 @@ For commercial licensing, please contact support@quantumnous.com
 import React, { useContext, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Layout, Toast, Modal } from '@douyinfe/semi-ui';
+import { Toast, Select, Button } from '@douyinfe/semi-ui';
 
 // Context
 import { UserContext } from '../../context/User';
@@ -48,17 +48,15 @@ import {
   getTextContent,
   buildApiPayload,
   encodeToBase64,
+  selectFilter,
 } from '../../helpers';
 
 // Components
 import {
-  OptimizedSettingsPanel,
-  OptimizedDebugPanel,
   OptimizedMessageContent,
   OptimizedMessageActions,
 } from '../../components/playground/OptimizedComponents';
 import ChatArea from '../../components/playground/ChatArea';
-import FloatingButtons from '../../components/playground/FloatingButtons';
 import { PlaygroundProvider } from '../../contexts/PlaygroundContext';
 
 // 生成头像
@@ -237,8 +235,6 @@ const Playground = () => {
 
   // 发送消息
   function onMessageSend(content, attachment) {
-    console.log('attachment: ', attachment);
-
     // 创建用户消息和加载消息
     const userMessage = createMessage(MESSAGE_ROLES.USER, content);
     const loadingMessage = createLoadingAssistantMessage();
@@ -294,6 +290,7 @@ const Playground = () => {
       if (inputs.imageEnabled) {
         setTimeout(() => {
           handleInputChange('imageEnabled', false);
+          handleInputChange('imageUrls', []);
         }, 100);
       }
 
@@ -392,6 +389,20 @@ const Playground = () => {
     }
   }, [searchParams, t]);
 
+  useEffect(() => {
+    if (customRequestMode) {
+      setCustomRequestMode(false);
+    }
+    if (showDebugPanel) {
+      setShowDebugPanel(false);
+    }
+  }, [
+    customRequestMode,
+    showDebugPanel,
+    setCustomRequestMode,
+    setShowDebugPanel,
+  ]);
+
   // Playground 组件无需再监听窗口变化，isMobile 由 useIsMobile Hook 自动更新
 
   // 构建预览payload
@@ -440,123 +451,114 @@ const Playground = () => {
   // 处理粘贴图片
   const handlePasteImage = useCallback(
     (base64Data) => {
-      if (!inputs.imageEnabled) {
-        return;
-      }
-      // 添加图片到 imageUrls 数组
-      const newUrls = [...(inputs.imageUrls || []), base64Data];
+      const currentUrls = Array.isArray(inputs.imageUrls)
+        ? inputs.imageUrls.filter((url) => url && url.trim() !== '')
+        : [];
+      const newUrls = [...currentUrls, base64Data];
+      handleInputChange('imageEnabled', true);
       handleInputChange('imageUrls', newUrls);
     },
-    [inputs.imageEnabled, inputs.imageUrls, handleInputChange],
+    [inputs.imageUrls, handleInputChange],
+  );
+
+  const handleRemoveImage = useCallback(
+    (index) => {
+      const currentUrls = Array.isArray(inputs.imageUrls)
+        ? inputs.imageUrls.filter((url) => url && url.trim() !== '')
+        : [];
+      const newUrls = currentUrls.filter((_, i) => i !== index);
+      handleInputChange('imageUrls', newUrls);
+      if (newUrls.length === 0) {
+        handleInputChange('imageEnabled', false);
+      }
+    },
+    [inputs.imageUrls, handleInputChange],
   );
 
   // Playground Context 值
   const playgroundContextValue = {
     onPasteImage: handlePasteImage,
+    onRemoveImage: handleRemoveImage,
     imageUrls: inputs.imageUrls || [],
     imageEnabled: inputs.imageEnabled || false,
   };
 
   return (
     <PlaygroundProvider value={playgroundContextValue}>
-      <div className='h-full'>
-        <Layout className='h-full bg-transparent flex flex-col md:flex-row'>
-          {(showSettings || !isMobile) && (
-            <Layout.Sider
-              className={`
-              bg-transparent border-r-0 flex-shrink-0 overflow-auto mt-[60px]
-              ${
-                isMobile
-                  ? 'fixed top-0 left-0 right-0 bottom-0 z-[1000] w-full h-auto bg-white shadow-lg'
-                  : 'relative z-[1] w-80 h-[calc(100vh-66px)]'
-              }
-            `}
-              width={isMobile ? '100%' : 320}
-            >
-              <OptimizedSettingsPanel
-                inputs={inputs}
-                parameterEnabled={parameterEnabled}
-                models={models}
-                groups={groups}
-                styleState={styleState}
-                showSettings={showSettings}
-                showDebugPanel={showDebugPanel}
-                customRequestMode={customRequestMode}
-                customRequestBody={customRequestBody}
-                onInputChange={handleInputChange}
-                onParameterToggle={handleParameterToggle}
-                onCloseSettings={() => setShowSettings(false)}
-                onConfigImport={handleConfigImport}
-                onConfigReset={handleConfigReset}
-                onCustomRequestModeChange={setCustomRequestMode}
-                onCustomRequestBodyChange={setCustomRequestBody}
-                previewPayload={previewPayload}
-                messages={message}
-              />
-            </Layout.Sider>
-          )}
-
-          <Layout.Content className='relative flex-1 overflow-hidden'>
-            <div className='overflow-hidden flex flex-col lg:flex-row h-[calc(100vh-66px)] mt-[60px]'>
-              <div className='flex-1 flex flex-col'>
-                <ChatArea
-                  chatRef={chatRef}
-                  message={message}
-                  inputs={inputs}
-                  styleState={styleState}
-                  showDebugPanel={showDebugPanel}
-                  roleInfo={roleInfo}
-                  onMessageSend={onMessageSend}
-                  onMessageCopy={messageActions.handleMessageCopy}
-                  onMessageReset={messageActions.handleMessageReset}
-                  onMessageDelete={messageActions.handleMessageDelete}
-                  onStopGenerator={onStopGenerator}
-                  onClearMessages={handleClearMessages}
-                  onToggleDebugPanel={() => setShowDebugPanel(!showDebugPanel)}
-                  renderCustomChatContent={renderCustomChatContent}
-                  renderChatBoxAction={renderChatBoxAction}
-                />
-              </div>
-
-              {/* 调试面板 - 桌面端 */}
-              {showDebugPanel && !isMobile && (
-                <div className='w-96 flex-shrink-0 h-full'>
-                  <OptimizedDebugPanel
-                    debugData={debugData}
-                    activeDebugTab={activeDebugTab}
-                    onActiveDebugTabChange={setActiveDebugTab}
-                    styleState={styleState}
-                    customRequestMode={customRequestMode}
-                  />
-                </div>
-              )}
+      <div className='playground-system-page'>
+        <div className='playground-chat-topbar'>
+          <div className='playground-page-title'>
+            <div className='playground-page-title-icon'>AI</div>
+            <div>
+              <h1>{t('\u64cd\u7ec3\u573a')}</h1>
+              <p>{t('\u5148\u9009\u62e9\u5206\u7ec4\uff0c\u518d\u9009\u62e9\u8be5\u5206\u7ec4\u53ef\u7528\u6a21\u578b\uff0c\u76f4\u63a5\u5bf9\u8bdd\u6216\u7c98\u8d34\u56fe\u7247\u6d4b\u8bd5\u3002')}</p>
             </div>
+          </div>
 
-            {/* 调试面板 - 移动端覆盖层 */}
-            {showDebugPanel && isMobile && (
-              <div className='fixed top-0 left-0 right-0 bottom-0 z-[1000] bg-white overflow-auto shadow-lg'>
-                <OptimizedDebugPanel
-                  debugData={debugData}
-                  activeDebugTab={activeDebugTab}
-                  onActiveDebugTabChange={setActiveDebugTab}
-                  styleState={styleState}
-                  showDebugPanel={showDebugPanel}
-                  onCloseDebugPanel={() => setShowDebugPanel(false)}
-                  customRequestMode={customRequestMode}
-                />
-              </div>
-            )}
+          <div className='playground-top-controls'>
+            <label className='playground-select-card'>
+              <span>{t('\u5206\u7ec4')}</span>
+              <Select
+                placeholder={t('\u8bf7\u9009\u62e9\u5206\u7ec4')}
+                name='group'
+                required
+                selection
+                filter={selectFilter}
+                autoClearSearchValue={false}
+                onChange={(value) => handleInputChange('group', value)}
+                value={inputs.group}
+                autoComplete='new-password'
+                optionList={groups}
+                className='playground-top-select'
+              />
+            </label>
 
-            {/* 浮动按钮 */}
-            <FloatingButtons
-              styleState={styleState}
-              showSettings={showSettings}
-              showDebugPanel={showDebugPanel}
-              onToggleSettings={() => setShowSettings(!showSettings)}
-              onToggleDebugPanel={() => setShowDebugPanel(!showDebugPanel)}
-            />
-          </Layout.Content>
-        </Layout>
+            <label className='playground-select-card'>
+              <span>{t('\u6a21\u578b')}</span>
+              <Select
+                placeholder={t('\u8bf7\u9009\u62e9\u6a21\u578b')}
+                name='model'
+                required
+                selection
+                filter={selectFilter}
+                autoClearSearchValue={false}
+                onChange={(value) => handleInputChange('model', value)}
+                value={inputs.model}
+                autoComplete='new-password'
+                optionList={models}
+                emptyContent={t('\u5f53\u524d\u5206\u7ec4\u6682\u65e0\u53ef\u7528\u6a21\u578b')}
+                className='playground-top-select'
+              />
+            </label>
+
+            <Button
+              className='playground-reset-button'
+              theme='outline'
+              type='tertiary'
+              onClick={handleClearMessages}
+            >
+              {t('\u91cd\u7f6e\u5bf9\u8bdd')}
+            </Button>
+          </div>
+        </div>
+
+        <div className='playground-chat-shell'>
+          <ChatArea
+            chatRef={chatRef}
+            message={message}
+            inputs={inputs}
+            styleState={styleState}
+            roleInfo={roleInfo}
+            onMessageSend={onMessageSend}
+            onMessageCopy={messageActions.handleMessageCopy}
+            onMessageReset={messageActions.handleMessageReset}
+            onMessageDelete={messageActions.handleMessageDelete}
+            onStopGenerator={onStopGenerator}
+            onClearMessages={handleClearMessages}
+            renderCustomChatContent={renderCustomChatContent}
+            renderChatBoxAction={renderChatBoxAction}
+          />
+        </div>
       </div>
     </PlaygroundProvider>
   );

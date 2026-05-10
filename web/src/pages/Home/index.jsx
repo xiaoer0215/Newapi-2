@@ -39,7 +39,6 @@ import {
   IconCopy,
 } from '@douyinfe/semi-icons';
 import { Link } from 'react-router-dom';
-import NoticeModal from '../../components/layout/NoticeModal';
 import {
   Moonshot,
   OpenAI,
@@ -104,7 +103,6 @@ const Home = () => {
       localStorage.getItem(HOME_PAGE_CONTENT_RAW_KEY) ||
       '',
   );
-  const [noticeVisible, setNoticeVisible] = useState(false);
   const isMobile = useIsMobile();
   const isDemoSiteMode = statusState?.status?.demo_site_enabled || false;
   const docsLink = statusState?.status?.docs_link || '';
@@ -232,25 +230,7 @@ const Home = () => {
     }
   };
 
-  useEffect(() => {
-    const checkNoticeAndShow = async () => {
-      const lastCloseDate = localStorage.getItem('notice_close_date');
-      const today = new Date().toDateString();
-      if (lastCloseDate !== today) {
-        try {
-          const res = await API.get('/api/notice');
-          const { success, data } = res.data;
-          if (success && data && data.trim() !== '') {
-            setNoticeVisible(true);
-          }
-        } catch (error) {
-          console.error('获取公告失败:', error);
-        }
-      }
-    };
 
-    checkNoticeAndShow();
-  }, []);
 
   useEffect(() => {
     displayHomePageContent().then();
@@ -280,11 +260,6 @@ const Home = () => {
 
   return (
     <div className='w-full overflow-x-hidden'>
-      <NoticeModal
-        visible={noticeVisible}
-        onClose={() => setNoticeVisible(false)}
-        isMobile={isMobile}
-      />
       {homePageContentLoaded && resolvedHomePageContent.mode === 'default' ? (
         <div className='w-full overflow-x-hidden'>
           <div className='w-full border-b border-semi-color-border min-h-[500px] md:min-h-[600px] lg:min-h-[700px] relative overflow-x-hidden'>
@@ -356,7 +331,7 @@ const Home = () => {
                       icon={<IconGithubLogo />}
                       onClick={() =>
                         window.open(
-                          'https://github.com/QuantumNous/new-api',
+                          'https://github.com/xiaoer0215/Newapi-2',
                           '_blank',
                         )
                       }

@@ -62,9 +62,13 @@ const SubscriptionPurchaseModal = ({
   onPayEpay,
 }) => {
   const plan = selectedPlan?.plan;
+  const planMeta = selectedPlan?.planMeta || {};
   const totalAmount = Number(plan?.total_amount || 0);
   const price = plan ? Number(plan.price_amount || 0) : 0;
   const displayPrice = formatCnyPrice(price);
+  const displayPlanTitle = planMeta?.title || plan?.title || t('订阅套餐');
+  const displayDurationText =
+    planMeta?.durationText || formatSubscriptionDuration(plan, t);
   const hasStripe = enableStripeTopUp && !!plan?.stripe_price_id;
   const hasCreem = enableCreemTopUp && !!plan?.creem_product_id;
   const hasEpay = enableOnlineTopUp && epayMethods.length > 0;
@@ -104,7 +108,7 @@ const SubscriptionPurchaseModal = ({
                   className='text-slate-900'
                   style={{ maxWidth: 200 }}
                 >
-                  {plan.title}
+                  {displayPlanTitle}
                 </Typography.Text>
               </div>
 
@@ -115,7 +119,7 @@ const SubscriptionPurchaseModal = ({
                 <div className='flex items-center'>
                   <CalendarClock size={14} className='mr-1 text-slate-500' />
                   <Text className='text-slate-900'>
-                    {formatSubscriptionDuration(plan, t)}
+                    {displayDurationText}
                   </Text>
                 </div>
               </div>

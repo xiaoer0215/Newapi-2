@@ -421,7 +421,7 @@ const PricingCardView = ({
             <Card
               key={modelKey || index}
               className={`pricing-market-card ${isSelected ? 'pricing-market-card-selected' : ''}`}
-              style={{ background: 'rgba(255, 255, 255, 0.75)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(148, 163, 184, 0.2)', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)' }}
+              style={{ background: '#fff', border: '1px solid rgba(148, 163, 184, 0.2)', boxShadow: 'none' }}
               bodyStyle={{ height: '100%', padding: 0 }}
             >
               <div className='pricing-market-card-inner'>

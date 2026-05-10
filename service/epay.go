@@ -1,11 +1,12 @@
 package service
 
 import (
+	"net"
 	"strings"
 
-	"github.com/gin-gonic/gin"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/system_setting"
+	"github.com/gin-gonic/gin"
 )
 
 // isAllowedCallbackHost checks whether the given host is in the whitelist.
@@ -39,6 +40,36 @@ func isAllowedCallbackHost(host, whitelist string) bool {
 	return false
 }
 
+func isLocalCallbackHost(host string) bool {
+	normalizedHost := strings.TrimSpace(host)
+	if normalizedHost == "" {
+		return false
+	}
+
+	if strings.HasPrefix(normalizedHost, "[") && strings.Contains(normalizedHost, "]") {
+		normalizedHost = strings.TrimPrefix(normalizedHost, "[")
+		normalizedHost = normalizedHost[:strings.Index(normalizedHost, "]")]
+	} else if idx := strings.LastIndex(normalizedHost, ":"); idx != -1 {
+		if ip := net.ParseIP(normalizedHost); ip == nil {
+			normalizedHost = normalizedHost[:idx]
+		}
+	}
+
+	normalizedHost = strings.TrimSpace(normalizedHost)
+	if normalizedHost == "" {
+		return false
+	}
+	if strings.EqualFold(normalizedHost, "localhost") {
+		return true
+	}
+
+	ip := net.ParseIP(normalizedHost)
+	if ip == nil {
+		return false
+	}
+	return ip.IsLoopback() || ip.IsPrivate()
+}
+
 // GetCallbackAddress returns the base URL to use for payment callbacks.
 // Priority:
 //  1. If AllowedCallbackDomains is configured and the request Host matches,
@@ -46,9 +77,9 @@ func isAllowedCallbackHost(host, whitelist string) bool {
 //  2. If CustomCallbackAddress is set, use it.
 //  3. Fall back to ServerAddress.
 func GetCallbackAddress(c *gin.Context) string {
-	if c != nil && operation_setting.AllowedCallbackDomains != "" {
+	if c != nil {
 		host := c.Request.Host
-		if isAllowedCallbackHost(host, operation_setting.AllowedCallbackDomains) {
+		if isAllowedCallbackHost(host, operation_setting.AllowedCallbackDomains) || isLocalCallbackHost(host) {
 			scheme := "https"
 			if c.Request.TLS == nil {
 				// Check X-Forwarded-Proto set by reverse proxy

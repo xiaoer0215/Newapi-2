@@ -1,4 +1,4 @@
-/*
+﻿/*
 Copyright (C) 2025 QuantumNous
 
 This program is free software: you can redistribute it and/or modify
@@ -24,11 +24,13 @@ import { usePlayground } from '../../contexts/PlaygroundContext';
 
 const CustomInputRender = (props) => {
   const { t } = useTranslation();
-  const { onPasteImage, imageEnabled } = usePlayground();
+  const { onPasteImage, imageUrls = [], onRemoveImage } = usePlayground();
   const { detailProps } = props;
-  const { clearContextNode, uploadNode, inputNode, sendNode, onClick } =
-    detailProps;
+  const { inputNode, sendNode, onClick } = detailProps;
   const containerRef = useRef(null);
+  const visibleImageUrls = Array.isArray(imageUrls)
+    ? imageUrls.filter((url) => typeof url === 'string' && url.trim() !== '')
+    : [];
 
   const handlePaste = useCallback(
     async (e) => {
@@ -44,14 +46,6 @@ const CustomInputRender = (props) => {
 
           if (file) {
             try {
-              if (!imageEnabled) {
-                Toast.warning({
-                  content: t('请先在设置中启用图片功能'),
-                  duration: 3,
-                });
-                return;
-              }
-
               const reader = new FileReader();
               reader.onload = (event) => {
                 const base64 = event.target.result;
@@ -89,7 +83,7 @@ const CustomInputRender = (props) => {
         }
       }
     },
-    [onPasteImage, imageEnabled, t],
+    [onPasteImage, t],
   );
 
   useEffect(() => {
@@ -102,31 +96,13 @@ const CustomInputRender = (props) => {
     };
   }, [handlePaste]);
 
-  // 清空按钮
-  const styledClearNode = clearContextNode
-    ? React.cloneElement(clearContextNode, {
-        className: `!rounded-full !bg-gray-100 hover:!bg-red-500 hover:!text-white flex-shrink-0 transition-all ${clearContextNode.props.className || ''}`,
-        style: {
-          ...clearContextNode.props.style,
-          width: '32px',
-          height: '32px',
-          minWidth: '32px',
-          padding: 0,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        },
-      })
-    : null;
-
-  // 发送按钮
   const styledSendNode = React.cloneElement(sendNode, {
-    className: `!rounded-full !bg-purple-500 hover:!bg-purple-600 flex-shrink-0 transition-all ${sendNode.props.className || ''}`,
+    className: `playground-send-button flex-shrink-0 transition-all ${sendNode.props.className || ''}`,
     style: {
       ...sendNode.props.style,
-      width: '32px',
-      height: '32px',
-      minWidth: '32px',
+      width: '42px',
+      height: '42px',
+      minWidth: '42px',
       padding: 0,
       display: 'flex',
       alignItems: 'center',
@@ -135,17 +111,34 @@ const CustomInputRender = (props) => {
   });
 
   return (
-    <div className='p-2 sm:p-4' ref={containerRef}>
+    <div className='playground-composer-wrap' ref={containerRef}>
+      {visibleImageUrls.length > 0 && (
+        <div className='playground-paste-preview'>
+          {visibleImageUrls.map((url, index) => (
+            <div className='playground-paste-chip' key={`${url}-${index}`}>
+              <button
+                type='button'
+                className='playground-paste-remove'
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onRemoveImage?.(index);
+                }}
+                aria-label={t('删除图片')}
+              >
+                ×
+              </button>
+              <img src={url} alt={t('粘贴图片缩略图')} />
+            </div>
+          ))}
+        </div>
+      )}
+
       <div
-        className='flex items-center gap-2 sm:gap-3 p-2 bg-gray-50 rounded-xl sm:rounded-2xl shadow-sm hover:shadow-md transition-shadow'
-        style={{ border: '1px solid var(--semi-color-border)' }}
+        className='playground-composer'
         onClick={onClick}
         title={t('支持 Ctrl+V 粘贴图片')}
       >
-        {/* 清空对话按钮 - 左边 */}
-        {styledClearNode}
-        <div className='flex-1'>{inputNode}</div>
-        {/* 发送按钮 - 右边 */}
+        <div className='playground-composer-input'>{inputNode}</div>
         {styledSendNode}
       </div>
     </div>

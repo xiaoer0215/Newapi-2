@@ -147,7 +147,7 @@ const Dashboard = () => {
   }, []);
 
   return (
-    <div className='h-full'>
+    <div className='dashboard-page h-full'>
       <DashboardHeader
         getGreeting={dashboardData.getGreeting}
         greetingVisible={dashboardData.greetingVisible}
@@ -155,6 +155,8 @@ const Dashboard = () => {
         refresh={handleRefresh}
         loading={dashboardData.loading}
         t={dashboardData.t}
+        userState={userState}
+        status={statusState?.status}
       />
 
       <SearchModal
@@ -183,7 +185,7 @@ const Dashboard = () => {
       {/* 系统公告、联系方式和其他信息面板 - 移到图表上方 */}
       {dashboardData.hasInfoPanels && (
         <div className='mb-4'>
-          <div className='grid grid-cols-1 lg:grid-cols-4 gap-4'>
+          <div className='grid grid-cols-1 lg:grid-cols-4 gap-4 items-start'>
             {/* 公告卡片 */}
             {dashboardData.announcementsEnabled && (
               <AnnouncementsPanel

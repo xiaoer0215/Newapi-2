@@ -120,6 +120,10 @@ func GetRedemptionById(id int) (*Redemption, error) {
 	return &redemption, err
 }
 
+func getEffectiveRedemptionQuota(baseQuota int, userGroup string) int {
+	return common.ScaleQuotaByTopupGroupCreditRatio(baseQuota, "default", userGroup)
+}
+
 func Redeem(key string, userId int) (quota int, err error) {
 	if key == "" {
 		return 0, errors.New("未提供兑换码")
@@ -128,6 +132,7 @@ func Redeem(key string, userId int) (quota int, err error) {
 		return 0, errors.New("无效的 user id")
 	}
 	redemption := &Redemption{}
+	creditedQuota := 0
 
 	keyCol := "`key`"
 	if common.UsingPostgreSQL {
@@ -145,7 +150,16 @@ func Redeem(key string, userId int) (quota int, err error) {
 		if redemption.ExpiredTime != 0 && redemption.ExpiredTime < common.GetTimestamp() {
 			return errors.New("该兑换码已过期")
 		}
-		err = tx.Model(&User{}).Where("id = ?", userId).Update("quota", gorm.Expr("quota + ?", redemption.Quota)).Error
+		var userGroup string
+		err = tx.Model(&User{}).Where("id = ?", userId).Select(commonGroupCol).Take(&userGroup).Error
+		if err != nil {
+			return err
+		}
+		creditedQuota = getEffectiveRedemptionQuota(redemption.Quota, userGroup)
+		if creditedQuota <= 0 {
+			return errors.New("兑换后的额度无效")
+		}
+		err = tx.Model(&User{}).Where("id = ?", userId).Update("quota", gorm.Expr("quota + ?", creditedQuota)).Error
 		if err != nil {
 			return err
 		}
@@ -159,8 +173,8 @@ func Redeem(key string, userId int) (quota int, err error) {
 		common.SysError("redemption failed: " + err.Error())
 		return 0, ErrRedeemFailed
 	}
-	RecordLog(userId, LogTypeTopup, fmt.Sprintf("通过兑换码充值 %s，兑换码ID %d", logger.LogQuota(redemption.Quota), redemption.Id))
-	return redemption.Quota, nil
+	RecordLog(userId, LogTypeTopup, fmt.Sprintf("通过兑换码充值 %s，兑换码ID %d", logger.LogQuota(creditedQuota), redemption.Id))
+	return creditedQuota, nil
 }
 
 func (redemption *Redemption) Insert() error {

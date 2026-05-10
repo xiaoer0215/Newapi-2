@@ -1,0 +1,1589 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>系统控制台 - 令牌管理</title>
+    <style>
+        :root {
+            /* 主题色系 - 升级版紫蓝渐变 */
+            --primary: #4F46E5;
+            --primary-hover: #4338CA;
+            --primary-active: #3730A3;
+            --primary-glow: rgba(79, 70, 229, 0.4);
+
+            /* 状态色系 */
+            --danger: #E11D48;
+            --danger-hover: #BE123C;
+            --danger-bg: rgba(225, 29, 72, 0.1);
+
+            --success: #10B981;
+            --success-bg: rgba(16, 185, 129, 0.1);
+
+            --warning: #F59E0B;
+            --warning-bg: rgba(245, 158, 11, 0.1);
+
+            /* 文本色系 */
+            --text-main: #0F172A;
+            --text-secondary: #475569;
+            --text-tertiary: #94A3B8;
+
+            /* UI元素色系 */
+            --border-color: rgba(148, 163, 184, 0.2);
+            --border-highlight: rgba(255, 255, 255, 0.8);
+            --card-bg: rgba(255, 255, 255, 0.75);
+            --input-bg: rgba(255, 255, 255, 0.8);
+            --input-bg-focus: #ffffff;
+
+            /* 阴影效果 */
+            --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.02);
+
+            /* 几何参数 */
+            --glass-blur: 24px;
+            --radius-card: 20px;
+            --radius-btn: 10px;
+            --radius-input: 12px;
+            --radius-badge: 6px;
+
+            /* 动画曲线 */
+            --spring-easing: cubic-bezier(0.175, 0.885, 0.32, 1.15);
+            --fluid-easing: cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --primary: #6366F1;
+                --primary-hover: #818CF8;
+                --primary-glow: rgba(99, 102, 241, 0.3);
+
+                --text-main: #F8FAFC;
+                --text-secondary: #CBD5E1;
+                --text-tertiary: #64748B;
+
+                --border-color: rgba(148, 163, 184, 0.15);
+                --border-highlight: rgba(255, 255, 255, 0.05);
+                --card-bg: rgba(15, 23, 42, 0.65);
+                --input-bg: rgba(30, 41, 59, 0.6);
+                --input-bg-focus: rgba(30, 41, 59, 0.9);
+
+                --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+            }
+        }
+
+        /* 基础重置 */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: "Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #F1F5F9;
+            background-image:
+                radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(16, 185, 129, 0.1) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(244, 63, 94, 0.1) 0px, transparent 50%);
+            color: var(--text-main);
+            padding: 0; margin: 0;
+            min-height: 100vh;
+            
+            
+            overflow-x: hidden;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            body {
+                background-color: #0B1120;
+                background-image:
+                    radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+                    radial-gradient(at 100% 0%, rgba(16, 185, 129, 0.1) 0px, transparent 50%);
+            }
+        }
+
+        /* 页面主容器 */
+        .dashboard-container {
+            width: 100%;
+            max-width: 100%;
+            border: none;
+            border-radius: 0;
+            box-shadow: none;
+            margin: 0;
+            padding: 24px;
+            
+            width: 100%;
+            max-width: 1560px;
+            background: var(--card-bg);
+            backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+            -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+            border: 1px solid var(--border-highlight);
+            border-radius: var(--radius-card);
+            padding: 24px 32px;
+            box-shadow: var(--shadow-lg);
+            animation: cardEntrance 0.8s var(--fluid-easing) both;
+            position: relative;
+        }
+
+        .dashboard-container::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.8), transparent);
+            opacity: 0.5;
+        }
+
+        @keyframes cardEntrance {
+            from { opacity: 0; transform: translateY(20px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        /* 头部区域 */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header-icon {
+            width: 36px; height: 36px;
+            background: linear-gradient(135deg, var(--primary), #818CF8);
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            color: white;
+            box-shadow: 0 4px 10px var(--primary-glow);
+        }
+
+        h1 {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        /* 按钮 */
+        .btn {
+            padding: 8px 16px;
+            border-radius: var(--radius-btn);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            border: 1px solid transparent;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: all 0.2s var(--fluid-easing);
+            white-space: nowrap;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 4px 12px var(--primary-glow);
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        /* 工具栏 */
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .search-box {
+            max-width: 320px;
+            flex: 1;
+            display: flex;
+            align-items: center;
+            background: var(--input-bg);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-input);
+            padding: 0 12px;
+            height: 36px;
+        }
+
+        .search-box:focus-within { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15); }
+        .search-box input { border: none; background: transparent; padding: 0 8px; width: 100%; height: 100%; outline: none; color: var(--text-main); font-size: 13px; }
+
+        /* ====== 分页控制 ====== */
+        .pagination {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 0 0 0;
+            margin-top: 20px;
+            border-top: none;
+            background: transparent;
+        }
+        @media (prefers-color-scheme: dark) {
+            .pagination { background: rgba(15, 23, 42, 0.2); }
+        }
+        .page-info {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+        .page-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .page-btn {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: rgba(255, 255, 255, 0.6);
+            color: var(--text-main);
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 13px;
+        }
+        @media (prefers-color-scheme: dark) { .page-btn { background: rgba(30, 41, 59, 0.6); } }
+        .page-btn:hover:not(:disabled) {
+            background: rgba(148, 163, 184, 0.15);
+        }
+        .page-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background: transparent;
+        }
+        .page-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+        .page-size-selector {
+            padding: 6px 10px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: rgba(255, 255, 255, 0.6);
+            color: var(--text-main);
+            font-size: 13px;
+            outline: none;
+            cursor: pointer;
+            height: 32px;
+        }
+        @media (prefers-color-scheme: dark) { .page-size-selector { background: rgba(30, 41, 59, 0.6); } }
+
+        
+        /* ====== 额度 Popover ====== */
+        .quota-popover-wrapper {
+            position: relative;
+            display: inline-block;
+            cursor: pointer;
+        }
+        .quota-popover {
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%) translateY(10px);
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px;
+            box-shadow: var(--shadow-lg);
+            width: max-content;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 100;
+            text-align: left;
+            pointer-events: none;
+        }
+        .quota-popover-wrapper:hover .quota-popover {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(-50%) translateY(0);
+            pointer-events: auto;
+        }
+        @media (prefers-color-scheme: dark) {
+            .quota-popover { background: rgba(30, 41, 59, 0.95); backdrop-filter: blur(8px); }
+        }
+        .quota-popover::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -6px;
+            border-width: 6px;
+            border-style: solid;
+            border-color: white transparent transparent transparent;
+        }
+        @media (prefers-color-scheme: dark) {
+            .quota-popover::after { border-color: rgba(30, 41, 59, 0.95) transparent transparent transparent; }
+        }
+        .popover-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 8px;
+            font-size: 13px;
+            color: var(--text-main);
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        .popover-item:last-child { margin-bottom: 0; }
+        .copy-icon { color: var(--primary); cursor: pointer; }
+        
+        /* ====== 全新数据表格样式 ====== */
+        .table-container {
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.4);
+            /* overflow: hidden;  去掉 hidden 防止下拉菜单被吃掉 */
+            box-shadow: var(--shadow-sm);
+            position: relative;
+        }
+        @media (prefers-color-scheme: dark) { .table-container { background: rgba(15, 23, 42, 0.3); } }
+
+        .table-responsive-wrapper {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        table {
+            width: 100%;
+            min-width: 1200px;
+            border-collapse: separate;
+            border-spacing: 0;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        th {
+            padding: 16px 20px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            background: rgba(241, 245, 249, 0.95);
+            border-bottom: 1px solid var(--border-color);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        @media (prefers-color-scheme: dark) { th { background: rgba(30, 41, 59, 0.95); } }
+
+        td {
+            padding: 18px 20px;
+            font-size: 14px;
+            color: var(--text-main);
+            border-bottom: 1px solid var(--border-color);
+            vertical-align: middle;
+            transition: background 0.2s;
+        }
+        tr:last-child td { border-bottom: none; }
+
+        /* 斑马线与悬浮效果 */
+        tbody tr:nth-child(even) td { background: rgba(255, 255, 255, 0.3); }
+        @media (prefers-color-scheme: dark) { tbody tr:nth-child(even) td { background: rgba(255, 255, 255, 0.01); } }
+
+        tr:hover td { background: rgba(255, 255, 255, 0.8); }
+        @media (prefers-color-scheme: dark) { tr:hover td { background: rgba(255, 255, 255, 0.04); } }
+
+        /* ====== 固定右侧操作列 ====== */
+        th:last-child,
+        td:last-child {
+            position: sticky;
+            right: 0;
+            z-index: 15;
+            background: #F8FAFC !important;
+            border-left: 1px solid var(--border-color);
+            box-shadow: -4px 0 10px rgba(0,0,0,0.03);
+            text-align: center;
+        }
+
+        th:last-child {
+            background: #F1F5F9 !important;
+            z-index: 20;
+        }
+
+        tbody tr:nth-child(even) td:last-child {
+            background: #F1F5F9 !important;
+        }
+
+        tr:hover td:last-child {
+            background: #FFFFFF !important;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            th:last-child { background: #1E293B !important; }
+            td:last-child { background: #0F172A !important; }
+            tbody tr:nth-child(even) td:last-child { background: #1E293B !important; }
+            tr:hover td:last-child { background: #334155 !important; }
+        }
+
+        .token-name { font-weight: 600; color: var(--text-main); font-size: 15px;}
+        .quota-text { font-weight: 600; color: var(--text-main); display: flex; align-items: center; gap: 4px; }
+        .quota-infinity { color: var(--success); font-weight: 700; font-size: 16px;}
+
+        /* 标签与徽章 */
+        .badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 6px 10px; border-radius: var(--radius-badge);
+            font-size: 12px; font-weight: 600;
+            letter-spacing: 0.2px;
+        }
+        .badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; }
+        .badge-success { background: var(--success-bg); color: var(--success); }
+        .badge-success::before { background: var(--success); box-shadow: 0 0 6px var(--success); }
+        .badge-danger { background: var(--danger-bg); color: var(--danger); }
+        .badge-danger::before { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
+
+        .badge-outline {
+            background: rgba(148, 163, 184, 0.1);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+        .badge-outline::before { display: none; }
+
+        .action-btn.copy-token-btn {
+            background: rgba(79, 70, 229, 0.08);
+            color: var(--primary);
+            border: 1px solid rgba(79, 70, 229, 0.2);
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-weight: 600;
+            height: auto;
+            display: inline-flex;
+            gap: 6px;
+        }
+        .action-btn.copy-token-btn:hover {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+            box-shadow: 0 2px 8px var(--primary-glow);
+        }
+
+        
+        .actions-group {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            flex-wrap: nowrap; /* Prevent breaking into multiple lines */
+            white-space: nowrap;
+        }
+
+
+        .action-btn {
+            height: 28px;
+            padding: 0 8px;
+            border-radius: 6px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            display: inline-flex; align-items: center; justify-content: center;
+            gap: 4px;
+            cursor: pointer;
+            transition: all 0.15s;
+            font-size: 13px;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .action-btn:hover { background: rgba(148, 163, 184, 0.15); color: var(--text-main); }
+
+        .action-btn.primary-text:hover { color: var(--primary); background: rgba(79, 70, 229, 0.1); }
+        .action-btn.warning { color: var(--danger); }
+        .action-btn.warning:hover { color: var(--danger); background: rgba(225, 29, 72, 0.1); }
+        .action-btn.danger { color: var(--danger); }
+        .action-btn.danger:hover { color: var(--danger); background: rgba(225, 29, 72, 0.1); }
+        .action-btn.success { color: var(--success); }
+        .action-btn.success:hover { color: var(--success); background: rgba(16, 185, 129, 0.1); }
+
+        .time-primary { font-size: 14px; color: var(--text-main); font-weight: 500;}
+
+        th:nth-child(1) { width: 10%; }
+        th:nth-child(2) { width: 8%; }
+        th:nth-child(3) { width: 12%; }
+        th:nth-child(4) { width: 10%; }
+        th:nth-child(5) { width: 8%; }
+        th:nth-child(6) { width: 12%; }
+        th:nth-child(7) { width: 10%; }
+        th:nth-child(8) { width: 12%; }
+        th:nth-child(9) { width: 18%; }
+
+
+        /* ================= 侧边栏/抽屉组件 ================= */
+        .drawer-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            z-index: 999;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s var(--fluid-easing);
+        }
+        .drawer-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .drawer {
+            position: fixed;
+            top: 0;
+            width: 520px;
+            height: 100vh;
+            background: var(--card-bg);
+            backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+            -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+            box-shadow: var(--shadow-lg);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+
+            /* 默认隐藏，修复页面加载直接显示的问题 */
+            opacity: 0;
+            visibility: hidden;
+            transition: transform 0.4s var(--fluid-easing), opacity 0.3s, visibility 0.4s;
+        }
+
+        /* 添加：从左侧滑出 */
+        .drawer.mode-add {
+            left: 0;
+            transform: translateX(-100%);
+            border-right: 1px solid var(--border-highlight);
+        }
+
+        /* 编辑：从右侧滑出 */
+        .drawer.mode-edit {
+            right: 0;
+            transform: translateX(100%);
+            border-left: 1px solid var(--border-highlight);
+        }
+
+        /* 激活状态：回到原始位置并显示 */
+        .drawer.active {
+            transform: translateX(0);
+            opacity: 1;
+            visibility: visible;
+        }
+
+        @media (max-width: 600px) {
+            .drawer { width: 100%; }
+            .drawer.mode-add { border-right: none; }
+            .drawer.mode-edit { border-left: none; }
+        }
+
+        .drawer-header {
+            padding: 24px 24px 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .drawer-header h2 {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-main);
+            margin: 0;
+        }
+
+        .drawer-close {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 6px;
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s;
+        }
+        .drawer-close:hover {
+            background: rgba(148, 163, 184, 0.15);
+            color: var(--text-main);
+        }
+
+        .drawer-body {
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .form-group label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        .form-control {
+            background: var(--input-bg);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-input);
+            padding: 12px 14px;
+            font-size: 14px;
+            color: var(--text-main);
+            outline: none;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+        .form-control:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+            background: var(--input-bg-focus);
+        }
+
+        .form-control::-webkit-calendar-picker-indicator {
+            filter: invert(0.5);
+            cursor: pointer;
+        }
+        @media (prefers-color-scheme: dark) {
+            .form-control::-webkit-calendar-picker-indicator { filter: invert(0.8); }
+        }
+
+        textarea.form-control {
+            resize: vertical;
+            min-height: 80px;
+            line-height: 1.5;
+        }
+
+        .label-with-action {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .label-desc {
+            font-weight: 400;
+            color: var(--text-tertiary);
+            font-size: 12px;
+        }
+
+        .action-link {
+            font-size: 12px;
+            color: var(--primary);
+            text-decoration: none;
+            transition: opacity 0.2s;
+        }
+        .action-link:hover { opacity: 0.8; }
+
+        .help-text {
+            font-size: 13px; color: var(--text-tertiary); font-weight: 600;;
+            margin-top: 2px;
+            line-height: 1.5;
+        }
+
+        .quota-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .quota-wrapper input[type="number"] {
+            flex: 1;
+        }
+
+        .checkbox-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            color: var(--text-main);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .checkbox-label input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            accent-color: var(--primary);
+            cursor: pointer;
+        }
+
+        .section-divider {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-main);
+            margin-top: 8px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .drawer-footer {
+            padding: 20px 24px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between; /* 按钮左右分布 */
+            align-items: center;
+            background: rgba(255, 255, 255, 0.3);
+        }
+        @media (prefers-color-scheme: dark) {
+            .drawer-footer { background: rgba(0, 0, 0, 0.2); }
+        }
+
+                /* ====== 侧边栏/抽屉表单卡片化 ====== */
+        .drawer { width: 520px; }
+
+        .drawer-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 20px 24px;
+        }
+        
+        .drawer-header h2 {
+            font-size: 20px;
+        }
+
+        .drawer-body { flex: 1; padding: 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; background: transparent; }
+
+        .card-section {
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+            padding: 20px;
+            margin-bottom: 8px;
+        }
+        @media (prefers-color-scheme: dark) {
+            .card-section { background: rgba(30, 41, 59, 0.6); }
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .card-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .card-header h3 {
+            font-size: 16px;
+            font-weight: 600;
+            margin: 0 0 2px 0;
+            color: var(--text-main);
+        }
+
+        .card-header p {
+            font-size: 13px; color: var(--text-tertiary); font-weight: 600;;
+            margin: 0;
+        }
+
+        .card-body {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .form-group label { font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 0; }
+
+        .btn-tag {
+            background: rgba(148, 163, 184, 0.15);
+            color: var(--text-main);
+            border: 1px solid transparent;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-weight: normal;
+        }
+
+        .btn-tag:hover {
+            background: rgba(148, 163, 184, 0.25);
+        }
+
+        /* Switch UI */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+            flex-shrink: 0;
+        }
+        .switch input { 
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(148, 163, 184, 0.3);
+            transition: .4s;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        input:checked + .slider { background-color: var(--success); }
+        input:checked + .slider:before { transform: translateX(20px); }
+        .slider.round { border-radius: 24px; }
+        .slider.round:before { border-radius: 50%; }
+
+        .drawer-footer {
+            background: rgba(248, 250, 252, 0.97);
+            border-top: 1px solid rgba(148, 163, 184, 0.2);
+            padding: 12px 24px;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+        @media (prefers-color-scheme: dark) {
+            .drawer-footer { background: rgba(15, 23, 42, 0.97); }
+        }
+
+        /* ================= 手机端响应式布局 ================= */
+        @media (max-width: 1200px) {
+            body { padding: 12px; }
+            .dashboard-container { padding: 16px; border-radius: 16px; }
+
+            .header { flex-direction: column; align-items: flex-start; gap: 16px; }
+
+            .toolbar { flex-direction: column; align-items: stretch; }
+            .toolbar .btn-primary { width: 100%; justify-content: center; }
+            .search-box { max-width: 100%; }
+
+            table, thead, tbody, th, td, tr { display: block; }
+            thead tr { position: absolute; top: -9999px; left: -9999px; }
+
+            .table-container { background: transparent; border: none; overflow: visible; box-shadow: none; }
+
+            tr {
+                background: var(--card-bg);
+                border: 1px solid var(--border-color);
+                border-radius: 12px;
+                margin-bottom: 16px;
+                padding: 12px;
+                box-shadow: var(--shadow-sm);
+            }
+
+            td {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                border-bottom: 1px dashed var(--border-color);
+                padding: 12px 4px;
+                white-space: normal;
+                text-align: right;
+                font-size: 13px;
+            }
+
+            td:first-child {
+                display: none; /* Hide the checkbox on mobile for cleaner view */
+            }
+
+            td:last-child {
+                border-bottom: none;
+                flex-direction: column;
+                align-items: stretch;
+                gap: 12px;
+                padding-bottom: 4px;
+                padding-top: 16px;
+            }
+
+            td::before {
+                content: attr(data-label);
+                float: left;
+                font-weight: 600;
+                color: var(--text-secondary);
+                margin-right: 16px;
+                text-align: left;
+            }
+
+            .actions-group {
+                justify-content: flex-end;
+                background: rgba(148, 163, 184, 0.05);
+                padding: 12px;
+                border-radius: 8px;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+
+            .drawer {
+                width: 100% !important;
+            }
+        }
+    
+        /* ====== 下拉菜单 Dropdown ====== */
+        .dropdown-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+        .dropdown-wrapper.active .action-btn {
+            color: var(--primary);
+            background: rgba(79, 70, 229, 0.1);
+        }
+        
+        .dropdown-menu {
+            position: fixed;
+            min-width: 130px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            box-shadow: var(--shadow-lg);
+            padding: 6px;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s, visibility 0.2s;
+            z-index: 2147483647; /* MAX Z-INDEX */
+            text-align: left;
+        }
+
+        
+        .dropdown-wrapper.active .dropdown-menu, .dropdown-menu.show-teleported {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .dropdown-menu {
+                background: rgba(30, 41, 59, 0.95);
+            }
+        }
+        .dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            font-size: 13px;
+            color: var(--text-main);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+        .dropdown-item:hover {
+            background: rgba(79, 70, 229, 0.08);
+            color: var(--primary);
+        }
+
+    
+        .split-btn-group:hover { background: rgba(79, 70, 229, 0.08) !important; }
+        .split-btn-group .action-btn:hover { background: rgba(79, 70, 229, 0.15) !important; color: var(--primary); }
+    
+        /* ===== 全局布局系统 ===== */
+        
+
+        /* 调整现有的 dashboard-container 使其适应主内容区 */
+        .dashboard-container {
+            min-height: auto;
+            padding: 24px;
+            width: 100%;
+        }
+
+        @media (max-width: 1024px) {
+            .app-sider {
+                display: none;
+            }
+            .app-header-nav {
+                display: none;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-container {
+                padding: 16px;
+            }
+        }
+
+    </style>
+</head>
+<body>
+
+    
+    <!-- 全局布局包裹 -->
+    
+<div class="app-layout" style="display: flex; flex-direction: column; min-height: 100vh; width: 100vw; overflow-x: hidden;">
+    <header style="height: 60px; display: flex; justify-content: space-between; align-items: center; padding: 0 24px; background: transparent; border-bottom: 1px solid rgba(148, 163, 184, 0.2); position: sticky; top: 0; z-index: 50; backdrop-filter: blur(12px);">
+        <div style="display: flex; align-items: center; gap: 32px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 2L2 7l10 5 10-5-10-5z" fill="url(#paint0_linear)"/>
+                    <path d="M2 17l10 5 10-5M2 12l10 5 10-5" stroke="url(#paint1_linear)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <defs>
+                        <linearGradient id="paint0_linear" x1="2" y1="7" x2="22" y2="7" gradientUnits="userSpaceOnUse">
+                            <stop stop-color="#4F46E5"/>
+                            <stop offset="1" stop-color="#E11D48"/>
+                        </linearGradient>
+                        <linearGradient id="paint1_linear" x1="2" y1="14.5" x2="22" y2="14.5" gradientUnits="userSpaceOnUse">
+                            <stop stop-color="#4F46E5"/>
+                            <stop offset="1" stop-color="#10B981"/>
+                        </linearGradient>
+                    </defs>
+                </svg>
+                <span style="font-size: 18px; font-weight: 700; color: var(--text-main);">Nēz Apĭ</span>
+            </div>
+            <div style="display: flex; gap: 24px;">
+                <a href="#" style="color: var(--text-main); text-decoration: none; font-size: 14px; font-weight: 500;">首页</a>
+                <a href="#" style="color: var(--primary); text-decoration: none; font-size: 14px; font-weight: 600;">控制台</a>
+                <a href="#" style="color: var(--text-main); text-decoration: none; font-size: 14px; font-weight: 500;">模型广场</a>
+                <a href="#" style="color: var(--text-main); text-decoration: none; font-size: 14px; font-weight: 500;">文档</a>
+            </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 16px;">
+            <div style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.5); cursor: pointer;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.5); cursor: pointer;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.5); cursor: pointer;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; padding: 4px 12px 4px 4px; border-radius: 20px; background: rgba(255,255,255,0.5); cursor: pointer;">
+                <div style="width: 24px; height: 24px; border-radius: 50%; background: linear-gradient(135deg, #c084fc, #9333ea); display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: bold;">Z</div>
+                <span style="font-size: 13px; color: var(--text-secondary);">2890875088</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </div>
+        </div>
+    </header>
+    <div style="display: flex; flex: 1; overflow: hidden; width: 100%;">
+        <aside style="width: 170px; border-right: 1px solid rgba(148, 163, 184, 0.2); display: flex; flex-direction: column; padding: 16px 12px; overflow-y: auto; flex-shrink: 0; background: transparent;">
+
+            <div style="margin-bottom: 16px;">
+                <div style="font-size: 13px; color: var(--text-tertiary); font-weight: 600;; margin-bottom: 2px; padding-left: 12px;">聊天</div>
+                <a href="#" style="display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 8px; color: var(--text-secondary); text-decoration: none; font-size: 15px; margin-bottom: 2px; transition: background 0.2s;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                    操练场
+                </a>
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <div style="font-size: 13px; color: var(--text-tertiary); font-weight: 600;; margin-bottom: 2px; padding-left: 12px;">控制台</div>
+                <a href="#" style="display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 8px; color: var(--text-secondary); text-decoration: none; font-size: 15px; margin-bottom: 2px; transition: background 0.2s;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+                    数据看板
+                </a>
+                <a href="#" style="display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 8px; background: rgba(79, 70, 229, 0.1); color: var(--primary); font-weight: 600; text-decoration: none; font-size: 15px; margin-bottom: 2px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path></svg>
+                    令牌管理
+                </a>
+                <a href="#" style="display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 8px; color: var(--text-secondary); text-decoration: none; font-size: 15px; margin-bottom: 2px; transition: background 0.2s;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                    使用日志
+                </a>
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <div style="font-size: 13px; color: var(--text-tertiary); font-weight: 600;; margin-bottom: 2px; padding-left: 12px;">个人中心</div>
+                <a href="#" style="display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 8px; color: var(--text-secondary); text-decoration: none; font-size: 15px; margin-bottom: 2px; transition: background 0.2s;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
+                    钱包管理
+                </a>
+                <a href="#" style="display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 8px; color: var(--text-secondary); text-decoration: none; font-size: 15px; margin-bottom: 2px; transition: background 0.2s;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                    个人设置
+                </a>
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <div style="font-size: 13px; color: var(--text-tertiary); font-weight: 600;; margin-bottom: 2px; padding-left: 12px;">管理员</div>
+                <a href="#" style="display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 8px; color: var(--text-secondary); text-decoration: none; font-size: 15px; margin-bottom: 2px; transition: background 0.2s;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+                    自动发货
+                </a>
+                <a href="#" style="display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 8px; color: var(--text-secondary); text-decoration: none; font-size: 15px; margin-bottom: 2px; transition: background 0.2s;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                    渠道管理
+                </a>
+                <a href="#" style="display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 8px; color: var(--text-secondary); text-decoration: none; font-size: 15px; margin-bottom: 2px; transition: background 0.2s;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                    订阅管理
+                </a>
+                <a href="#" style="display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 8px; color: var(--text-secondary); text-decoration: none; font-size: 15px; margin-bottom: 2px; transition: background 0.2s;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 17"></polyline></svg>
+                    模型管理
+                </a>
+                <a href="#" style="display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 8px; color: var(--text-secondary); text-decoration: none; font-size: 15px; margin-bottom: 2px; transition: background 0.2s;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 12 20 22 4 22 4 12"></polyline><rect x="2" y="7" width="20" height="5"></rect><line x1="12" y1="22" x2="12" y2="7"></line><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"></path><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"></path></svg>
+                    兑换码管理
+                </a>
+                <a href="#" style="display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 8px; color: var(--text-secondary); text-decoration: none; font-size: 15px; margin-bottom: 2px; transition: background 0.2s;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                    用户管理
+                </a>
+                <a href="#" style="display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 8px; color: var(--text-secondary); text-decoration: none; font-size: 15px; margin-bottom: 2px; transition: background 0.2s;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                    系统设置
+                </a>
+            </div>
+        </aside>
+        <main style="flex: 1; overflow-y: auto; padding: 24px; position: relative;">
+
+<div class="dashboard-container">
+        <!-- 头部 (标题) -->
+        <div class="header">
+            <div class="header-title">
+                <div class="header-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                    </svg>
+                </div>
+                <h1>令牌管理</h1>
+            </div>
+        </div>
+
+        <!-- 工具栏 -->
+        <div class="toolbar">
+            <div class="filters" style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+                <div class="search-box" style="flex: none; width: 220px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    <input type="text" placeholder="搜索关键字">
+                </div>
+                <div class="search-box" style="flex: none; width: 220px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                    <input type="text" placeholder="密钥">
+                </div>
+                <button class="btn" style="background: rgba(148, 163, 184, 0.15); color: var(--text-main); border: 1px solid var(--border-color);">查询</button>
+                <button class="btn" style="background: rgba(148, 163, 184, 0.15); color: var(--text-main); border: 1px solid var(--border-color);">重置</button>
+            </div>
+
+            <div class="actions" style="display: flex; gap: 12px; flex-wrap: wrap;">
+                <button class="btn btn-primary" onclick="openDrawer('add')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    添加令牌
+                </button>
+                <button class="btn" style="background: rgba(148, 163, 184, 0.15); color: var(--text-main); border: 1px solid var(--border-color);">
+                    复制所选令牌
+                </button>
+                <button class="btn" style="background: var(--danger-bg); color: var(--danger); border: 1px solid rgba(225, 29, 72, 0.2);">
+                    删除所选令牌
+                </button>
+            </div>
+        </div>
+
+        <!-- 数据表格 -->
+        <div class="table-container">
+            <div class="table-responsive-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 40px; text-align: center;"><input type="checkbox" style="width:16px;height:16px;accent-color:var(--primary);cursor:pointer;"></th>
+                            <th>名称</th>
+                            <th>状态</th>
+                            <th>剩余 / 总额度</th>
+                            <th>分组</th>
+                            <th>密钥</th>
+                            <th>可用模型</th>
+                            <th>IP限制</th>
+                            <th>创建时间</th>
+                            <th>过期时间</th>
+                            <th style="text-align:center">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- 第一行：用户指定数据 -->
+                        <tr>
+                            <td style="text-align: center;"><input type="checkbox" style="width:16px;height:16px;accent-color:var(--primary);cursor:pointer;"></td>
+                            <td data-label="名称"><div class="token-name">1</div></td>
+                            <td data-label="状态"><span class="badge badge-success">已启用</span></td>
+                            <td data-label="剩余额度 / 总额度">
+                                <div class="quota-popover-wrapper">
+                                    <span class="badge badge-outline" style="background: white; border-radius: 12px;">无限额度</span>
+                                    <div class="quota-popover">
+                                        <div class="popover-item">已用额度: /usr/bin/bash.00 <svg class="copy-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td data-label="分组"><span class="badge badge-outline">XX分组</span></td>
+                            <td data-label="密钥">
+                                <button class="action-btn copy-token-btn" title="点击复制完整密钥">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                    复制
+                                </button>
+                            </td>
+                            <td data-label="可用模型"><span class="badge badge-outline">无限制</span></td>
+                            <td data-label="IP限制"><span class="badge badge-outline">无限制</span></td>
+                            <td data-label="创建时间"><div class="time-primary">2026-4-4 23:06:17</div></td>
+                            <td data-label="过期时间"><div class="time-primary">永不过期</div></td>
+                            
+                            
+                            
+                            <td data-label="操作">
+                                <div class="actions-group">
+                                    <div class="split-btn-group" style="display: flex; align-items: center; background: rgba(79, 70, 229, 0.08); border-radius: 6px; transition: all 0.2s; border: 1px solid rgba(79, 70, 229, 0.2);">
+                                        <button class="action-btn primary-text" style="background: transparent; border-radius: 6px 0 0 6px; padding: 0 10px; height: 26px; transition: background 0.2s; border-right: 1px solid rgba(79, 70, 229, 0.15);">聊天</button>
+                                        
+                                        <div class="dropdown-wrapper" style="height: 26px;">
+                                            <button class="action-btn primary-text" onclick="toggleDropdown(this)" style="background: transparent; border-radius: 0 6px 6px 0; padding: 0 4px; height: 26px; width: 22px; transition: background 0.2s;">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin:0 auto; display:block;"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                                            </button>
+                                            <div class="dropdown-menu">
+                                                <div class="dropdown-item">ChatGPT Next Web</div>
+                                                <div class="dropdown-item">Lobe Chat</div>
+                                                <div class="dropdown-item">AMA (iOS/MacOS)</div>
+                                                <div class="dropdown-item">BotGem</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button class="action-btn warning"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg> 禁用</button>
+                                    <button class="action-btn" onclick="openDrawer('edit')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg> 编辑</button>
+                                    <button class="action-btn danger"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg> 删除</button>
+                                </div>
+                            </td>
+                        </tr>
+
+                        <!-- 第二行 -->
+                        <tr>
+                            <td style="text-align: center;"><input type="checkbox" style="width:16px;height:16px;accent-color:var(--primary);cursor:pointer;"></td>
+                            <td data-label="名称"><div class="token-name">Default Key</div></td>
+                            <td data-label="状态"><span class="badge badge-success">已启用</span></td>
+                            <td data-label="剩余额度 / 总额度">
+                                <div class="quota-popover-wrapper">
+                                    <span class="badge badge-outline" style="background: white; border-radius: 12px; display: inline-flex; flex-direction: column; align-items: flex-end; gap: 3px; padding: 4px 10px; border: 1px solid var(--border-color);">
+                                        <span style="line-height: 1; font-weight: 500;">000.00 / 000.00</span>
+                                        <div style="width: 100%; height: 3px; background: rgba(148,163,184,0.2); border-radius: 1.5px; overflow: hidden;">
+                                            <div style="width: 100%; height: 100%; background: var(--success); border-radius: 1.5px;"></div>
+                                        </div>
+                                    </span>
+                                    <div class="quota-popover">
+                                        <div class="popover-item">已用额度: /usr/bin/bash.00 <svg class="copy-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></div>
+                                        <div class="popover-item">剩余额度: 000.00 (100%) <svg class="copy-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></div>
+                                        <div class="popover-item">总额度: 000.00 <svg class="copy-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td data-label="分组"><span class="badge badge-outline">VIP分组</span></td>
+                            <td data-label="密钥">
+                                <button class="action-btn copy-token-btn" title="点击复制完整密钥">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                    复制
+                                </button>
+                            </td>
+                            <td data-label="可用模型"><span class="badge badge-outline">gpt-4, claude-3...</span></td>
+                            <td data-label="IP限制"><span class="badge badge-outline">192.168.1.1</span></td>
+                            <td data-label="创建时间"><div class="time-primary">2026-4-3 10:00:00</div></td>
+                            <td data-label="过期时间"><div class="time-primary">2026-12-31 23:59:59</div></td>
+                            <td data-label="操作">
+                                <div class="actions-group">
+                                    <div class="split-btn-group" style="display: flex; align-items: center; background: rgba(79, 70, 229, 0.08); border-radius: 6px; transition: all 0.2s; border: 1px solid rgba(79, 70, 229, 0.2);">
+                                        <button class="action-btn primary-text" style="background: transparent; border-radius: 6px 0 0 6px; padding: 0 10px; height: 26px; transition: background 0.2s; border-right: 1px solid rgba(79, 70, 229, 0.15);">聊天</button>
+                                        
+                                        <div class="dropdown-wrapper" style="height: 26px;">
+                                            <button class="action-btn primary-text" onclick="toggleDropdown(this)" style="background: transparent; border-radius: 0 6px 6px 0; padding: 0 4px; height: 26px; width: 22px; transition: background 0.2s;">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin:0 auto; display:block;"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                                            </button>
+                                            <div class="dropdown-menu">
+                                                <div class="dropdown-item">ChatGPT Next Web</div>
+                                                <div class="dropdown-item">Lobe Chat</div>
+                                                <div class="dropdown-item">AMA (iOS/MacOS)</div>
+                                                <div class="dropdown-item">BotGem</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button class="action-btn warning"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg> 禁用</button>
+                                    <button class="action-btn" onclick="openDrawer('edit')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg> 编辑</button>
+                                    <button class="action-btn danger"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg> 删除</button>
+                                </div>
+                            </td>
+                        </tr>
+
+                        <!-- 第三行 -->
+                        <tr>
+                            <td style="text-align: center;"><input type="checkbox" style="width:16px;height:16px;accent-color:var(--primary);cursor:pointer;"></td>
+                            <td data-label="名称"><div class="token-name" style="color:var(--text-tertiary)">Test Token</div></td>
+                            <td data-label="状态"><span class="badge badge-danger">已禁用</span></td>
+                            <td data-label="剩余额度 / 总额度">
+                                <div class="quota-popover-wrapper" style="opacity:0.6">
+                                    <span class="badge badge-outline" style="background: white; border-radius: 12px; display: inline-flex; flex-direction: column; align-items: flex-end; gap: 3px; padding: 4px 10px; border: 1px solid var(--border-color);">
+                                        <span style="line-height: 1; font-weight: 500;">/usr/bin/bash.00 / 0.00</span>
+                                        <div style="width: 100%; height: 3px; background: rgba(148,163,184,0.2); border-radius: 1.5px; overflow: hidden;">
+                                            <div style="width: 0%; height: 100%; background: var(--success); border-radius: 1.5px;"></div>
+                                        </div>
+                                    </span>
+                                    <div class="quota-popover">
+                                        <div class="popover-item">已用额度: 0.00 <svg class="copy-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></div>
+                                        <div class="popover-item">剩余额度: /usr/bin/bash.00 (0%) <svg class="copy-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></div>
+                                        <div class="popover-item">总额度: 0.00 <svg class="copy-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td data-label="分组"><span class="badge badge-outline">default</span></td>
+                            <td data-label="密钥">
+                                <button class="action-btn copy-token-btn" style="opacity:0.6" title="点击复制完整密钥">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                    复制
+                                </button>
+                            </td>
+                            <td data-label="可用模型"><span class="badge badge-outline">gpt-3.5-turbo</span></td>
+                            <td data-label="IP限制"><span class="badge badge-outline">无限制</span></td>
+                            <td data-label="创建时间"><div class="time-primary" style="opacity:0.6">2026-3-15 08:30:00</div></td>
+                            <td data-label="过期时间"><div class="time-primary" style="opacity:0.6">2026-3-20 00:00:00</div></td>
+                            <td data-label="操作">
+                                <div class="actions-group">
+                                    <div class="split-btn-group" style="display: flex; align-items: center; background: rgba(79, 70, 229, 0.08); border-radius: 6px; transition: all 0.2s; border: 1px solid rgba(79, 70, 229, 0.2);">
+                                        <button class="action-btn primary-text" style="background: transparent; border-radius: 6px 0 0 6px; padding: 0 10px; height: 26px; transition: background 0.2s; border-right: 1px solid rgba(79, 70, 229, 0.15);">聊天</button>
+                                        
+                                        <div class="dropdown-wrapper" style="height: 26px;">
+                                            <button class="action-btn primary-text" onclick="toggleDropdown(this)" style="background: transparent; border-radius: 0 6px 6px 0; padding: 0 4px; height: 26px; width: 22px; transition: background 0.2s;">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin:0 auto; display:block;"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                                            </button>
+                                            <div class="dropdown-menu">
+                                                <div class="dropdown-item">ChatGPT Next Web</div>
+                                                <div class="dropdown-item">Lobe Chat</div>
+                                                <div class="dropdown-item">AMA (iOS/MacOS)</div>
+                                                <div class="dropdown-item">BotGem</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button class="action-btn" style="color:var(--success)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> 启用</button>
+                                    <button class="action-btn" onclick="openDrawer('edit')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg> 编辑</button>
+                                    <button class="action-btn danger"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg> 删除</button>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+
+        </div>
+            <!-- 分页 -->
+            <div class="pagination">
+                <div class="page-info">显示 1 到 3 条，共 3 条记录</div>
+                <div class="page-controls">
+                    <select class="page-size-selector">
+                        <option>10 条/页</option>
+                        <option>20 条/页</option>
+                        <option>50 条/页</option>
+                        <option>100 条/页</option>
+                    </select>
+                    <button class="page-btn" disabled><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+                    <button class="page-btn active">1</button>
+                    <button class="page-btn" disabled><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
+                </div>
+            </div>
+    </div>
+
+    <!-- 侧边栏抽屉组件 -->
+    <div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
+    <div class="drawer" id="tokenDrawer">
+        <div class="drawer-header">
+            <div style="display:flex; align-items:center; gap:12px;">
+                <span id="drawerModeBadge" class="badge badge-success" style="padding:4px 8px; border-radius:12px; font-size:12px;">新建</span>
+                <h2 id="drawerTitle" style="margin:0;">创建新的令牌</h2>
+            </div>
+            <button class="drawer-close" onclick="closeDrawer()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+        </div>
+        
+        <div class="drawer-body" style="padding: 24px; gap: 20px; background: transparent;">
+            <div class="form-group">
+                <label>名称</label>
+                <input type="text" class="form-control" placeholder="请输入名称">
+            </div>
+
+            <div class="form-group">
+                <div class="label-with-action">
+                    <label>分组</label>
+                    <a href="#" class="action-link">如何选择分组?</a>
+                </div>
+                <select class="form-control">
+                    <option value="" disabled selected hidden>请选择令牌分组</option>
+                    <option>default</option>
+                    <option>VIP</option>
+                </select>
+            </div>
+
+            <div class="form-group" style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <label style="display:block">跨分组重试</label>
+                    <span class="help-text">开启后，当前分组渠道失败时会按顺序尝试下一个分组的渠道</span>
+                </div>
+                <label class="switch">
+                    <input type="checkbox">
+                    <span class="slider round"></span>
+                </label>
+            </div>
+
+            <div class="form-group">
+                <label>过期时间</label>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
+                    <button class="btn btn-tag" style="background: var(--primary); color: white;">永不过期</button>
+                    <button class="btn btn-tag">一个月</button>
+                    <button class="btn btn-tag">一天</button>
+                    <button class="btn btn-tag">一小时</button>
+                </div>
+                <input type="text" class="form-control" placeholder="请选择过期时间" value="2099-12-31 23:59:59" disabled>
+            </div>
+
+            <div class="form-group">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <label style="display:block">无限额度</label>
+                        <span class="help-text">令牌的额度仅用于限制令牌本身的最大额度使用量，实际的使用受到账户的剩余额度限制</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" checked>
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>额度</label>
+                <input type="number" class="form-control" placeholder="请输入额度" disabled>
+                <div class="help-text">等价金额：/usr/bin/bash.00000000</div>
+            </div>
+
+            <div class="form-group">
+                <label>新建数量</label>
+                <input type="number" class="form-control" placeholder="1" min="1" value="1">
+                <div class="help-text">批量创建时会在名称后自动添加随机后缀</div>
+            </div>
+
+            <div class="form-group">
+                <label>模型限制</label>
+                <select class="form-control" disabled>
+                    <option>请选择该令牌支持的模型，留空支持所有模型</option>
+                </select>
+                <div class="help-text" style="color: red; font-weight: bold;">当前分组或全局设置禁止限制模型</div>
+            </div>
+
+            <div class="form-group">
+                <label>IP 限制</label>
+                <textarea class="form-control" rows="1" placeholder="允许的IP，一行一个，不填写则不限制"></textarea>
+                <div class="help-text">支持CIDR表达式。请勿过度信任此功能，IP可能被伪造，请配合nginx和cdn等网关使用</div>
+            </div>
+        </div>
+        <div class="drawer-footer">
+            <button class="btn" style="background:transparent; border:1px solid transparent; color:var(--text-secondary);" onclick="closeDrawer()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg> 取消</button>
+            <button class="btn btn-primary" id="drawerSubmitBtn" onclick="closeDrawer()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg> 提交</button>
+        </div>
+    </div>
+
+    
+            
+        </main>
+    </div>
+</div>
+
+
+<script>
+        function openDrawer(mode) {
+            const overlay = document.getElementById('drawerOverlay');
+            const drawer = document.getElementById('tokenDrawer');
+            const title = document.getElementById('drawerTitle');
+            const submitBtn = document.getElementById('drawerSubmitBtn');
+
+            drawer.classList.remove('mode-add', 'mode-edit', 'active');
+
+            if (mode === 'add') {
+                drawer.classList.add('mode-add');
+                document.getElementById('drawerModeBadge').className = 'badge badge-success';
+                document.getElementById('drawerModeBadge').innerText = '新建';
+                title.innerText = '创建新的令牌';
+                submitBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg> 提交';
+            } else {
+                drawer.classList.add('mode-edit');
+                document.getElementById('drawerModeBadge').className = 'badge badge-outline';
+                document.getElementById('drawerModeBadge').innerText = '更新';
+                title.innerText = '更新令牌信息';
+                submitBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg> 提交';
+            }
+
+            void drawer.offsetWidth;
+            drawer.classList.add('active');
+            overlay.classList.add('active');
+        }
+
+        function closeDrawer() {
+            const overlay = document.getElementById('drawerOverlay');
+            const drawer = document.getElementById('tokenDrawer');
+            drawer.classList.remove('active');
+            overlay.classList.remove('active');
+        }
+
+        let activeDropdownMenu = null;
+
+        function toggleDropdown(btn) {
+            const wrapper = btn.closest('.dropdown-wrapper');
+            const isActive = wrapper.classList.contains('active');
+            
+            // Close all first
+            document.querySelectorAll('.dropdown-wrapper').forEach(el => el.classList.remove('active'));
+            if (activeDropdownMenu) {
+                activeDropdownMenu.classList.remove('show-teleported');
+                activeDropdownMenu = null;
+            }
+            
+            if (!isActive) {
+                wrapper.classList.add('active');
+                const menu = wrapper.querySelector('.dropdown-menu');
+                
+                // Teleport to body to escape table overflow and z-index contexts
+                if (!menu.dataset.teleported) {
+                    document.body.appendChild(menu);
+                    menu.dataset.teleported = "true";
+                }
+                
+                const rect = btn.getBoundingClientRect();
+                
+                menu.style.top = (rect.bottom + 4) + 'px';
+                menu.style.left = (rect.left + (rect.width / 2)) + 'px';
+                menu.style.transform = 'translateX(-50%)';
+                
+                menu.classList.add('show-teleported');
+                activeDropdownMenu = menu;
+                
+                // Set the current menu to wrapper logic
+                menu.dataset.sourceBtn = btn.id || Math.random().toString(36).substr(2, 9);
+                btn.dataset.menuId = menu.dataset.sourceBtn;
+            }
+        }
+
+        document.addEventListener('click', function(e) {
+            const isDropdownBtn = e.target.closest('.dropdown-wrapper');
+            const isDropdownMenu = e.target.closest('.dropdown-menu');
+            
+            if (!isDropdownBtn && !isDropdownMenu) {
+                document.querySelectorAll('.dropdown-wrapper').forEach(el => el.classList.remove('active'));
+                if (activeDropdownMenu) {
+                    activeDropdownMenu.classList.remove('show-teleported');
+                    activeDropdownMenu = null;
+                }
+            }
+        });
+    </script>
+</body>
+</html>

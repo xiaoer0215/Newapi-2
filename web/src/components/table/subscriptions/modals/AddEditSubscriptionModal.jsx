@@ -95,6 +95,7 @@ const AddEditSubscriptionModal = ({
     max_purchase_per_user: 0,
     total_amount: 0,
     upgrade_group: '',
+    show_in_member_upgrade: false,
     stripe_price_id: '',
     creem_product_id: '',
   });
@@ -121,6 +122,7 @@ const AddEditSubscriptionModal = ({
         quotaToDisplayAmount(p.total_amount || 0).toFixed(2),
       ),
       upgrade_group: p.upgrade_group || '',
+      show_in_member_upgrade: p.show_in_member_upgrade === true,
       stripe_price_id: p.stripe_price_id || '',
       creem_product_id: p.creem_product_id || '',
     };
@@ -129,7 +131,7 @@ const AddEditSubscriptionModal = ({
   useEffect(() => {
     if (!visible) return;
     setGroupLoading(true);
-    API.get('/api/group')
+    API.get('/api/group/')
       .then((res) => {
         if (res.data?.success) {
           setGroupOptions(res.data?.data || []);
@@ -164,6 +166,7 @@ const AddEditSubscriptionModal = ({
           max_purchase_per_user: Number(values.max_purchase_per_user || 0),
           total_amount: displayAmountToQuota(values.total_amount),
           upgrade_group: values.upgrade_group || '',
+          show_in_member_upgrade: values.show_in_member_upgrade === true,
         },
       };
       if (editingPlan?.plan?.id) {
@@ -375,6 +378,17 @@ const AddEditSubscriptionModal = ({
                       <Form.Switch
                         field='enabled'
                         label={t('启用状态')}
+                        size='large'
+                      />
+                    </Col>
+
+                    <Col span={12}>
+                      <Form.Switch
+                        field='show_in_member_upgrade'
+                        label={t('仅在会员升级页显示')}
+                        extraText={t(
+                          '开启后该套餐只会在会员升级页显示，普通钱包订阅区不会显示',
+                        )}
                         size='large'
                       />
                     </Col>

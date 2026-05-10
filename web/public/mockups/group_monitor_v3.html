@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>分组状态监控 - 极致美化版</title>
+    <style>
+        :root {
+            /* 优雅冷色调背景 */
+            --bg-body: #f7f9fc;
+            --bg-card: #ffffff;
+
+            /* 文字颜色层次 */
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --text-tertiary: #94a3b8;
+
+            /* 品牌与状态色 */
+            --brand-color: #4f46e5;
+            --status-success: #10b981;
+            --status-success-bg: #d1fae5;
+            --status-warning: #f59e0b;
+            --status-warning-bg: #fef3c7;
+            --status-error: #f43f5e;
+            --status-error-bg: #ffe4e6;
+            --status-none: #e2e8f0;
+            --status-none-bg: #f1f5f9;
+
+            /* 边框与阴影 */
+            --border-light: #f1f5f9;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            --shadow-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+
+            --font-main: -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", Roboto, sans-serif;
+        }
+
+        body {
+            font-family: var(--font-main);
+            background-color: var(--bg-body);
+            margin: 0;
+            padding: 0;
+            color: var(--text-primary);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ------------------ 导航栏 ------------------ */
+        .nav-header {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 64px;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+            gap: 48px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .nav-item {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 15px;
+            font-weight: 500;
+            padding: 8px 16px;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .nav-item:hover {
+            color: var(--brand-color);
+            background: #f5f3ff;
+        }
+
+        .nav-item.active {
+            color: var(--brand-color);
+            font-weight: 600;
+            background: #f5f3ff;
+        }
+
+        /* ------------------ 页面主体 ------------------ */
+        .container {
+            max-width: 1000px; /* 稍微收窄，让排版更紧凑 */
+            margin: 0 auto;
+            padding: 48px 24px;
+        }
+
+        /* ------------------ 头部信息区 ------------------ */
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 32px;
+        }
+
+        .header-left {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .title-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .title-icon {
+            color: var(--brand-color);
+            display: flex;
+            align-items: center;
+            background: #e0e7ff;
+            padding: 6px;
+            border-radius: 8px;
+        }
+
+        .main-title {
+            font-size: 24px;
+            font-weight: 700;
+            margin: 0;
+            letter-spacing: -0.5px;
+        }
+
+        .meta-info {
+            font-size: 13px;
+            color: var(--text-tertiary);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-left: 42px; /* 与文字对齐 */
+        }
+
+        .meta-info a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        .meta-info a:hover { color: var(--brand-color); text-decoration: underline; }
+
+        .refresh-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: white;
+            border: 1px solid var(--border-light);
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            cursor: pointer;
+            box-shadow: var(--shadow-sm);
+            transition: all 0.2s;
+        }
+
+        .refresh-btn:hover {
+            color: var(--brand-color);
+            border-color: #c7d2fe;
+            background: #f8fafc;
+            box-shadow: var(--shadow-md);
+        }
+
+        /* ------------------ 状态图例 ------------------ */
+        .legend-row {
+            display: flex;
+            gap: 24px;
+            margin-bottom: 24px;
+            margin-left: 42px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .dot-success { background: var(--status-success); box-shadow: 0 0 0 3px var(--status-success-bg); }
+        .dot-warning { background: var(--status-warning); box-shadow: 0 0 0 3px var(--status-warning-bg); }
+        .dot-error { background: var(--status-error); box-shadow: 0 0 0 3px var(--status-error-bg); }
+        .dot-none { background: var(--status-none); box-shadow: 0 0 0 3px var(--status-none-bg); }
+
+        /* ------------------ 极致压缩的分组卡片 ------------------ */
+        .monitor-card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 20px 24px; /* 压缩内边距 */
+            margin-bottom: 16px;
+            border: 1px solid var(--border-light);
+            box-shadow: var(--shadow-sm);
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .monitor-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-hover);
+            border-color: #e2e8f0;
+        }
+
+        /* 左侧装饰条 */
+        .card-decorator {
+            position: absolute;
+            left: 0;
+            top: 10%;
+            bottom: 10%;
+            width: 4px;
+            border-radius: 0 4px 4px 0;
+            background: transparent;
+            transition: background 0.3s;
+        }
+        .monitor-card:hover .card-decorator { background: var(--border-light); }
+        .monitor-card:hover .card-decorator.error { background: var(--status-error); }
+
+        /* 卡片上部：左侧名字+状态，右侧百分比 */
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px; /* 压缩与时间轴的间距 */
+        }
+
+        .group-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .group-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        /* 小巧的状态胶囊 */
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .badge-error { background: var(--status-error-bg); color: var(--status-error); }
+        .badge-none { background: var(--status-none-bg); color: var(--text-secondary); }
+
+        .s-dot { width: 6px; height: 6px; border-radius: 50%; }
+        .badge-error .s-dot { background: var(--status-error); }
+        .badge-none .s-dot { background: var(--text-tertiary); }
+
+        .group-rate {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+        }
+
+        .rate-value {
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+        .rate-value.error { color: var(--status-error); }
+        .rate-value.none { color: var(--text-tertiary); }
+
+        .rate-label { font-size: 13px; color: var(--text-tertiary); }
+        .rate-sub { font-size: 12px; color: var(--status-error); font-weight: 500;}
+
+        /* ------------------ 24小时状态方块 (高度极度压缩) ------------------ */
+        .timeline-wrapper {
+            display: flex;
+            gap: 4px; /* 方块间隙极小 */
+            height: 28px; /* 高度极小化，显得秀气 */
+            margin-bottom: 8px;
+        }
+
+        .time-block {
+            flex: 1;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .time-block:hover {
+            transform: scaleY(1.2);
+            filter: brightness(0.9);
+            border-radius: 3px;
+        }
+
+        .bg-gray { background-color: var(--status-none); }
+        .bg-red { background-color: var(--status-error); }
+        .bg-green { background-color: var(--status-success); }
+        .bg-yellow { background-color: var(--status-warning); }
+
+        /* ------------------ 精致气泡提示 Tooltip ------------------ */
+        .time-block::after {
+            content: attr(data-tip);
+            position: absolute;
+            bottom: calc(100% + 10px);
+            left: 50%;
+            transform: translateX(-50%) translateY(4px) scale(0.95);
+            background: #1e293b;
+            color: #f8fafc;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 500;
+            white-space: pre;
+            line-height: 1.5;
+            text-align: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            z-index: 10;
+            pointer-events: none;
+            min-width: 90px;
+        }
+
+        .time-block::before {
+            content: '';
+            position: absolute;
+            bottom: calc(100% + 4px);
+            left: 50%;
+            transform: translateX(-50%) translateY(4px);
+            border-width: 6px 6px 0 6px;
+            border-style: solid;
+            border-color: #1e293b transparent transparent transparent;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        /* 异常气泡变红 */
+        .bg-red::after { background: var(--status-error); }
+        .bg-red::before { border-color: var(--status-error) transparent transparent transparent; }
+
+        .time-block:hover::after,
+        .time-block:hover::before {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(-50%) translateY(0) scale(1);
+        }
+
+        /* ------------------ 底部时间轴刻度 ------------------ */
+        .time-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: var(--text-tertiary);
+            padding: 0 2px;
+            font-weight: 500;
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- 毛玻璃导航 -->
+    <nav class="nav-header">
+        <a href="#" class="nav-item">首页</a>
+        <a href="#" class="nav-item active">控制台</a>
+        <a href="#" class="nav-item">模型广场</a>
+        <a href="#" class="nav-item">文档</a>
+        <a href="#" class="nav-item">关于</a>
+    </nav>
+
+    <div class="container">
+
+        <!-- 页面标题与刷新按钮 -->
+        <header class="page-header">
+            <div class="header-left">
+                <div class="title-row">
+                    <div class="title-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                        </svg>
+                    </div>
+                    <h1 class="main-title">分组状态监控</h1>
+                </div>
+                <div class="meta-info">
+                    <span>监控 4 个分组</span>
+                    <span>·</span>
+                    <span>更新于 00:47:19</span>
+                    <span>·</span>
+                    <a href="#">监控说明</a>
+                </div>
+            </div>
+
+            <button class="refresh-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+                9s 后刷新
+            </button>
+        </header>
+
+        <!-- 颜色图例 -->
+        <div class="legend-row">
+            <div class="legend-item"><div class="legend-dot dot-success"></div>状态正常</div>
+            <div class="legend-item"><div class="legend-dot dot-warning"></div>状态降级</div>
+            <div class="legend-item"><div class="legend-dot dot-error"></div>状态异常</div>
+            <div class="legend-item"><div class="legend-dot dot-none"></div>无请求</div>
+        </div>
+
+        <!-- ================= 卡片 1 ================= -->
+        <div class="monitor-card">
+            <div class="card-decorator error"></div>
+
+            <div class="card-header">
+                <div class="group-info">
+                    <div class="group-name">普通用户</div>
+                    <div class="status-badge badge-error">
+                        <div class="s-dot"></div>状态异常
+                    </div>
+                </div>
+                <div class="group-rate">
+                    <span class="rate-value error">0.0%</span>
+                    <span class="rate-label">成功率</span>
+                    <span class="rate-sub">· X 5</span>
+                </div>
+            </div>
+
+            <!-- 时间轴 -->
+            <div class="timeline-wrapper">
+                <div class="time-block bg-gray" data-tip="00:00 - 01:00&#xa;请求数: 0"></div>
+                <div class="time-block bg-gray" data-tip="01:00 - 02:00&#xa;请求数: 0"></div>
+                <div class="time-block bg-gray" data-tip="02:00 - 03:00&#xa;请求数: 0"></div>
+                <div class="time-block bg-gray" data-tip="03:00 - 04:00&#xa;请求数: 0"></div>
+                <div class="time-block bg-gray" data-tip="04:00 - 05:00&#xa;请求数: 0"></div>
+                <div class="time-block bg-gray" data-tip="05:00 - 06:00&#xa;请求数: 0"></div>
+                <div class="time-block bg-gray" data-tip="06:00 - 07:00&#xa;请求数: 0"></div>
+                <div class="time-block bg-gray" data-tip="07:00 - 08:00&#xa;请求数: 0"></div>
+                <div class="time-block bg-gray" data-tip="08:00 - 09:00&#xa;请求数: 0"></div>
+                <div class="time-block bg-gray" data-tip="09:00 - 10:00&#xa;请求数: 0"></div>
+                <div class="time-block bg-gray" data-tip="10:00 - 11:00&#xa;请求数: 0"></div>
+                <div class="time-block bg-gray" data-tip="11:00 - 12:00&#xa;请求数: 0"></div>
+                <div class="time-block bg-gray" data-tip="12:00 - 13:00&#xa;请求数: 0"></div>
+                <div class="time-block bg-gray" data-tip="13:00 - 14:00&#xa;请求数: 0"></div>
+                <div class="time-block bg-gray" data-tip="14:00 - 15:00&#xa;请求数: 0"></div>
+                <div class="time-block bg-gray" data-tip="15:00 - 16:00&#xa;请求数: 0"></div>
+                <div class="time-block bg-gray" data-tip="16:00 - 17:00&#xa;请求数: 0"></div>
+                <div class="time-block bg-gray" data-tip="17:00 - 18:00&#xa;请求数: 0"></div>
+
+                <!-- 异常点 -->
+                <div class="time-block bg-red" data-tip="18:00 - 19:00&#xa;失败: 3次&#xa;成功率: 0.0%"></div>
+
+                <div class="time-block bg-gray" data-tip="19:00 - 20:00&#xa;请求数: 0"></div>
+
+                <!-- 异常点 -->
+                <div class="time-block bg-red" data-tip="20:00 - 21:00&#xa;失败: 2次&#xa;成功率: 0.0%"></div>
+
+                <div class="time-block bg-gray" data-tip="21:00 - 22:00&#xa;请求数: 0"></div>
+                <div class="time-block bg-gray" data-tip="22:00 - 23:00&#xa;请求数: 0"></div>
+                <div class="time-block bg-gray" data-tip="23:00 - 00:00&#xa;请求数: 0"></div>
+            </div>
+
+            <div class="time-labels">
+                <span>24小时前</span>
+                <span>12小时前</span>
+                <span>现在</span>
+            </div>
+        </div>
+
+        <!-- ================= 卡片 2 ================= -->
+        <div class="monitor-card">
+            <div class="card-decorator"></div>
+            <div class="card-header">
+                <div class="group-info">
+                    <div class="group-name">测试1</div>
+                    <div class="status-badge badge-none">
+                        <div class="s-dot"></div>无数据
+                    </div>
+                </div>
+                <div class="group-rate">
+                    <span class="rate-value none">100.0%</span>
+                    <span class="rate-label">成功率</span>
+                </div>
+            </div>
+
+            <div class="timeline-wrapper">
+                <div class="time-block bg-gray" data-tip="暂无请求数据"></div>
+                <div class="time-block bg-gray" data-tip="暂无请求数据"></div>
+                <div class="time-block bg-gray" data-tip="暂无请求数据"></div>
+                <div class="time-block bg-gray" data-tip="暂无请求数据"></div>
+                <div class="time-block bg-gray" data-tip="暂无请求数据"></div>
+                <div class="time-block bg-gray" data-tip="暂无请求数据"></div>
+                <div class="time-block bg-gray" data-tip="暂无请求数据"></div>
+                <div class="time-block bg-gray" data-tip="暂无请求数据"></div>
+                <div class="time-block bg-gray" data-tip="暂无请求数据"></div>
+                <div class="time-block bg-gray" data-tip="暂无请求数据"></div>
+                <div class="time-block bg-gray" data-tip="暂无请求数据"></div>
+                <div class="time-block bg-gray" data-tip="暂无请求数据"></div>
+                <div class="time-block bg-gray" data-tip="暂无请求数据"></div>
+                <div class="time-block bg-gray" data-tip="暂无请求数据"></div>
+                <div class="time-block bg-gray" data-tip="暂无请求数据"></div>
+                <div class="time-block bg-gray" data-tip="暂无请求数据"></div>
+                <div class="time-block bg-gray" data-tip="暂无请求数据"></div>
+                <div class="time-block bg-gray" data-tip="暂无请求数据"></div>
+                <div class="time-block bg-gray" data-tip="暂无请求数据"></div>
+                <div class="time-block bg-gray" data-tip="暂无请求数据"></div>
+                <div class="time-block bg-gray" data-tip="暂无请求数据"></div>
+                <div class="time-block bg-gray" data-tip="暂无请求数据"></div>
+                <div class="time-block bg-gray" data-tip="暂无请求数据"></div>
+                <div class="time-block bg-gray" data-tip="暂无请求数据"></div>
+            </div>
+
+            <div class="time-labels">
+                <span>24小时前</span>
+                <span>12小时前</span>
+                <span>现在</span>
+            </div>
+        </div>
+
+        <!-- ================= 卡片 3 ================= -->
+        <div class="monitor-card">
+            <div class="card-decorator"></div>
+            <div class="card-header">
+                <div class="group-info">
+                    <div class="group-name">测试2</div>
+                    <div class="status-badge badge-none">
+                        <div class="s-dot"></div>无数据
+                    </div>
+                </div>
+                <div class="group-rate">
+                    <span class="rate-value none">100.0%</span>
+                    <span class="rate-label">成功率</span>
+                </div>
+            </div>
+
+            <div class="timeline-wrapper">
+                <div class="time-block bg-gray" data-tip="暂无请求数据"></div><div class="time-block bg-gray" data-tip="暂无请求数据"></div><div class="time-block bg-gray" data-tip="暂无请求数据"></div><div class="time-block bg-gray" data-tip="暂无请求数据"></div><div class="time-block bg-gray" data-tip="暂无请求数据"></div><div class="time-block bg-gray" data-tip="暂无请求数据"></div><div class="time-block bg-gray" data-tip="暂无请求数据"></div><div class="time-block bg-gray" data-tip="暂无请求数据"></div><div class="time-block bg-gray" data-tip="暂无请求数据"></div><div class="time-block bg-gray" data-tip="暂无请求数据"></div><div class="time-block bg-gray" data-tip="暂无请求数据"></div><div class="time-block bg-gray" data-tip="暂无请求数据"></div><div class="time-block bg-gray" data-tip="暂无请求数据"></div><div class="time-block bg-gray" data-tip="暂无请求数据"></div><div class="time-block bg-gray" data-tip="暂无请求数据"></div><div class="time-block bg-gray" data-tip="暂无请求数据"></div><div class="time-block bg-gray" data-tip="暂无请求数据"></div><div class="time-block bg-gray" data-tip="暂无请求数据"></div><div class="time-block bg-gray" data-tip="暂无请求数据"></div><div class="time-block bg-gray" data-tip="暂无请求数据"></div><div class="time-block bg-gray" data-tip="暂无请求数据"></div><div class="time-block bg-gray" data-tip="暂无请求数据"></div><div class="time-block bg-gray" data-tip="暂无请求数据"></div><div class="time-block bg-gray" data-tip="暂无请求数据"></div>
+            </div>
+
+            <div class="time-labels">
+                <span>24小时前</span>
+                <span>12小时前</span>
+                <span>现在</span>
+            </div>
+        </div>
+
+        <!-- ================= 卡片 4 ================= -->
+        <div class="monitor-card">
+            <div class="card-decorator"></div>
+            <div class="card-header">
+                <div class="group-info">
+                    <div class="group-name">测试3</div>
+                    <div class="status-badge badge-none">
+                        <div class="s-dot"></div>无数据
+                    </div>
+                </div>
+                <div class="group-rate">
+                    <span class="rate-value none">100.0%</span>
+                    <span class="rate-label">成功率</span>
+                </div>
+            </div>
+
+            <div class="timeline-wrapper">
+                <div class="time-block bg-gray" data-tip="暂无请求数据"></div><div class="time-block bg-gray" data-tip="暂无请求数据"></div><div class="time-block bg-gray" data-tip="暂无请求数据"></div><div class="time-block bg-gray" data-tip="暂无请求数据"></div><div class="time-block bg-gray" data-tip="暂无请求数据"></div><div class="time-block bg-gray" data-tip="暂无请求数据"></div><div class="time-block bg-gray" data-tip="暂无请求数据"></div><div class="time-block bg-gray" data-tip="暂无请求数据"></div><div class="time-block bg-gray" data-tip="暂无请求数据"></div><div class="time-block bg-gray" data-tip="暂无请求数据"></div><div class="time-block bg-gray" data-tip="暂无请求数据"></div><div class="time-block bg-gray" data-tip="暂无请求数据"></div><div class="time-block bg-gray" data-tip="暂无请求数据"></div><div class="time-block bg-gray" data-tip="暂无请求数据"></div><div class="time-block bg-gray" data-tip="暂无请求数据"></div><div class="time-block bg-gray" data-tip="暂无请求数据"></div><div class="time-block bg-gray" data-tip="暂无请求数据"></div><div class="time-block bg-gray" data-tip="暂无请求数据"></div><div class="time-block bg-gray" data-tip="暂无请求数据"></div><div class="time-block bg-gray" data-tip="暂无请求数据"></div><div class="time-block bg-gray" data-tip="暂无请求数据"></div><div class="time-block bg-gray" data-tip="暂无请求数据"></div><div class="time-block bg-gray" data-tip="暂无请求数据"></div><div class="time-block bg-gray" data-tip="暂无请求数据"></div>
+            </div>
+
+            <div class="time-labels">
+                <span>24小时前</span>
+                <span>12小时前</span>
+                <span>现在</span>
+            </div>
+        </div>
+
+    </div>
+
+</body>
+</html>

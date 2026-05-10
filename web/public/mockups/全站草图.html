@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>全站综合草图 - Nez Api</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+
+        :root {
+            /* 核心品牌色 - 现代玻璃态紫蓝色系 */
+            --primary: #4F46E5;
+            --primary-hover: #4338CA;
+            --secondary: #0ea5e9;
+            --accent: #d946ef;
+
+            /* 状态色 */
+            --success: #10b981;
+            --success-bg: rgba(16, 185, 129, 0.1);
+            --warning: #f59e0b;
+            --danger: #ef4444;
+
+            /* 文本色系 */
+            --text-main: #0f172a;
+            --text-secondary: #475569;
+            --text-tertiary: #94a3b8;
+
+            /* 玻璃拟物态材质 */
+            --glass-bg: rgba(255, 255, 255, 0.75);
+            --glass-bg-hover: rgba(255, 255, 255, 0.9);
+            --glass-border: rgba(148, 163, 184, 0.2);
+            --glass-border-light: rgba(255, 255, 255, 0.6);
+            --glass-blur: blur(24px);
+
+            /* 阴影系统 */
+            --shadow-sm: 0 2px 4px rgba(0,0,0,0.02);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.02);
+            --shadow-glow: 0 0 20px rgba(79, 70, 229, 0.15);
+
+            /* 布局参数 */
+            --sidebar-width: 260px;
+            --header-height: 64px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        body {
+            background-color: #f8fafc;
+            color: var(--text-main);
+            overflow-x: hidden;
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* 动态背景 - 全局适用 */
+        .global-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+            overflow: hidden;
+            background: linear-gradient(135deg, #eef2ff 0%, #f8fafc 50%, #e0f2fe 100%);
+        }
+        .global-bg::before, .global-bg::after {
+            content: '';
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(100px);
+            opacity: 0.4;
+            z-index: -1;
+            animation: float 20s infinite ease-in-out alternate;
+        }
+        .global-bg::before {
+            width: 600px; height: 600px;
+            background: rgba(79, 70, 229, 0.15);
+            top: -100px; left: -100px;
+        }
+        .global-bg::after {
+            width: 500px; height: 500px;
+            background: rgba(14, 165, 233, 0.15);
+            bottom: -50px; right: -50px;
+            animation-delay: -5s;
+        }
+        @keyframes float {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(30px, 30px); }
+        }
+
+        /* 布局骨架：左侧侧边栏 */
+        .sidebar {
+            width: var(--sidebar-width);
+            height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border-right: 1px solid var(--glass-border);
+            display: flex;
+            flex-direction: column;
+            z-index: 100;
+        }
+
+        .sidebar-logo {
+            height: var(--header-height);
+            display: flex;
+            align-items: center;
+            padding: 0 24px;
+            font-size: 20px;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .sidebar-menu {
+            padding: 20px 12px;
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .menu-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            border-radius: 12px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .menu-item:hover {
+            background: rgba(255, 255, 255, 0.8);
+            color: var(--primary);
+        }
+
+        .menu-item.active {
+            background: linear-gradient(135deg, rgba(79,70,229,0.1), rgba(14,165,233,0.1));
+            color: var(--primary);
+            font-weight: 600;
+            border: 1px solid rgba(79,70,229,0.2);
+            box-shadow: inset 0 2px 4px rgba(255,255,255,0.5);
+        }
+
+        .menu-icon {
+            width: 20px;
+            height: 20px;
+        }
+
+        /* 布局骨架：右侧主体区域 */
+        .main-wrapper {
+            flex: 1;
+            margin-left: var(--sidebar-width);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        /* 顶部导航栏 */
+        .header {
+            height: var(--header-height);
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border-bottom: 1px solid var(--glass-border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 32px;
+            position: sticky;
+            top: 0;
+            z-index: 90;
+        }
+
+        .header-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: var(--shadow-sm);
+        }
+
+        /* 内容区域 */
+        .content {
+            padding: 32px;
+            flex: 1;
+            display: none; /* JS 控制显示隐藏 */
+            animation: fadeIn 0.4s ease forwards;
+        }
+
+        .content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ---------------- 通用组件 ---------------- */
+        .glass-card {
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--glass-border);
+            border-top: 1px solid var(--glass-border-light);
+            border-radius: 20px;
+            padding: 24px;
+            box-shadow: var(--shadow-md);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .glass-card:hover {
+            box-shadow: var(--shadow-lg), var(--shadow-glow);
+        }
+
+        .glass-btn {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            padding: 8px 16px;
+            border-radius: 10px;
+            color: var(--text-main);
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .glass-btn:hover {
+            background: var(--primary-light);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .primary-btn {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(79, 70, 229, 0.3);
+            transition: all 0.3s ease;
+        }
+        .primary-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(79, 70, 229, 0.4);
+        }
+
+        /* ---------------- 视图：仪表盘 (Dashboard) ---------------- */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .stat-card:hover { transform: translateY(-4px); }
+
+        .stat-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+        .stat-icon.blue { background: linear-gradient(135deg, #eff6ff, #dbeafe); color: #3b82f6; }
+        .stat-icon.purple { background: linear-gradient(135deg, #f5f3ff, #ede9fe); color: #8b5cf6; }
+        .stat-icon.green { background: linear-gradient(135deg, #ecfdf5, #d1fae5); color: #10b981; }
+        .stat-icon.orange { background: linear-gradient(135deg, #fff7ed, #ffedd5); color: #f97316; }
+
+        .stat-info h4 {
+            color: var(--text-secondary);
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+        .stat-info .value {
+            font-size: 28px;
+            font-weight: 800;
+            color: var(--text-main);
+            font-family: 'JetBrains Mono', monospace;
+            letter-spacing: -1px;
+        }
+
+        .chart-container {
+            height: 400px;
+            display: flex;
+            flex-direction: column;
+        }
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .chart-placeholder {
+            flex: 1;
+            border: 2px dashed rgba(148, 163, 184, 0.3);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-tertiary);
+            background: rgba(255,255,255,0.3);
+        }
+
+        /* ---------------- 视图：个人设置 (Personal) ---------------- */
+        .profile-banner {
+            background: linear-gradient(135deg, rgba(79, 70, 229, 0.85), rgba(14, 165, 233, 0.85));
+            border-radius: 24px;
+            padding: 40px;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            box-shadow: var(--shadow-lg);
+            position: relative;
+            overflow: hidden;
+        }
+        .profile-banner::after {
+            content: ''; position: absolute; right: 0; top: 0; width: 50%; height: 100%;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="white" opacity="0.1"/></svg>') no-repeat right center;
+            background-size: contain;
+        }
+
+        .profile-info {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            position: relative;
+            z-index: 1;
+        }
+        .profile-avatar {
+            width: 80px;
+            height: 80px;
+            background: white;
+            color: var(--primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            font-weight: bold;
+            box-shadow: 0 0 0 4px rgba(255,255,255,0.2);
+        }
+        .profile-name { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
+        .profile-role { background: rgba(255,255,255,0.2); padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 500; }
+
+        .profile-quota {
+            text-align: right;
+            position: relative;
+            z-index: 1;
+        }
+        .quota-label { font-size: 14px; opacity: 0.9; margin-bottom: 4px; }
+        .quota-value { font-size: 36px; font-weight: 800; font-family: 'JetBrains Mono', monospace; }
+
+        .settings-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        .setting-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 0;
+            border-bottom: 1px solid var(--glass-border);
+        }
+        .setting-item:last-child { border-bottom: none; }
+        .setting-label { font-weight: 500; color: var(--text-main); margin-bottom: 4px;}
+        .setting-desc { font-size: 13px; color: var(--text-secondary); }
+
+        /* ---------------- 视图：计费说明 (Pricing) ---------------- */
+        .pricing-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+        .pricing-table th, .pricing-table td {
+            padding: 16px;
+            border-bottom: 1px solid var(--glass-border);
+        }
+        .pricing-table th {
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 14px;
+        }
+        .pricing-table tr:last-child td { border-bottom: none; }
+        .pricing-table tr:hover td { background: rgba(255,255,255,0.5); }
+        .model-tag { background: rgba(79, 70, 229, 0.1); color: var(--primary); padding: 4px 10px; border-radius: 6px; font-size: 13px; font-weight: 600; }
+        .price-num { font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+
+    </style>
+</head>
+<body>
+    <div class="global-bg"></div>
+
+    <!-- 左侧菜单栏 -->
+    <div class="sidebar">
+        <div class="sidebar-logo">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 8px;">
+                <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+                <path d="M2 17l10 5 10-5"></path>
+                <path d="M2 12l10 5 10-5"></path>
+            </svg>
+            Nez Api
+        </div>
+        <div class="sidebar-menu">
+            <a class="menu-item active" onclick="switchTab('dashboard', this)">
+                <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                仪表盘
+            </a>
+            <a class="menu-item" onclick="switchTab('chat', this)">
+                <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                聊天
+            </a>
+            <a class="menu-item" onclick="switchTab('tokens', this)">
+                <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                令牌
+            </a>
+            <a class="menu-item" onclick="switchTab('pricing', this)">
+                <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                计费说明
+            </a>
+            <a class="menu-item" onclick="switchTab('personal', this)">
+                <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                个人设置
+            </a>
+            <a class="menu-item" onclick="switchTab('settings', this)">
+                <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                系统设置
+            </a>
+        </div>
+    </div>
+
+    <!-- 右侧主区域 -->
+    <div class="main-wrapper">
+        <!-- 顶栏 -->
+        <div class="header">
+            <div class="header-title" id="page-title">仪表盘</div>
+            <div class="header-actions">
+                <button class="glass-btn" style="border-radius: 50%; width: 36px; height: 36px; padding: 0; display: flex; align-items: center; justify-content: center;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                </button>
+                <div class="user-avatar">A</div>
+            </div>
+        </div>
+
+        <!-- 视图 1：仪表盘 -->
+        <div id="view-dashboard" class="content active">
+            <div class="stats-grid">
+                <div class="glass-card stat-card">
+                    <div class="stat-icon blue">💰</div>
+                    <div class="stat-info">
+                        <h4>当前余额</h4>
+                        <div class="value">$1,250.00</div>
+                    </div>
+                </div>
+                <div class="glass-card stat-card">
+                    <div class="stat-icon purple">🔥</div>
+                    <div class="stat-info">
+                        <h4>历史消耗</h4>
+                        <div class="value">$3,420.50</div>
+                    </div>
+                </div>
+                <div class="glass-card stat-card">
+                    <div class="stat-icon green">📊</div>
+                    <div class="stat-info">
+                        <h4>请求次数</h4>
+                        <div class="value">1,245,670</div>
+                    </div>
+                </div>
+                <div class="glass-card stat-card">
+                    <div class="stat-icon orange">🔑</div>
+                    <div class="stat-info">
+                        <h4>有效令牌</h4>
+                        <div class="value">15</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-card chart-container">
+                <div class="chart-header">
+                    <h3 style="font-size: 18px; font-weight: 600;">流量趋势统计 (过去 7 天)</h3>
+                    <button class="glass-btn">导出数据</button>
+                </div>
+                <div class="chart-placeholder">
+                    <div style="text-align: center;">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 12px; color: var(--primary);"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                        <p>Echarts 图表渲染区域</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 视图 2：个人设置 -->
+        <div id="view-personal" class="content">
+            <div class="profile-banner">
+                <div class="profile-info">
+                    <div class="profile-avatar">AD</div>
+                    <div>
+                        <div class="profile-name">Admin_User</div>
+                        <span class="profile-role">超级管理员</span>
+                        <span class="profile-role" style="background: rgba(255,255,255,0.1); margin-left: 8px;">VIP 分组</span>
+                    </div>
+                </div>
+                <div class="profile-quota">
+                    <div class="quota-label">剩余可用额度</div>
+                    <div class="quota-value">$1,250.00</div>
+                </div>
+            </div>
+
+            <div class="settings-grid">
+                <div class="glass-card">
+                    <h3 style="margin-bottom: 20px; font-size: 18px; border-bottom: 1px solid var(--glass-border); padding-bottom: 12px;">账户安全</h3>
+
+                    <div class="setting-item">
+                        <div>
+                            <div class="setting-label">邮箱绑定</div>
+                            <div class="setting-desc">admin@example.com</div>
+                        </div>
+                        <button class="glass-btn">修改</button>
+                    </div>
+
+                    <div class="setting-item">
+                        <div>
+                            <div class="setting-label">微信绑定</div>
+                            <div class="setting-desc">未绑定，绑定后可快捷登录</div>
+                        </div>
+                        <button class="primary-btn">去绑定</button>
+                    </div>
+
+                    <div class="setting-item">
+                        <div>
+                            <div class="setting-label">登录密码</div>
+                            <div class="setting-desc">定期修改密码以保证账户安全</div>
+                        </div>
+                        <button class="glass-btn">重置</button>
+                    </div>
+                </div>
+
+                <div class="glass-card">
+                    <h3 style="margin-bottom: 20px; font-size: 18px; border-bottom: 1px solid var(--glass-border); padding-bottom: 12px;">偏好与通知</h3>
+
+                    <div class="setting-item">
+                        <div>
+                            <div class="setting-label">额度预警</div>
+                            <div class="setting-desc">当额度低于 $5.00 时发送提醒</div>
+                        </div>
+                        <label style="position: relative; display: inline-block; width: 44px; height: 24px;">
+                            <input type="checkbox" checked style="opacity: 0; width: 0; height: 0;">
+                            <span style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--primary); transition: .4s; border-radius: 24px;"></span>
+                            <span style="position: absolute; content: ''; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; transform: translateX(20px);"></span>
+                        </label>
+                    </div>
+
+                    <div class="setting-item">
+                        <div>
+                            <div class="setting-label">WebHook 通知</div>
+                            <div class="setting-desc">系统事件推送到指定地址</div>
+                        </div>
+                        <button class="glass-btn">配置</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 视图 3：计费说明 -->
+        <div id="view-pricing" class="content">
+            <div class="glass-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                    <h3 style="font-size: 20px; font-weight: 600;">模型价格明细</h3>
+                    <div style="display: flex; gap: 12px;">
+                        <input type="text" placeholder="搜索模型名称..." style="padding: 8px 16px; border-radius: 10px; border: 1px solid var(--glass-border); background: rgba(255,255,255,0.5); outline: none;">
+                        <select style="padding: 8px 16px; border-radius: 10px; border: 1px solid var(--glass-border); background: rgba(255,255,255,0.5); outline: none;">
+                            <option>全部分组</option>
+                            <option>VIP</option>
+                            <option>SVIP</option>
+                        </select>
+                    </div>
+                </div>
+
+                <table class="pricing-table">
+                    <thead>
+                        <tr>
+                            <th>模型名称 (Model)</th>
+                            <th>计费分组 (Group)</th>
+                            <th>提问 (Input) / 1M</th>
+                            <th>回答 (Output) / 1M</th>
+                            <th>状态</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="model-tag">gpt-4-turbo</span></td>
+                            <td>VIP</td>
+                            <td class="price-num">$10.00</td>
+                            <td class="price-num">$30.00</td>
+                            <td><span style="color: var(--success); font-weight: 500;">● 可用</span></td>
+                        </tr>
+                        <tr>
+                            <td><span class="model-tag">claude-3-opus-20240229</span></td>
+                            <td>SVIP</td>
+                            <td class="price-num">$15.00</td>
+                            <td class="price-num">$75.00</td>
+                            <td><span style="color: var(--success); font-weight: 500;">● 可用</span></td>
+                        </tr>
+                        <tr>
+                            <td><span class="model-tag">gemini-1.5-pro</span></td>
+                            <td>普通用户</td>
+                            <td class="price-num">$7.00</td>
+                            <td class="price-num">$21.00</td>
+                            <td><span style="color: var(--warning); font-weight: 500;">● 限流</span></td>
+                        </tr>
+                        <tr>
+                            <td><span class="model-tag">midjourney</span></td>
+                            <td>VIP</td>
+                            <td class="price-num" colspan="2">按次计费: $0.10 / 次</td>
+                            <td><span style="color: var(--success); font-weight: 500;">● 可用</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 占位视图 -->
+        <div id="view-placeholder" class="content">
+            <div class="glass-card" style="text-align: center; padding: 60px;">
+                <h2 style="color: var(--text-tertiary);">此页面草图尚未展示详细内容</h2>
+                <p style="margin-top: 12px; color: var(--text-secondary);">但整体结构、毛玻璃卡片、背景和顶栏/侧边栏布局将完全保持一致。</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 简单的 Tab 切换逻辑
+        function switchTab(tabId, el) {
+            // 更新菜单激活状态
+            document.querySelectorAll('.menu-item').forEach(item => item.classList.remove('active'));
+            el.classList.add('active');
+
+            // 隐藏所有内容
+            document.querySelectorAll('.content').forEach(content => content.classList.remove('active'));
+
+            // 更新标题
+            const titleMap = {
+                'dashboard': '仪表盘',
+                'chat': '聊天',
+                'tokens': '令牌管理',
+                'pricing': '计费说明',
+                'personal': '个人设置',
+                'settings': '系统设置'
+            };
+            document.getElementById('page-title').innerText = titleMap[tabId];
+
+            // 显示对应内容
+            const target = document.getElementById(`view-${tabId}`);
+            if (target) {
+                target.classList.add('active');
+            } else {
+                document.getElementById('view-placeholder').classList.add('active');
+            }
+        }
+    </script>
+</body>
+</html>

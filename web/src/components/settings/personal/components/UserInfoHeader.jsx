@@ -19,32 +19,21 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React, { useMemo } from 'react';
 import {
-  Avatar,
-  Badge,
   Card,
   Tag,
-  Typography,
 } from '@douyinfe/semi-ui';
 import {
   isRoot,
   isAdmin,
   renderQuota,
-  stringToColor,
 } from '../../../../helpers';
-import {
-  normalizeInlineSvgMarkup,
-  resolveUserGroupIconSrc,
-} from '../../../../helpers/userGroupIcon';
-import { Coins, BarChart2 } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
+import UserGroupIcon from '../../../common/UserGroupIcon';
+import { resolveUserGroupIconValue } from '../../../../helpers/userGroupIcon';
 
 const UserInfoHeader = ({ t, userState, status }) => {
-  const normalizeGroupText = (value) =>
-    String(value || '')
-      .trim()
-      .toLowerCase();
-
   const getUsername = () => {
-    if (userState.user) {
+    if (userState?.user) {
       return userState.user.username;
     }
     return 'null';
@@ -68,177 +57,142 @@ const UserInfoHeader = ({ t, userState, status }) => {
     return '';
   };
 
-  const currentGroup = userState?.user?.group || t('\u9ed8\u8ba4');
-  const userUsableGroups = status?.user_usable_groups || {};
-  const currentGroupDisplayName =
-    userUsableGroups?.[currentGroup] || currentGroup;
-  const groupIcons = useMemo(() => {
-    if (
-      status?.user_group_icons &&
-      typeof status.user_group_icons === 'object'
-    ) {
-      return status.user_group_icons;
-    }
+  const cachedStatus = useMemo(() => {
     try {
-      const savedStatus = JSON.parse(localStorage.getItem('status') || '{}');
-      return savedStatus?.user_group_icons || {};
+      return JSON.parse(localStorage.getItem('status') || '{}');
     } catch (error) {
       return {};
     }
   }, [status]);
-  const normalizedGroupIcons = useMemo(() => {
-    const nextMap = {};
-    Object.entries(groupIcons || {}).forEach(([key, value]) => {
-      const normalizedKey = normalizeGroupText(key);
-      const trimmedValue = String(value || '').trim();
-      if (normalizedKey && trimmedValue) {
-        nextMap[normalizedKey] = trimmedValue;
-      }
-    });
-    return nextMap;
-  }, [groupIcons]);
-
-  const pickGroupIcon = (candidate) => {
-    const directMatch = String(groupIcons?.[candidate] || '').trim();
-    if (directMatch) {
-      return directMatch;
-    }
-    return normalizedGroupIcons[normalizeGroupText(candidate)] || '';
+  const currentGroup = userState?.user?.group || 'default';
+  const userUsableGroups = {
+    ...(status?.user_usable_groups || {}),
+    ...(cachedStatus?.user_usable_groups || {}),
   };
-
-  const resolveRawGroupIcon = () => {
-    const candidates = [currentGroup, currentGroupDisplayName];
-
-    if (normalizeGroupText(currentGroup) === 'default') {
-      candidates.push('普通用户', '默认分组', '默认');
-    }
-
-    Object.entries(userUsableGroups || {}).forEach(([groupKey, groupLabel]) => {
-      const normalizedKey = normalizeGroupText(groupKey);
-      const normalizedLabel = normalizeGroupText(groupLabel);
-      const normalizedCurrent = normalizeGroupText(currentGroup);
-      const normalizedDisplay = normalizeGroupText(currentGroupDisplayName);
-      if (
-        normalizedKey === normalizedCurrent ||
-        normalizedLabel === normalizedCurrent ||
-        normalizedKey === normalizedDisplay ||
-        normalizedLabel === normalizedDisplay
-      ) {
-        candidates.push(groupKey, groupLabel);
-      }
-    });
-
-    for (const candidate of candidates) {
-      const matched = pickGroupIcon(candidate);
-      if (matched) {
-        return matched;
-      }
-    }
-    return '';
-  };
-
-  const rawGroupIcon = resolveRawGroupIcon();
-  const normalizedInlineSvg = normalizeInlineSvgMarkup(rawGroupIcon);
+  const currentGroupDisplayName =
+    userUsableGroups?.[currentGroup] || currentGroup;
   const roleLabel = getRoleLabel();
-  const groupIconSrc = resolveUserGroupIconSrc(
-    normalizedInlineSvg || rawGroupIcon,
-  );
-  const shouldShowGroupIcon = !isRoot() && !isAdmin() && Boolean(groupIconSrc);
+  const groupIcons = {
+    ...(status?.user_group_icons || {}),
+    ...(cachedStatus?.user_group_icons || {}),
+  };
+  const rawGroupIcon = resolveUserGroupIconValue({
+    currentGroup,
+    currentGroupDisplayName,
+    groupIcons,
+    userUsableGroups,
+  });
 
   return (
     <Card
-      className='ps-card !rounded-2xl overflow-hidden'
+      className='ps-card ps-profile-modern-card'
       bodyStyle={{ background: 'transparent' }}
-      cover={
-        <div
-          className='ps-cover relative h-32'
-        >
-          <div className='relative z-10 flex h-full flex-col justify-end p-6'>
-            <div className='flex items-center'>
-              <div className='flex min-w-0 flex-1 items-stretch gap-3 sm:gap-4'>
-                <Avatar size='large' color={stringToColor(getUsername())}>
-                  {getAvatarText()}
-                </Avatar>
-                <div className='flex min-w-0 flex-1 flex-col justify-between'>
-                  <div className='flex min-w-0 items-center gap-2 text-2xl font-bold text-white sm:text-3xl'>
-                    <span className='truncate'>
-                      {t('\u7528\u6237\u540d')}
-                      {'\uff1a'}
-                      {getUsername()}
-                    </span>
-                    {shouldShowGroupIcon ? (
-                      <span className='inline-flex max-h-7 max-w-[96px] flex-shrink-0 items-center overflow-hidden'>
-                        <img
-                          src={groupIconSrc}
-                          alt={currentGroup}
-                          className='block h-6 w-auto object-contain'
-                          referrerPolicy='no-referrer'
-                        />
-                      </span>
-                    ) : null}
-                  </div>
-                  <div className='flex flex-wrap items-center gap-2'>
-                    {roleLabel ? (
-                      <Tag
-                        size='large'
-                        shape='circle'
-                        style={{ color: 'white' }}
-                      >
-                        {roleLabel}
-                      </Tag>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      }
     >
-      <div className='flex items-start justify-between gap-6'>
-        <Badge
-          count={t('\u5f53\u524d\u4f59\u989d')}
-          position='rightTop'
-          type='danger'
-        >
-          <div className='text-2xl sm:text-3xl md:text-4xl font-bold tracking-wide'>
-            {renderQuota(userState?.user?.quota)}
-          </div>
-        </Badge>
-
-        <div className='hidden lg:block flex-shrink-0'>
-          <div className='ps-stats-row'>
-            <div className='ps-stats-row__item'>
-              <Coins size={14} />
-              <span>{t('\u5386\u53f2\u6d88\u8017')}</span>
-              <strong style={{ color: 'var(--ps-text)' }}>{renderQuota(userState?.user?.used_quota)}</strong>
+      <div className='ps-profile-modern'>
+        <div className='ps-profile-art' aria-hidden='true'>
+          <svg viewBox='0 0 360 180' fill='none' xmlns='http://www.w3.org/2000/svg'>
+            <defs>
+              <pattern
+                id='ps-profile-grid'
+                width='22'
+                height='22'
+                patternUnits='userSpaceOnUse'
+              >
+                <path d='M22 0H0V22' stroke='#93C5FD' strokeOpacity='.24' />
+              </pattern>
+            </defs>
+            <rect width='360' height='180' fill='url(#ps-profile-grid)' />
+            <circle cx='300' cy='34' r='58' fill='#DBEAFE' />
+            <circle cx='314' cy='44' r='34' fill='#BFDBFE' />
+            <path
+              d='M122 138C157 94 202 78 250 92C291 104 311 92 342 54'
+              stroke='#60A5FA'
+              strokeWidth='10'
+              strokeLinecap='round'
+              strokeOpacity='.26'
+            />
+            <path
+              d='M150 151C183 119 211 111 247 121C285 132 311 119 344 91'
+              stroke='#14B8A6'
+              strokeWidth='7'
+              strokeLinecap='round'
+              strokeOpacity='.20'
+            />
+            <rect
+              x='234'
+              y='104'
+              width='84'
+              height='44'
+              rx='14'
+              fill='#FFFFFF'
+              fillOpacity='.62'
+              stroke='#BFDBFE'
+            />
+            <path d='M252 126H300' stroke='#2563EB' strokeWidth='5' strokeLinecap='round' strokeOpacity='.36' />
+            <path d='M252 140H286' stroke='#0F766E' strokeWidth='5' strokeLinecap='round' strokeOpacity='.24' />
+          </svg>
+        </div>
+        <div className='ps-profile-main'>
+          <div className='ps-profile-avatar'>{getAvatarText()}</div>
+          <div className='ps-profile-copy'>
+            <div className='ps-profile-kicker'>{t('\u4e2a\u4eba\u8bbe\u7f6e')}</div>
+            <div className='ps-profile-name-row'>
+              <div className='ps-profile-name' title={getUsername()}>
+                {getUsername()}
+              </div>
+              {rawGroupIcon ? (
+                <UserGroupIcon
+                  value={rawGroupIcon}
+                  alt={currentGroup || 'group-icon'}
+                  wrapperClassName='ps-profile-name-icon'
+                  imgClassName='ps-profile-name-icon-img'
+                  svgClassName='ps-profile-name-icon-svg'
+                />
+              ) : null}
             </div>
-            <div className='ps-divider-v' />
-            <div className='ps-stats-row__item'>
-              <BarChart2 size={14} />
-              <span>{t('\u8bf7\u6c42\u6b21\u6570')}</span>
-              <strong style={{ color: 'var(--ps-text)' }}>{userState.user?.request_count || 0}</strong>
+            <div className='ps-profile-tags'>
+              {roleLabel ? (
+                <Tag
+                  size='large'
+                  shape='square'
+                  color='white'
+                  className='ps-profile-role-tag'
+                >
+                  <span className='ps-profile-tag-icon'>
+                    <ShieldCheck size={13} />
+                  </span>
+                  <span>{roleLabel}</span>
+                </Tag>
+              ) : null}
+              <Tag
+                size='large'
+                shape='square'
+                color='blue'
+                className='ps-profile-group-tag'
+              >
+                <span>{currentGroupDisplayName}</span>
+              </Tag>
             </div>
           </div>
         </div>
-      </div>
 
-      <div className='lg:hidden mt-2'>
-        <div className='ps-stats-row' style={{ gap: 12 }}>
-          <div className='ps-stats-row__item' style={{ flex: 1, justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Coins size={14} />
-              <span>{t('\u5386\u53f2\u6d88\u8017')}</span>
-            </div>
-            <strong style={{ color: 'var(--ps-text)' }}>{renderQuota(userState?.user?.used_quota)}</strong>
+        <div className='ps-profile-balance'>
+          <span>{t('\u5f53\u524d\u4f59\u989d')}</span>
+          <strong>{renderQuota(userState?.user?.quota ?? 0)}</strong>
+        </div>
+
+        <div className='ps-profile-stat-list'>
+          <div className='ps-profile-stat'>
+            <span>{t('\u5f53\u524d\u5206\u7ec4')}</span>
+            <strong>{currentGroupDisplayName}</strong>
           </div>
-          <div className='ps-divider-v' />
-          <div className='ps-stats-row__item' style={{ flex: 1, justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <BarChart2 size={14} />
-              <span>{t('\u8bf7\u6c42\u6b21\u6570')}</span>
-            </div>
-            <strong style={{ color: 'var(--ps-text)' }}>{userState.user?.request_count || 0}</strong>
+          <div className='ps-profile-stat'>
+            <span>{t('\u5386\u53f2\u6d88\u8017')}</span>
+            <strong>{renderQuota(userState?.user?.used_quota ?? 0)}</strong>
+          </div>
+          <div className='ps-profile-stat'>
+            <span>{t('\u8bf7\u6c42\u6b21\u6570')}</span>
+            <strong>{userState?.user?.request_count || 0}</strong>
           </div>
         </div>
       </div>

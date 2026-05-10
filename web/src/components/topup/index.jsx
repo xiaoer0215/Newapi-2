@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useEffect, useState, useContext, useRef } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   API,
@@ -26,7 +26,6 @@ import {
   showSuccess,
   renderQuota,
   renderQuotaWithAmount,
-  copy,
   getQuotaPerUnit,
 } from '../../helpers';
 import { Modal, Toast } from '@douyinfe/semi-ui';
@@ -56,8 +55,6 @@ const MSG_SELECT_PRODUCT = '\u8bf7\u9009\u62e9\u4ea7\u54c1';
 const MSG_UPDATE_SUCCESS = '\u66f4\u65b0\u6210\u529f';
 const MSG_UPDATE_FAILED = '\u66f4\u65b0\u5931\u8d25';
 const MSG_TRANSFER_MIN = '\u5212\u8f6c\u91d1\u989d\u6700\u4f4e\u4e3a';
-const MSG_AFF_LINK_COPIED =
-  '\u9080\u8bf7\u94fe\u63a5\u5df2\u590d\u5236\u5230\u526a\u5207\u677f';
 const MSG_CREEM_CONFIRM_TITLE = '\u786e\u5b9a\u8981\u5145\u503c\uff1f';
 const MSG_REDEEM_SUCCESS_QUOTA = '\u6210\u529f\u5151\u6362\u989d\u5ea6\uff1a';
 const MSG_PRODUCT_CONFIG_INVALID =
@@ -108,10 +105,7 @@ const TopUp = () => {
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [payMethods, setPayMethods] = useState([]);
 
-  const affFetchedRef = useRef(false);
-
   // Invitation state
-  const [affLink, setAffLink] = useState('');
   const [openTransfer, setOpenTransfer] = useState(false);
   const [transferAmount, setTransferAmount] = useState(0);
 
@@ -134,8 +128,12 @@ const TopUp = () => {
   const [topupInfo, setTopupInfo] = useState({
     amount_options: [],
     discount: {},
+    discounted_price: {},
     gift: {},
     custom_discount: 0,
+    ignore_amount_discount: false,
+    topup_group_ratio: 1,
+    topup_group_credit_ratio: 1,
     auto_delivery_products: null,
   });
 
@@ -393,7 +391,10 @@ const TopUp = () => {
     try {
       const res = await API.get('/api/subscription/plans');
       if (res.data?.success) {
-        setSubscriptionPlans(res.data.data || []);
+        const plans = (res.data.data || []).filter(
+          (item) => item?.plan?.show_in_member_upgrade !== true,
+        );
+        setSubscriptionPlans(plans);
       }
     } catch (e) {
       setSubscriptionPlans([]);
@@ -452,8 +453,12 @@ const TopUp = () => {
         setTopupInfo({
           amount_options: data.amount_options || [],
           discount: data.discount || {},
+          discounted_price: data.discounted_price || {},
           gift: data.gift || {},
           custom_discount: data.custom_discount || 0,
+          ignore_amount_discount: Boolean(data.ignore_amount_discount),
+          topup_group_ratio: Number(data.topup_group_ratio || 1),
+          topup_group_credit_ratio: Number(data.topup_group_credit_ratio || 1),
           auto_delivery_products: data.auto_delivery_products || null,
         });
 
@@ -551,6 +556,7 @@ const TopUp = () => {
           const customPresets = data.amount_options.map((amount) => ({
             value: amount,
             discount: data.discount[amount] || 1.0,
+            discounted_price: data.discounted_price?.[amount] || 0,
             gift: data.gift?.[amount] || 0,
             credit_amount: amount + (data.gift?.[amount] || 0),
           }));
@@ -563,18 +569,6 @@ const TopUp = () => {
       showError(t('获取充值配置异常'));
     } finally {
       setStatusLoading(false);
-    }
-  };
-
-  // Load invitation link
-  const getAffLink = async () => {
-    const res = await API.get('/api/user/aff');
-    const { success, message, data } = res.data;
-    if (success) {
-      let link = `${window.location.origin}/register?aff=${data}`;
-      setAffLink(link);
-    } else {
-      showError(message);
     }
   };
 
@@ -595,12 +589,6 @@ const TopUp = () => {
     } else {
       showError(message);
     }
-  };
-
-  // Copy invitation link
-  const handleAffLinkClick = async () => {
-    await copy(affLink);
-    showSuccess(t(MSG_AFF_LINK_COPIED));
   };
 
   // 支付回跳后自动提示、刷新余额并打开账单
@@ -648,12 +636,6 @@ const TopUp = () => {
     // Always refresh user data so quota values stay current.
     getUserQuota().then();
     setTransferAmount(getQuotaPerUnit());
-  }, []);
-
-  useEffect(() => {
-    if (affFetchedRef.current) return;
-    affFetchedRef.current = true;
-    getAffLink().then();
   }, []);
 
   // Load recharge data after the status payload is available.
@@ -775,19 +757,26 @@ const TopUp = () => {
 
   const currentGiftAmount = Number(topupInfo?.gift?.[topUpCount] || 0);
   const currentCreditAmount = Number(topUpCount || 0) + currentGiftAmount;
+  const ignoreAmountDiscount = Boolean(topupInfo?.ignore_amount_discount);
+  const payRatio = Number(topupInfo?.topup_group_ratio || 1);
+  const presetDiscountedPrice = Number(
+    topupInfo?.discounted_price?.[topUpCount] || 0,
+  );
+  const originalPresetPrice =
+    Number(topUpCount || 0) * Number(priceRatio || 1);
 
-  // Effective discount: preset-specific first, then custom_discount for non-preset amounts
+  // Fixed tiers use their own configured price; custom amounts only use the group pay ratio.
   const isPresetAmount = (topupInfo?.amount_options || []).includes(Number(topUpCount));
-  const presetDiscount = topupInfo?.discount?.[topUpCount];
-  const customDiscount = topupInfo?.custom_discount;
-  const effectiveDiscount = presetDiscount != null
-    ? presetDiscount
-    : (!isPresetAmount && customDiscount > 0 && customDiscount < 1)
-      ? customDiscount
-      : 1.0;
+  const presetDiscount =
+    isPresetAmount && originalPresetPrice > 0 && presetDiscountedPrice > 0
+      ? presetDiscountedPrice / originalPresetPrice
+      : Number(topupInfo?.discount?.[topUpCount] || 1);
+  const effectiveDiscount = isPresetAmount
+    ? Math.max(Number(ignoreAmountDiscount ? 1 : presetDiscount || 1), 0.0001)
+    : Math.max(payRatio, 0.0001);
 
   return (
-    <div className='w-full max-w-[1560px] mx-auto relative min-h-screen lg:min-h-0 mt-[60px] px-2 sm:px-4 lg:px-5'>
+    <div className='topup-page-shell w-full max-w-[1560px] mx-auto relative min-h-screen lg:min-h-0 px-2 sm:px-4 lg:px-5'>
       {/* Transfer modal */}
       <TransferModal
         t={t}
@@ -906,14 +895,7 @@ const TopUp = () => {
           />
         </div>
         <div className='min-w-0'>
-          <InvitationCard
-            t={t}
-            userState={userState}
-            renderQuota={renderQuota}
-            setOpenTransfer={setOpenTransfer}
-            affLink={affLink}
-            handleAffLinkClick={handleAffLinkClick}
-          />
+          <InvitationCard t={t} />
         </div>
       </div>
     </div>

@@ -28,7 +28,13 @@ import {
   Space,
   Card,
 } from '@douyinfe/semi-ui';
-import { API, showError, showSuccess, timestamp2string } from '../../helpers';
+import {
+  API,
+  applySiteBranding,
+  showError,
+  showSuccess,
+  timestamp2string,
+} from '../../helpers';
 import { marked } from 'marked';
 import { useTranslation } from 'react-i18next';
 import { StatusContext } from '../../context/Status';
@@ -44,6 +50,8 @@ const OtherSetting = () => {
     [LEGAL_USER_AGREEMENT_KEY]: '',
     [LEGAL_PRIVACY_POLICY_KEY]: '',
     SystemName: '',
+    SystemSubtitle: '',
+    SEODescription: '',
     Logo: '',
     Footer: '',
     About: '',
@@ -59,17 +67,20 @@ const OtherSetting = () => {
 
   const updateOption = async (key, value) => {
     setLoading(true);
-    const res = await API.put('/api/option/', {
-      key,
-      value,
-    });
-    const { success, message } = res.data;
-    if (success) {
+    try {
+      const res = await API.put('/api/option/', {
+        key,
+        value,
+      });
+      const { success, message } = res.data;
+      if (!success) {
+        throw new Error(message || t('保存失败'));
+      }
       setInputs((inputs) => ({ ...inputs, [key]: value }));
-    } else {
-      showError(message);
+      return true;
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const [loadingInput, setLoadingInput] = useState({
@@ -77,6 +88,8 @@ const OtherSetting = () => {
     [LEGAL_USER_AGREEMENT_KEY]: false,
     [LEGAL_PRIVACY_POLICY_KEY]: false,
     SystemName: false,
+    SystemSubtitle: false,
+    SEODescription: false,
     Logo: false,
     HomePageContent: false,
     About: false,
@@ -157,10 +170,11 @@ const OtherSetting = () => {
         SystemName: true,
       }));
       await updateOption('SystemName', inputs.SystemName);
+      applySiteBranding({ systemName: inputs.SystemName });
       showSuccess(t('系统名称已更新'));
     } catch (error) {
       console.error(t('系统名称更新失败'), error);
-      showError(t('系统名称更新失败'));
+      showError(error.message || t('系统名称更新失败'));
     } finally {
       setLoadingInput((loadingInput) => ({
         ...loadingInput,
@@ -169,15 +183,56 @@ const OtherSetting = () => {
     }
   };
 
-  // 个性化设置 - Logo
+  // 个性化设置 - SystemSubtitle
+  const submitSystemSubtitle = async () => {
+    try {
+      setLoadingInput((loadingInput) => ({
+        ...loadingInput,
+        SystemSubtitle: true,
+      }));
+      await updateOption('SystemSubtitle', inputs.SystemSubtitle);
+      applySiteBranding({ systemSubtitle: inputs.SystemSubtitle });
+      showSuccess(t('系统副标题已更新'));
+    } catch (error) {
+      console.error(t('系统副标题更新失败'), error);
+      showError(error.message || t('系统副标题更新失败'));
+    } finally {
+      setLoadingInput((loadingInput) => ({
+        ...loadingInput,
+        SystemSubtitle: false,
+      }));
+    }
+  };
+
+  // 个性化设置 - SEODescription
+  const submitSEODescription = async () => {
+    try {
+      setLoadingInput((loadingInput) => ({
+        ...loadingInput,
+        SEODescription: true,
+      }));
+      await updateOption('SEODescription', inputs.SEODescription);
+      applySiteBranding({ seoDescription: inputs.SEODescription });
+      showSuccess(t('SEO 描述已更新'));
+    } catch (error) {
+      console.error(t('SEO 描述更新失败'), error);
+      showError(error.message || t('SEO 描述更新失败'));
+    } finally {
+      setLoadingInput((loadingInput) => ({
+        ...loadingInput,
+        SEODescription: false,
+      }));
+    }
+  };
   const submitLogo = async () => {
     try {
       setLoadingInput((loadingInput) => ({ ...loadingInput, Logo: true }));
       await updateOption('Logo', inputs.Logo);
+      applySiteBranding({ logo: inputs.Logo });
       showSuccess('Logo 已更新');
     } catch (error) {
       console.error('Logo 更新失败', error);
-      showError('Logo 更新失败');
+      showError(error.message || 'Logo 更新失败');
     } finally {
       setLoadingInput((loadingInput) => ({ ...loadingInput, Logo: false }));
     }
@@ -434,6 +489,35 @@ const OtherSetting = () => {
                 loading={loadingInput['SystemName']}
               >
                 {t('设置系统名称')}
+              </Button>
+              <Form.Input
+                label={t('系统副标题')}
+                placeholder={t(
+                  '例如：XXXXXXXXX，浏览器标题显示为“系统名称 - 副标题”',
+                )}
+                field={'SystemSubtitle'}
+                onChange={handleInputChange}
+              />
+              <Button
+                onClick={submitSystemSubtitle}
+                loading={loadingInput['SystemSubtitle']}
+              >
+                {t('设置系统副标题')}
+              </Button>
+              <Form.TextArea
+                label={t('SEO 描述')}
+                placeholder={t(
+                  '在此输入 SEO 描述，会写入页面 meta description',
+                )}
+                field={'SEODescription'}
+                onChange={handleInputChange}
+                autosize={{ minRows: 2, maxRows: 4 }}
+              />
+              <Button
+                onClick={submitSEODescription}
+                loading={loadingInput['SEODescription']}
+              >
+                {t('设置 SEO 描述')}
               </Button>
               <Form.Input
                 label={t('Logo 图片地址')}

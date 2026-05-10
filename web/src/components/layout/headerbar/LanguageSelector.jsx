@@ -51,7 +51,7 @@ const LanguageSelector = ({ currentLang, onLanguageChange, t }) => {
     >
       <Button
         aria-label={t('切换语言')}
-        className='!p-1.5 !text-current focus:!bg-semi-color-fill-1 !rounded-full !bg-semi-color-fill-0 hover:!bg-semi-color-fill-1'
+        className='app-icon-btn-v2 !p-1.5 !text-current focus:!bg-semi-color-fill-1 !rounded-full !bg-semi-color-fill-0 hover:!bg-semi-color-fill-1'
         icon={<Languages size={18} />}
         theme='borderless'
         type='tertiary'

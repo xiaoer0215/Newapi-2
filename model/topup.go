@@ -8,6 +8,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/logger"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 )
@@ -21,6 +22,7 @@ type TopUp struct {
 	TradeNo           string  `json:"trade_no" gorm:"unique;type:varchar(255);index"`
 	PaymentOrderNo    string  `json:"payment_order_no" gorm:"type:varchar(255);default:'';index"`
 	PaymentMethod     string  `json:"payment_method" gorm:"type:varchar(50)"`
+	GroupSnapshot     string  `json:"group_snapshot" gorm:"type:varchar(64);default:'';index"`
 	ClientIP          string  `json:"client_ip" gorm:"type:varchar(64);default:''"`
 	DeviceFingerprint string  `json:"device_fingerprint" gorm:"type:varchar(128);default:'';index"`
 	CreateTime        int64   `json:"create_time"`
@@ -184,6 +186,239 @@ func applyPaymentOrderNo(record *TopUp, paymentOrderNo string) {
 	record.PaymentOrderNo = paymentOrderNo
 }
 
+func normalizeTopUpGroup(group string) string {
+	group = strings.TrimSpace(group)
+	if group == "" {
+		return "default"
+	}
+	return group
+}
+
+func getTopUpCurrentUserGroup(tx *gorm.DB, userId int) (string, error) {
+	if tx == nil || userId == 0 {
+		return "default", nil
+	}
+	user := &User{}
+	if err := tx.Set("gorm:query_option", "FOR UPDATE").
+		Model(&User{}).
+		Select(commonGroupCol).
+		Where("id = ?", userId).
+		Take(user).Error; err != nil {
+		return "", err
+	}
+	return normalizeTopUpGroup(user.Group), nil
+}
+
+func validateTopUpPaidMoney(topUp *TopUp, paidMoney string) error {
+	if topUp == nil {
+		return errors.New("topup order not found")
+	}
+	paidMoney = strings.TrimSpace(paidMoney)
+	if paidMoney == "" {
+		return nil
+	}
+
+	actual, err := decimal.NewFromString(paidMoney)
+	if err != nil {
+		return errors.New("invalid paid money")
+	}
+	expected := decimal.NewFromFloat(topUp.Money)
+	if !actual.Round(2).Equal(expected.Round(2)) {
+		return fmt.Errorf("topup paid money mismatch: expected %.2f, actual %s", topUp.Money, actual.StringFixed(2))
+	}
+	return nil
+}
+
+func normalizeTopUpStoredAmountForModel(amount int64) int64 {
+	if amount <= 0 {
+		return 0
+	}
+	if operation_setting.GetQuotaDisplayType() == operation_setting.QuotaDisplayTypeTokens {
+		dAmount := decimal.NewFromInt(amount)
+		dQuotaPerUnit := decimal.NewFromFloat(common.QuotaPerUnit)
+		return dAmount.Div(dQuotaPerUnit).Round(0).IntPart()
+	}
+	return amount
+}
+
+func normalizeTopUpPayAmountForModel(amount decimal.Decimal) decimal.Decimal {
+	if operation_setting.GetQuotaDisplayType() == operation_setting.QuotaDisplayTypeTokens {
+		return amount.Div(decimal.NewFromFloat(common.QuotaPerUnit))
+	}
+	return amount
+}
+
+func getEffectiveTopupGroupPayRatio(group string) float64 {
+	topupGroupRatio := common.GetTopupGroupRatio(group)
+	if topupGroupRatio <= 0 {
+		return 1
+	}
+	return topupGroupRatio
+}
+
+func getConfiguredTopUpPayMoneyForModel(amount int64, group string) (decimal.Decimal, bool) {
+	paymentSetting := operation_setting.GetPaymentSetting()
+	if discountedPrice, ok := paymentSetting.GetGroupDiscountedPrice(group, amount); ok {
+		return normalizeTopUpPayAmountForModel(decimal.NewFromFloat(discountedPrice)), true
+	}
+	if discountedPrice, ok := paymentSetting.GetPresetDiscountedPrice(amount); ok {
+		return normalizeTopUpPayAmountForModel(decimal.NewFromFloat(discountedPrice)), true
+	}
+	return decimal.Zero, false
+}
+
+func getTopUpPayMoneyForModel(amount int64, group string) decimal.Decimal {
+	if payMoney, ok := getConfiguredTopUpPayMoneyForModel(amount, group); ok {
+		return payMoney
+	}
+
+	dAmount := decimal.NewFromInt(amount)
+	if operation_setting.GetQuotaDisplayType() == operation_setting.QuotaDisplayTypeTokens {
+		dAmount = dAmount.Div(decimal.NewFromFloat(common.QuotaPerUnit))
+	}
+
+	return dAmount.
+		Mul(decimal.NewFromFloat(operation_setting.Price)).
+		Mul(decimal.NewFromFloat(getEffectiveTopupGroupPayRatio(group)))
+}
+
+func getStoredGiftAmountForModel(amount int64, group string) int64 {
+	giftAmount := operation_setting.GetPaymentSetting().GetGiftForGroup(amount, group)
+	if giftAmount <= 0 {
+		return 0
+	}
+	return normalizeTopUpStoredAmountForModel(giftAmount)
+}
+
+func getCurrentGroupPresetTopUpCreditByMoney(paidMoney decimal.Decimal, group string) (amount int64, giftAmount int64, creditAmount int64, ok bool) {
+	paymentSetting := operation_setting.GetPaymentSetting()
+	if paymentSetting == nil || len(paymentSetting.AmountOptions) == 0 {
+		return 0, 0, 0, false
+	}
+
+	candidates := make(map[int64]struct{}, len(paymentSetting.AmountOptions))
+	for _, amountOption := range paymentSetting.AmountOptions {
+		if amountOption <= 0 {
+			continue
+		}
+		effectiveAmount := paymentSetting.GetAmountForGroup(int64(amountOption), group)
+		if effectiveAmount <= 0 {
+			effectiveAmount = int64(amountOption)
+		}
+		if effectiveAmount > 0 {
+			candidates[effectiveAmount] = struct{}{}
+		}
+	}
+
+	for effectiveAmount := range candidates {
+		expectedPayMoney := getTopUpPayMoneyForModel(effectiveAmount, group)
+		if !expectedPayMoney.Round(2).Equal(paidMoney.Round(2)) {
+			continue
+		}
+
+		storedAmount := normalizeTopUpStoredAmountForModel(effectiveAmount)
+		storedGift := getStoredGiftAmountForModel(effectiveAmount, group)
+		storedCredit := storedAmount + storedGift
+		if storedCredit <= 0 {
+			continue
+		}
+
+		if !ok || storedCredit < creditAmount {
+			amount = storedAmount
+			giftAmount = storedGift
+			creditAmount = storedCredit
+			ok = true
+		}
+	}
+
+	return amount, giftAmount, creditAmount, ok
+}
+
+func getCurrentGroupCustomTopUpCreditByMoney(paidMoney decimal.Decimal, group string) (int64, error) {
+	price := operation_setting.Price
+	if price <= 0 {
+		return 0, errors.New("invalid topup price")
+	}
+
+	payRatio := getEffectiveTopupGroupPayRatio(group)
+	if payRatio <= 0 {
+		payRatio = 1
+	}
+
+	creditAmount := paidMoney.
+		Div(decimal.NewFromFloat(price)).
+		Div(decimal.NewFromFloat(payRatio)).
+		Round(0).
+		IntPart()
+	if creditAmount <= 0 {
+		return 0, errors.New("invalid topup quota")
+	}
+	return creditAmount, nil
+}
+
+func applyCurrentGroupTopUpCredit(tx *gorm.DB, topUp *TopUp, paidMoneyOverride string) (int, error) {
+	if topUp == nil {
+		return 0, errors.New("topup order not found")
+	}
+
+	currentGroup, err := getTopUpCurrentUserGroup(tx, topUp.UserId)
+	if err != nil {
+		return 0, err
+	}
+
+	// Creem products are configured as fixed quota products. Keep product quota
+	// semantics and only apply the balance-conversion ratio if the user group
+	// changed before the payment finished.
+	if topUp.PaymentMethod == "creem" {
+		orderGroup := normalizeTopUpGroup(topUp.GroupSnapshot)
+		creditedAmount := topUp.GetCreditDisplayAmount()
+		adjustedCreditAmount := common.ScaleAmountByTopupGroupCreditRatio(creditedAmount, orderGroup, currentGroup)
+		if adjustedCreditAmount <= 0 {
+			return 0, errors.New("invalid topup quota")
+		}
+		topUp.GroupSnapshot = orderGroup
+		topUp.CreditAmount = adjustedCreditAmount
+		if adjustedCreditAmount > topUp.Amount {
+			topUp.GiftAmount = adjustedCreditAmount - topUp.Amount
+		} else {
+			topUp.GiftAmount = 0
+		}
+		quotaToAdd := topUp.GetQuotaToAdd()
+		if quotaToAdd <= 0 {
+			return 0, errors.New("invalid topup quota")
+		}
+		return quotaToAdd, nil
+	}
+
+	paidMoney := decimal.NewFromFloat(topUp.Money)
+	if strings.TrimSpace(paidMoneyOverride) != "" {
+		paidMoney, err = decimal.NewFromString(strings.TrimSpace(paidMoneyOverride))
+		if err != nil {
+			return 0, errors.New("invalid paid money")
+		}
+	}
+	amount, giftAmount, creditAmount, ok := getCurrentGroupPresetTopUpCreditByMoney(paidMoney, currentGroup)
+	if !ok {
+		creditAmount, err = getCurrentGroupCustomTopUpCreditByMoney(paidMoney, currentGroup)
+		if err != nil {
+			return 0, err
+		}
+		amount = creditAmount
+		giftAmount = 0
+	}
+
+	topUp.GroupSnapshot = normalizeTopUpGroup(topUp.GroupSnapshot)
+	topUp.Amount = amount
+	topUp.GiftAmount = giftAmount
+	topUp.CreditAmount = creditAmount
+
+	quotaToAdd := topUp.GetQuotaToAdd()
+	if quotaToAdd <= 0 {
+		return 0, errors.New("invalid topup quota")
+	}
+	return quotaToAdd, nil
+}
+
 func Recharge(referenceId string, customerId string, paymentOrderNo string) error {
 	if referenceId == "" {
 		return errors.New("payment reference is required")
@@ -210,6 +445,15 @@ func Recharge(referenceId string, customerId string, paymentOrderNo string) erro
 			return errors.New("topup order status is invalid")
 		}
 
+		var err error
+		quotaToAdd, err = applyCurrentGroupTopUpCredit(tx, topUp, "")
+		if err != nil {
+			return err
+		}
+		if quotaToAdd <= 0 {
+			return errors.New("invalid topup quota")
+		}
+
 		topUp.CompleteTime = common.GetTimestamp()
 		topUp.Status = common.TopUpStatusSuccess
 		applyPaymentOrderNo(topUp, paymentOrderNo)
@@ -217,15 +461,13 @@ func Recharge(referenceId string, customerId string, paymentOrderNo string) erro
 			return err
 		}
 
-		quotaToAdd = topUp.GetQuotaToAdd()
-		if quotaToAdd <= 0 {
-			return errors.New("invalid topup quota")
-		}
-
 		if err := tx.Model(&User{}).Where("id = ?", topUp.UserId).Updates(map[string]interface{}{
 			"stripe_customer": customerId,
 			"quota":           gorm.Expr("quota + ?", quotaToAdd),
 		}).Error; err != nil {
+			return err
+		}
+		if _, err := SettleAffiliateCommissionWithTx(tx, topUp, calculateAffiliateCommissionBaseQuota(topUp)); err != nil {
 			return err
 		}
 		return markInvitationFirstTopupRewardOnce(tx, topUp.UserId, topUp, customerId)
@@ -402,7 +644,7 @@ func GetTopUpSummaryStats() (*TopUpSummaryStats, error) {
 	return stats, nil
 }
 
-func completeTopUp(tradeNo string, paymentOrderNo string) (userId int, quotaToAdd int, payMoney float64, err error) {
+func completeTopUp(tradeNo string, paymentOrderNo string, paidMoney string) (userId int, quotaToAdd int, payMoney float64, err error) {
 	if tradeNo == "" {
 		return 0, 0, 0, errors.New("trade no is required")
 	}
@@ -425,9 +667,14 @@ func completeTopUp(tradeNo string, paymentOrderNo string) (userId int, quotaToAd
 			return errors.New("topup order status is invalid")
 		}
 
-		quotaToAdd = topUp.GetQuotaToAdd()
-		if quotaToAdd <= 0 {
-			return errors.New("invalid topup quota")
+		if err := validateTopUpPaidMoney(topUp, paidMoney); err != nil {
+			return err
+		}
+
+		var err error
+		quotaToAdd, err = applyCurrentGroupTopUpCredit(tx, topUp, paidMoney)
+		if err != nil {
+			return err
 		}
 
 		topUp.CompleteTime = common.GetTimestamp()
@@ -438,6 +685,9 @@ func completeTopUp(tradeNo string, paymentOrderNo string) (userId int, quotaToAd
 		}
 
 		if err := tx.Model(&User{}).Where("id = ?", topUp.UserId).Update("quota", gorm.Expr("quota + ?", quotaToAdd)).Error; err != nil {
+			return err
+		}
+		if _, err := SettleAffiliateCommissionWithTx(tx, topUp, calculateAffiliateCommissionBaseQuota(topUp)); err != nil {
 			return err
 		}
 
@@ -457,7 +707,7 @@ func completeTopUp(tradeNo string, paymentOrderNo string) (userId int, quotaToAd
 }
 
 func CompleteTopUp(tradeNo string) error {
-	userId, quotaToAdd, payMoney, err := completeTopUp(tradeNo, "")
+	userId, quotaToAdd, payMoney, err := completeTopUp(tradeNo, "", "")
 	if err != nil {
 		return err
 	}
@@ -468,7 +718,18 @@ func CompleteTopUp(tradeNo string) error {
 }
 
 func CompleteTopUpWithPaymentOrderNo(tradeNo string, paymentOrderNo string) error {
-	userId, quotaToAdd, payMoney, err := completeTopUp(tradeNo, paymentOrderNo)
+	userId, quotaToAdd, payMoney, err := completeTopUp(tradeNo, paymentOrderNo, "")
+	if err != nil {
+		return err
+	}
+	if quotaToAdd > 0 {
+		RecordLog(userId, LogTypeTopup, fmt.Sprintf("\u4f7f\u7528\u5728\u7ebf\u5145\u503c\u6210\u529f\uff0c\u5230\u8d26\u989d\u5ea6\uff1a%v\uff0c\u652f\u4ed8\u91d1\u989d\uff1a%.2f", logger.FormatQuota(quotaToAdd), payMoney))
+	}
+	return nil
+}
+
+func CompleteTopUpWithPaymentOrderNoAndPaidMoney(tradeNo string, paymentOrderNo string, paidMoney string) error {
+	userId, quotaToAdd, payMoney, err := completeTopUp(tradeNo, paymentOrderNo, paidMoney)
 	if err != nil {
 		return err
 	}
@@ -479,7 +740,7 @@ func CompleteTopUpWithPaymentOrderNo(tradeNo string, paymentOrderNo string) erro
 }
 
 func ManualCompleteTopUp(tradeNo string) error {
-	userId, quotaToAdd, payMoney, err := completeTopUp(tradeNo, "")
+	userId, quotaToAdd, payMoney, err := completeTopUp(tradeNo, "", "")
 	if err != nil {
 		return err
 	}
@@ -515,23 +776,21 @@ func RechargeCreem(referenceId string, customerEmail string, customerName string
 			return errors.New("topup order status is invalid")
 		}
 
+		quotaToAdd, err := applyCurrentGroupTopUpCredit(tx, topUp, "")
+		if err != nil {
+			return err
+		}
+		quota = int64(quotaToAdd)
+
+		updateFields := map[string]interface{}{
+			"quota": gorm.Expr("quota + ?", quota),
+		}
+
 		topUp.CompleteTime = common.GetTimestamp()
 		topUp.Status = common.TopUpStatusSuccess
 		applyPaymentOrderNo(topUp, paymentOrderNo)
 		if err := tx.Save(topUp).Error; err != nil {
 			return err
-		}
-
-		quota = topUp.CreditAmount
-		if quota <= 0 {
-			quota = topUp.Amount
-		}
-		if quota <= 0 {
-			return errors.New("invalid topup quota")
-		}
-
-		updateFields := map[string]interface{}{
-			"quota": gorm.Expr("quota + ?", quota),
 		}
 		if customerEmail != "" {
 			var user User
@@ -544,6 +803,9 @@ func RechargeCreem(referenceId string, customerEmail string, customerName string
 		}
 
 		if err := tx.Model(&User{}).Where("id = ?", topUp.UserId).Updates(updateFields).Error; err != nil {
+			return err
+		}
+		if _, err := SettleAffiliateCommissionWithTx(tx, topUp, calculateAffiliateCommissionBaseQuota(topUp)); err != nil {
 			return err
 		}
 
@@ -588,9 +850,10 @@ func RechargeWaffo(tradeNo string, paymentOrderNo string) error {
 			return errors.New("topup order status is invalid")
 		}
 
-		quotaToAdd = topUp.GetQuotaToAdd()
-		if quotaToAdd <= 0 {
-			return errors.New("invalid topup quota")
+		var err error
+		quotaToAdd, err = applyCurrentGroupTopUpCredit(tx, topUp, "")
+		if err != nil {
+			return err
 		}
 
 		topUp.CompleteTime = common.GetTimestamp()
@@ -601,6 +864,9 @@ func RechargeWaffo(tradeNo string, paymentOrderNo string) error {
 		}
 
 		if err := tx.Model(&User{}).Where("id = ?", topUp.UserId).Update("quota", gorm.Expr("quota + ?", quotaToAdd)).Error; err != nil {
+			return err
+		}
+		if _, err := SettleAffiliateCommissionWithTx(tx, topUp, calculateAffiliateCommissionBaseQuota(topUp)); err != nil {
 			return err
 		}
 

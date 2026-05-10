@@ -236,6 +236,14 @@ export const useLogsData = () => {
   }, [BILLING_DISPLAY_MODE_STORAGE_KEY, billingDisplayMode]);
 
   // 获取表单值的辅助函数，确保所有值都是字符串
+  const normalizeLogTypeValue = (value) => {
+    if (value === undefined || value === null || value === '') {
+      return null;
+    }
+    const parsed = Number.parseInt(value, 10);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+
   const getFormValues = () => {
     const formValues = formApi ? formApi.getValues() : {};
 
@@ -260,7 +268,7 @@ export const useLogsData = () => {
       channel: formValues.channel || '',
       group: formValues.group || '',
       request_id: formValues.request_id || '',
-      logType: formValues.logType ? parseInt(formValues.logType) : 0,
+      logType: normalizeLogTypeValue(formValues.logType) ?? 0,
     };
   };
 
@@ -274,7 +282,8 @@ export const useLogsData = () => {
       group,
       logType: formLogType,
     } = getFormValues();
-    const currentLogType = formLogType !== undefined ? formLogType : logType;
+    const currentLogType =
+      normalizeLogTypeValue(formLogType) ?? normalizeLogTypeValue(logType) ?? 0;
     let localStartTimestamp = Date.parse(start_timestamp) / 1000;
     let localEndTimestamp = Date.parse(end_timestamp) / 1000;
     let url = `/api/log/self/stat?type=${currentLogType}&token_name=${token_name}&model_name=${model_name}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}&group=${group}`;
@@ -299,7 +308,8 @@ export const useLogsData = () => {
       group,
       logType: formLogType,
     } = getFormValues();
-    const currentLogType = formLogType !== undefined ? formLogType : logType;
+    const currentLogType =
+      normalizeLogTypeValue(formLogType) ?? normalizeLogTypeValue(logType) ?? 0;
     let localStartTimestamp = Date.parse(start_timestamp) / 1000;
     let localEndTimestamp = Date.parse(end_timestamp) / 1000;
     let url = `/api/log/stat?type=${currentLogType}&username=${username}&token_name=${token_name}&model_name=${model_name}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}&channel=${channel}&group=${group}`;
@@ -313,12 +323,15 @@ export const useLogsData = () => {
     }
   };
 
-  const handleEyeClick = async () => {
+  const handleEyeClick = async (customLogType = null) => {
     if (loadingStat) {
       return;
     }
     setLoadingStat(true);
     try {
+      if (customLogType !== null && formApi) {
+        formApi.setValue('logType', String(customLogType));
+      }
       if (isAdminUser) {
         await getLogStat();
       } else {
@@ -442,6 +455,27 @@ export const useLogsData = () => {
         expandDataLocal.push({
           key: t('Request ID'),
           value: logs[i].request_id,
+        });
+      }
+      if (
+        logs[i]?.content &&
+        logs[i].type !== 2 &&
+        logs[i].type !== 5
+      ) {
+        expandDataLocal.push({
+          key: t('日志内容'),
+          value: (
+            <div
+              style={{
+                maxWidth: 600,
+                whiteSpace: 'normal',
+                wordBreak: 'break-word',
+                lineHeight: 1.6,
+              }}
+            >
+              {logs[i].content}
+            </div>
+          ),
         });
       }
       if (logs[i].type === 5) {
@@ -822,7 +856,10 @@ export const useLogsData = () => {
           ),
         });
       }
-      if (isAdminUser && logs[i].type !== 6) {
+      const requestConversionChain = Array.isArray(other?.request_conversion)
+        ? other.request_conversion.filter(Boolean)
+        : [];
+      if ((isAdminUser || requestConversionChain.length > 1) && logs[i].type !== 6) {
         expandDataLocal.push({
           key: t('请求转换'),
           value: requestConversionDisplayValue(other?.request_conversion),
@@ -865,11 +902,10 @@ export const useLogsData = () => {
     } = getFormValues();
 
     const currentLogType =
-      customLogType !== null
-        ? customLogType
-        : formLogType !== undefined
-          ? formLogType
-          : logType;
+      normalizeLogTypeValue(customLogType) ??
+      normalizeLogTypeValue(formLogType) ??
+      normalizeLogTypeValue(logType) ??
+      0;
 
     let localStartTimestamp = Date.parse(start_timestamp) / 1000;
     let localEndTimestamp = Date.parse(end_timestamp) / 1000;
@@ -912,10 +948,14 @@ export const useLogsData = () => {
   };
 
   // Refresh function
-  const refresh = async () => {
+  const refresh = async (customLogType = null) => {
+    const nextLogType = normalizeLogTypeValue(customLogType);
     setActivePage(1);
-    handleEyeClick();
-    await loadLogs(1, pageSize);
+    if (nextLogType !== null && formApi) {
+      formApi.setValue('logType', String(nextLogType));
+    }
+    handleEyeClick(nextLogType);
+    await loadLogs(1, pageSize, nextLogType);
   };
 
   // Copy text function

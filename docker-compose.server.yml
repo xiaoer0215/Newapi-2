@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  new-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: new-api-local:latest
+    container_name: new-api
+    restart: always
+    command: --log-dir /data/logs
+    ports:
+      - "3000:3000"
+    environment:
+      - TZ=Asia/Shanghai
+      - REDIS_CONN_STRING=redis://redis:6379
+      - ERROR_LOG_ENABLED=true
+      - BATCH_UPDATE_ENABLED=true
+    volumes:
+      - ./data:/data
+      - ./logs:/data/logs
+    depends_on:
+      - redis
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:3000/api/status | grep -o '\"success\":\\s*true' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: always
+

@@ -55,30 +55,71 @@ const HeaderBar = ({ onMobileMenuToggle, drawerOpen }) => {
   const {
     noticeVisible,
     unreadCount,
+    latestAnnouncementKey,
+    isLatestAnnouncementUnread,
     handleNoticeOpen,
     handleNoticeClose,
+    handleLatestAnnouncementClose,
     getUnreadKeys,
   } = useNotifications(statusState);
 
   const { mainNavLinks } = useNavigation(t, docsLink, headerNavModules);
+  const autoOpenedConsoleNoticeRef = React.useRef('');
+  const hasSystemAnnouncements =
+    (statusState?.status?.announcements || []).length > 0;
+  const isExactConsoleRoute = window.location.pathname === '/console';
+
+  React.useEffect(() => {
+    if (
+      isExactConsoleRoute &&
+      hasSystemAnnouncements &&
+      latestAnnouncementKey &&
+      isLatestAnnouncementUnread &&
+      !noticeVisible &&
+      autoOpenedConsoleNoticeRef.current !== latestAnnouncementKey
+    ) {
+      autoOpenedConsoleNoticeRef.current = latestAnnouncementKey;
+      handleNoticeOpen();
+    }
+  }, [
+    isExactConsoleRoute,
+    hasSystemAnnouncements,
+    latestAnnouncementKey,
+    isLatestAnnouncementUnread,
+    noticeVisible,
+    handleNoticeOpen,
+  ]);
 
   return (
     <header
-      className='text-semi-color-text-0 sticky top-0 z-50 bg-white/90'
-      style={{ borderBottom: '1px solid var(--semi-color-border, rgba(0,0,0,0.08))' }}
+      className='app-topbar-v2 text-semi-color-text-0 sticky top-0 z-50'
+      style={{
+        background: '#fff',
+        borderBottom: '1px solid #e5e7eb',
+      }}
     >
       <NoticeModal
         visible={noticeVisible}
-        onClose={handleNoticeClose}
+        onClose={
+          isConsoleRoute
+            ? handleLatestAnnouncementClose
+            : handleNoticeClose
+        }
         isMobile={isMobile}
-        defaultTab={unreadCount > 0 ? 'system' : 'inApp'}
+        defaultTab={isConsoleRoute ? 'system' : unreadCount > 0 ? 'system' : 'inApp'}
         unreadKeys={getUnreadKeys()}
+        claudeStyle={isConsoleRoute}
       />
 
-      <div className='w-full px-4 md:px-6'>
+      <div className='app-topbar-shell-v2 w-full px-4 md:px-6'>
         <div
-          className='items-center'
-          style={{ height: '60px', display: 'grid', gridTemplateColumns: 'auto 1fr auto' }}
+          className='app-topbar-inner-v2 items-center'
+          style={{
+            height: '60px',
+            display: 'grid',
+            gridTemplateColumns: 'auto minmax(0, 1fr) auto',
+            transform: 'translateY(0)',
+          }}
         >
           <div className='flex items-center'>
             <MobileMenuButton
@@ -127,7 +168,6 @@ const HeaderBar = ({ onMobileMenuToggle, drawerOpen }) => {
           />
         </div>
       </div>
-
     </header>
   );
 };

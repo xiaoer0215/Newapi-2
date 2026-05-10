@@ -45,8 +45,10 @@ import ModelDeploymentPage from './pages/ModelDeployment';
 import Playground from './pages/Playground';
 import Drawing from './pages/Drawing';
 import Subscription from './pages/Subscription';
+import MemberUpgrade from './pages/MemberUpgrade';
 import AutoDeliveryAdmin from './pages/AutoDelivery';
 import GroupMonitorPage from './pages/GroupMonitor';
+import Affiliate from './pages/Affiliate';
 import OAuth2Callback from './components/auth/OAuth2Callback';
 import PersonalSetting from './components/settings/PersonalSetting';
 import Setup from './pages/Setup';
@@ -131,6 +133,22 @@ function App() {
             <AdminRoute>
               <Subscription />
             </AdminRoute>
+          }
+        />
+        <Route
+          path='/console/member_upgrade'
+          element={
+            <PrivateRoute>
+              <MemberUpgrade />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path='/console/affiliate'
+          element={
+            <PrivateRoute>
+              <Affiliate />
+            </PrivateRoute>
           }
         />
         <Route

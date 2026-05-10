@@ -505,6 +505,9 @@ func (user *User) Update(updatePassword bool) error {
 
 func (user *User) Edit(updatePassword bool) error {
 	var err error
+	if user.Id == 0 {
+		return errors.New("user id is empty")
+	}
 	if updatePassword {
 		user.Password, err = common.Password2Hash(user.Password)
 		if err != nil {
@@ -527,8 +530,11 @@ func (user *User) Edit(updatePassword bool) error {
 		updates["password"] = newUser.Password
 	}
 
-	DB.First(&user, user.Id)
-	if err = DB.Model(user).Updates(updates).Error; err != nil {
+	if err = DB.Model(&User{}).Where("id = ?", newUser.Id).Updates(updates).Error; err != nil {
+		return err
+	}
+
+	if err = DB.Where("id = ?", newUser.Id).First(user).Error; err != nil {
 		return err
 	}
 

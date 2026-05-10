@@ -35,6 +35,22 @@ const PricingValueChip = ({ value, tone }) => (
   </span>
 );
 
+const formatRatioText = (ratio) => {
+  const value = ratio ?? 1;
+  const number = Number(value);
+  if (Number.isFinite(number)) {
+    return `x${Number.isInteger(number) ? number : Number(number.toFixed(4))}`;
+  }
+  return `x${value}`;
+};
+
+const GroupRatioChip = ({ group, ratio }) => (
+  <span className='pricing-model-modal-group-chip'>
+    <span>{group}</span>
+    <b>{formatRatioText(ratio)}</b>
+  </span>
+);
+
 const getUnavailablePriceItems = (modelData, siteDisplayType, t) => {
   if (siteDisplayType === 'TOKENS') {
     return [
@@ -198,8 +214,8 @@ const ModelPricingTable = ({
       title: t('分组'),
       dataIndex: 'group',
       align: 'center',
-      render: (text) => (
-        <span className='pricing-model-modal-group-chip'>{text}</span>
+      render: (text, record) => (
+        <GroupRatioChip group={text} ratio={record?.ratio} />
       ),
     },
     showFixedPriceColumn
@@ -262,7 +278,7 @@ const ModelPricingTable = ({
       {normalizedTableData.map((item) => (
         <div key={item.key} className='pricing-model-mobile-pricing-item'>
           <div className='pricing-model-mobile-pricing-head'>
-            <span className='pricing-model-modal-group-chip'>{item.group}</span>
+            <GroupRatioChip group={item.group} ratio={item.ratio} />
           </div>
           <div className='pricing-model-mobile-pricing-body'>
             {renderMobilePricingColumns(item)}
@@ -273,7 +289,7 @@ const ModelPricingTable = ({
   );
 
   return (
-    <Card className='pricing-model-modal-card !rounded-2xl' style={{ background: 'rgba(255, 255, 255, 0.75)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(148, 163, 184, 0.2)', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)' }}>
+    <Card className='pricing-model-modal-card rounded-xl border border-slate-200 bg-white shadow-sm' style={{ background: '#fff', border: '1px solid rgba(148, 163, 184, 0.2)', boxShadow: 'none' }}>
       <div className='pricing-model-modal-card-head'>
         <Avatar size='small' color='orange' className='shadow-sm'>
           <IconCoinMoneyStroked size={16} />
@@ -296,7 +312,7 @@ const ModelPricingTable = ({
             {t('自动分组链路')}
           </span>
           {autoChain.map((group) => (
-            <Tag key={group} color='blue' size='small' shape='circle'>
+            <Tag key={group} color='blue' size='small' shape='square'>
               {group}
             </Tag>
           ))}

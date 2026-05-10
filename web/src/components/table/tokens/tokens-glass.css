@@ -31,13 +31,13 @@ For commercial licensing, please contact support@quantumnous.com
   --tk-text:           #0F172A;
   --tk-text2:          #475569;
   --tk-text3:          #94A3B8;
-  --tk-border:         rgba(148, 163, 184, 0.20);
-  --tk-border-hi:      rgba(255, 255, 255, 0.80);
-  --tk-card-bg:        rgba(255, 255, 255, 0.75);
-  --tk-input-bg:       rgba(255, 255, 255, 0.80);
-  --tk-shadow-sm:      0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.03);
-  --tk-shadow-lg:      0 20px 25px -5px rgba(0,0,0,0.05), 0 10px 10px -5px rgba(0,0,0,0.02);
-  --tk-radius-card:    20px;
+  --tk-border:         rgba(203, 213, 225, 0.85);
+  --tk-border-hi:      rgba(203, 213, 225, 0.85);
+  --tk-card-bg:        #ffffff;
+  --tk-input-bg:       #ffffff;
+  --tk-shadow-sm:      none;
+  --tk-shadow-lg:      none;
+  --tk-radius-card:    16px;
   --tk-radius-btn:     10px;
   --tk-radius-input:   12px;
   --tk-radius-badge:   6px;
@@ -46,9 +46,10 @@ For commercial licensing, please contact support@quantumnous.com
 /* ─── Page wrapper ──────────────────────────────────────────────────────────── */
 .tk-page {
   position: relative;
-  padding: 24px 4px 8px;
-  margin-top: 60px;
-  min-height: calc(100dvh - 60px);
+  padding: 0 4px 8px;
+  margin-top: 0;
+  min-height: calc(100dvh - var(--header-height, 60px));
+  background: #fafafa;
   display: flex;
   flex-direction: column;
 }
@@ -57,8 +58,6 @@ For commercial licensing, please contact support@quantumnous.com
 .tk-card {
   position: relative;
   background: var(--tk-card-bg);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
   border: 1px solid var(--tk-border-hi);
   border-radius: var(--tk-radius-card);
   padding: 24px 32px;
@@ -69,7 +68,7 @@ For commercial licensing, please contact support@quantumnous.com
 }
 
 .tk-card::before {
-  content: '';
+  content: none;
   position: absolute;
   top: 0; left: 0; right: 0; height: 1px;
   background: linear-gradient(90deg, transparent, rgba(255,255,255,0.80), transparent);
@@ -151,14 +150,14 @@ For commercial licensing, please contact support@quantumnous.com
 .tk-btn--danger:hover:not(:disabled) { background: rgba(225,29,72,0.18); }
 
 /* ─── Table container ───────────────────────────────────────────────────────── */
-.tk-table-wrap { border: 1px solid var(--tk-border); border-radius: 12px; background: rgba(255,255,255,0.40); box-shadow: var(--tk-shadow-sm); position: relative; flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.tk-table-wrap { border: 1px solid var(--tk-border); border-radius: 12px; background: #ffffff; box-shadow: var(--tk-shadow-sm); position: relative; flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
 .tk-table-scroll { overflow: auto; -webkit-overflow-scrolling: touch; border-radius: 12px; flex: 1; min-height: 0; }
 
 /* ─── Native table ──────────────────────────────────────────────────────────── */
 .tk-table { width: 100%; min-width: 1060px; border-collapse: separate; border-spacing: 0; white-space: nowrap; }
 .tk-table th {
   padding: 14px 20px; font-size: 12px; font-weight: 600; color: var(--tk-text2);
-  background: rgba(241,245,249,0.95); border-bottom: 1px solid var(--tk-border);
+  background: #ffffff; border-bottom: 1px solid var(--tk-border);
   text-transform: uppercase; letter-spacing: 0.5px; text-align: center;
 }
 .tk-table td {
@@ -169,21 +168,21 @@ For commercial licensing, please contact support@quantumnous.com
 /* Name column stays left-aligned */
 .tk-table th:nth-child(2), .tk-table td:nth-child(2) { text-align: left; }
 .tk-table tbody tr:last-child td { border-bottom: none; }
-.tk-table tbody tr:nth-child(even) td { background: rgba(255,255,255,0.30); }
-.tk-table tbody tr:hover td { background: rgba(255,255,255,0.80) !important; }
+.tk-table tbody tr:nth-child(even) td { background: #ffffff; }
+.tk-table tbody tr:hover td { background: #ffffff !important; }
 .tk-table tbody tr.tk-row--disabled td { opacity: 0.65; }
 
 /* ─── Sticky last column ────────────────────────────────────────────────────── */
 .tk-table th:last-child,
 .tk-table td:last-child {
   position: sticky; right: 0; z-index: 5;
-  background: #F8FAFC !important;
+  background: #FFFFFF !important;
   border-left: 1px solid var(--tk-border);
   box-shadow: -4px 0 10px rgba(0,0,0,0.03);
   text-align: center;
 }
-.tk-table th:last-child { background: #F1F5F9 !important; z-index: 6; }
-.tk-table tbody tr:nth-child(even) td:last-child { background: #F1F5F9 !important; }
+.tk-table th:last-child { background: #FFFFFF !important; z-index: 6; }
+.tk-table tbody tr:nth-child(even) td:last-child { background: #FFFFFF !important; }
 .tk-table tbody tr:hover td:last-child { background: #FFFFFF !important; }
 /* Checkbox column */
 .tk-table th:first-child, .tk-table td:first-child { width: 44px; text-align: center; padding-left: 16px; padding-right: 8px; }
@@ -237,7 +236,16 @@ For commercial licensing, please contact support@quantumnous.com
 .tk-split__arrow:hover { background: rgba(79,70,229,0.15); }
 
 /* ─── Dropdown menu (portal) ────────────────────────────────────────────────── */
-.tk-dropdown { position: fixed; min-width: 130px; background: rgba(255,255,255,0.95); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid var(--tk-border); border-radius: 12px; box-shadow: var(--tk-shadow-lg); padding: 6px; z-index: 2147483647; }
+.tk-dropdown {
+  position: fixed;
+  background: #ffffff;
+  border: 1px solid var(--tk-border);
+  border-radius: 8px;
+  padding: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 9999;
+  min-width: 120px;
+}
 .tk-dropdown__item { display: flex; align-items: center; gap: 8px; padding: 8px 12px; font-size: 13px; color: var(--tk-text); border-radius: 8px; cursor: pointer; transition: background 0.15s, color 0.15s; border: none; background: transparent; width: 100%; text-align: left; font-weight: 500; }
 .tk-dropdown__item:hover { background: rgba(79,70,229,0.08); color: var(--tk-primary); }
 
@@ -269,14 +277,14 @@ For commercial licensing, please contact support@quantumnous.com
 
 /* ─── Responsive ────────────────────────────────────────────────────────────── */
 @media (max-width: 900px) {
-  .tk-page { margin-top: 60px; padding: 12px 4px 8px; }
+  .tk-page { margin-top: 0; padding: 0 4px 8px; }
   .tk-card { padding: 16px 18px; border-radius: 16px; }
   .tk-header { flex-direction: column; align-items: flex-start; gap: 12px; }
   .tk-toolbar { flex-direction: column; align-items: stretch; }
 }
 
 @media (max-width: 640px) {
-  .tk-page { padding-inline: 0; margin-top: 60px; min-height: calc(100dvh - 60px); }
+  .tk-page { padding-inline: 0; margin-top: 0; min-height: calc(100dvh - var(--header-height, 60px)); }
   .tk-card { border-radius: 12px; padding: 12px; }
   .tk-header__heading { font-size: 20px; }
   .tk-search { width: 100%; }
