@@ -8,7 +8,7 @@ import (
 )
 
 var Validate *validator.Validate
-var usernamePattern = regexp.MustCompile(`^[A-Za-z0-9_]+$`)
+var usernamePattern = regexp.MustCompile(`^\S+$`)
 var emailPattern = regexp.MustCompile(`^[^\s@]+@[^\s@]+\.[^\s@]+$`)
 
 func init() {
@@ -22,7 +22,7 @@ func validateUsername(fl validator.FieldLevel) bool {
 
 func IsValidUsername(username string) bool {
 	username = strings.TrimSpace(username)
-	return usernamePattern.MatchString(username) || IsValidEmail(username)
+	return usernamePattern.MatchString(username)
 }
 
 func IsValidEmail(email string) bool {
