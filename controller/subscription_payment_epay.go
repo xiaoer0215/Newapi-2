@@ -2,9 +2,11 @@ package controller
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/Calcium-Ion/go-epay/epay"
@@ -12,7 +14,6 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
-	"github.com/QuantumNous/new-api/setting/system_setting"
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"
 )
@@ -81,6 +82,8 @@ func SubscriptionRequestEpay(c *gin.Context) {
 		return
 	}
 
+	orderName := fmt.Sprintf("SUBPLAN%d", plan.Id)
+	moneyText := strconv.FormatFloat(plan.PriceAmount, 'f', 2, 64)
 	order := &model.SubscriptionOrder{
 		UserId:        userId,
 		PlanId:        plan.Id,
@@ -90,76 +93,85 @@ func SubscriptionRequestEpay(c *gin.Context) {
 		CreateTime:    time.Now().Unix(),
 		Status:        common.TopUpStatusPending,
 	}
-	if err := order.Insert(); err != nil {
-		common.ApiErrorMsg(c, "创建订单失败")
-		return
-	}
 	uri, params, err := client.Purchase(&epay.PurchaseArgs{
 		Type:           req.PaymentMethod,
 		ServiceTradeNo: tradeNo,
-		Name:           fmt.Sprintf("SUB:%s", plan.Title),
-		Money:          strconv.FormatFloat(plan.PriceAmount, 'f', 2, 64),
+		Name:           orderName,
+		Money:          moneyText,
 		Device:         epay.PC,
 		NotifyUrl:      notifyUrl,
 		ReturnUrl:      returnUrl,
 	})
 	if err != nil {
-		_ = model.ExpireSubscriptionOrder(tradeNo)
+		log.Printf(
+			"subscription epay pay: purchase failed trade_no=%s plan_id=%d method=%s callback=%s return=%s notify=%s err=%v",
+			tradeNo,
+			plan.Id,
+			req.PaymentMethod,
+			callBackAddress,
+			returnUrl.String(),
+			notifyUrl.String(),
+			err,
+		)
 		common.ApiErrorMsg(c, "拉起支付失败")
 		return
 	}
+	if err := order.Insert(); err != nil {
+		log.Printf("subscription epay pay: insert order failed trade_no=%s err=%v", tradeNo, err)
+		common.ApiErrorMsg(c, "创建订单失败")
+		return
+	}
+	log.Printf(
+		"subscription epay pay: created trade_no=%s plan_id=%d method=%s name=%s money=%s callback=%s return=%s notify=%s uri=%s param_keys=%s",
+		tradeNo,
+		plan.Id,
+		req.PaymentMethod,
+		orderName,
+		moneyText,
+		callBackAddress,
+		returnUrl.String(),
+		notifyUrl.String(),
+		uri,
+		strings.Join(lo.Keys(params), ","),
+	)
 	c.JSON(http.StatusOK, gin.H{"message": "success", "data": params, "url": uri})
 }
 
 func SubscriptionEpayNotify(c *gin.Context) {
-	var params map[string]string
-
-	if c.Request.Method == "POST" {
-		// POST 请求：从 POST body 解析参数
-		if err := c.Request.ParseForm(); err != nil {
-			_, _ = c.Writer.Write([]byte("fail"))
-			return
-		}
-		params = lo.Reduce(lo.Keys(c.Request.PostForm), func(r map[string]string, t string, i int) map[string]string {
-			r[t] = c.Request.PostForm.Get(t)
-			return r
-		}, map[string]string{})
-	} else {
-		// GET 请求：从 URL Query 解析参数
-		params = lo.Reduce(lo.Keys(c.Request.URL.Query()), func(r map[string]string, t string, i int) map[string]string {
-			r[t] = c.Request.URL.Query().Get(t)
-			return r
-		}, map[string]string{})
-	}
-
-	if len(params) == 0 {
+	params, err := getEpayParams(c)
+	if err != nil {
+		log.Printf("subscription epay notify: parse params failed, method=%s raw_query=%s err=%v", c.Request.Method, c.Request.URL.RawQuery, err)
 		_, _ = c.Writer.Write([]byte("fail"))
 		return
 	}
+	log.Printf("subscription epay notify: received method=%s raw_query=%s keys=%s", c.Request.Method, c.Request.URL.RawQuery, strings.Join(lo.Keys(params), ","))
 
-	client := GetEpayClient()
-	if client == nil {
+	verifyInfo, err := verifyEpayParams(params)
+	if err != nil {
+		log.Printf("subscription epay notify: verify failed raw_query=%s err=%v", c.Request.URL.RawQuery, err)
 		_, _ = c.Writer.Write([]byte("fail"))
 		return
 	}
-	verifyInfo, err := client.Verify(params)
-	if err != nil || !verifyInfo.VerifyStatus {
-		_, _ = c.Writer.Write([]byte("fail"))
-		return
-	}
+	log.Printf("subscription epay notify: verified trade_no=%s status=%s", verifyInfo.ServiceTradeNo, verifyInfo.TradeStatus)
 
 	if verifyInfo.TradeStatus != epay.StatusTradeSuccess {
+		log.Printf("subscription epay notify: unexpected trade status=%s trade_no=%s", verifyInfo.TradeStatus, verifyInfo.ServiceTradeNo)
 		_, _ = c.Writer.Write([]byte("fail"))
 		return
 	}
 
+	log.Printf("subscription epay notify: locking trade_no=%s", verifyInfo.ServiceTradeNo)
 	LockOrder(verifyInfo.ServiceTradeNo)
 	defer UnlockOrder(verifyInfo.ServiceTradeNo)
+	log.Printf("subscription epay notify: locked trade_no=%s", verifyInfo.ServiceTradeNo)
 
+	log.Printf("subscription epay notify: completing trade_no=%s", verifyInfo.ServiceTradeNo)
 	if err := model.CompleteSubscriptionOrder(verifyInfo.ServiceTradeNo, common.GetJsonString(verifyInfo), verifyInfo.TradeNo); err != nil {
+		log.Printf("subscription epay notify: complete order failed trade_no=%s err=%v", verifyInfo.ServiceTradeNo, err)
 		_, _ = c.Writer.Write([]byte("fail"))
 		return
 	}
+	log.Printf("subscription epay notify: completed trade_no=%s", verifyInfo.ServiceTradeNo)
 
 	_, _ = c.Writer.Write([]byte("success"))
 }
@@ -167,50 +179,37 @@ func SubscriptionEpayNotify(c *gin.Context) {
 // SubscriptionEpayReturn handles browser return after payment.
 // It verifies the payload and completes the order, then redirects to console.
 func SubscriptionEpayReturn(c *gin.Context) {
-	var params map[string]string
-
-	if c.Request.Method == "POST" {
-		// POST 请求：从 POST body 解析参数
-		if err := c.Request.ParseForm(); err != nil {
-			c.Redirect(http.StatusFound, system_setting.ServerAddress+"/console/topup?pay=fail")
-			return
-		}
-		params = lo.Reduce(lo.Keys(c.Request.PostForm), func(r map[string]string, t string, i int) map[string]string {
-			r[t] = c.Request.PostForm.Get(t)
-			return r
-		}, map[string]string{})
-	} else {
-		// GET 请求：从 URL Query 解析参数
-		params = lo.Reduce(lo.Keys(c.Request.URL.Query()), func(r map[string]string, t string, i int) map[string]string {
-			r[t] = c.Request.URL.Query().Get(t)
-			return r
-		}, map[string]string{})
-	}
-
-	if len(params) == 0 {
-		c.Redirect(http.StatusFound, system_setting.ServerAddress+"/console/topup?pay=fail")
+	params, err := getEpayParams(c)
+	if err != nil {
+		log.Printf("subscription epay return: parse params failed, method=%s raw_query=%s err=%v", c.Request.Method, c.Request.URL.RawQuery, err)
+		c.Redirect(http.StatusFound, consoleTopupRedirect("pay=fail&show_history=true"))
 		return
 	}
+	log.Printf("subscription epay return: received method=%s raw_query=%s keys=%s", c.Request.Method, c.Request.URL.RawQuery, strings.Join(lo.Keys(params), ","))
 
-	client := GetEpayClient()
-	if client == nil {
-		c.Redirect(http.StatusFound, system_setting.ServerAddress+"/console/topup?pay=fail")
+	verifyInfo, err := verifyEpayParams(params)
+	if err != nil {
+		log.Printf("subscription epay return: verify failed raw_query=%s err=%v", c.Request.URL.RawQuery, err)
+		c.Redirect(http.StatusFound, consoleTopupRedirect("pay=fail&show_history=true"))
 		return
 	}
-	verifyInfo, err := client.Verify(params)
-	if err != nil || !verifyInfo.VerifyStatus {
-		c.Redirect(http.StatusFound, system_setting.ServerAddress+"/console/topup?pay=fail")
-		return
-	}
+	log.Printf("subscription epay return: verified trade_no=%s status=%s", verifyInfo.ServiceTradeNo, verifyInfo.TradeStatus)
 	if verifyInfo.TradeStatus == epay.StatusTradeSuccess {
+		log.Printf("subscription epay return: locking trade_no=%s", verifyInfo.ServiceTradeNo)
 		LockOrder(verifyInfo.ServiceTradeNo)
 		defer UnlockOrder(verifyInfo.ServiceTradeNo)
+		log.Printf("subscription epay return: locked trade_no=%s", verifyInfo.ServiceTradeNo)
+		log.Printf("subscription epay return: completing trade_no=%s", verifyInfo.ServiceTradeNo)
 		if err := model.CompleteSubscriptionOrder(verifyInfo.ServiceTradeNo, common.GetJsonString(verifyInfo), verifyInfo.TradeNo); err != nil {
-			c.Redirect(http.StatusFound, system_setting.ServerAddress+"/console/topup?pay=fail")
+			log.Printf("subscription epay return: complete order failed trade_no=%s err=%v", verifyInfo.ServiceTradeNo, err)
+			c.Redirect(http.StatusFound, consoleTopupRedirect("pay=fail&show_history=true"))
 			return
 		}
-		c.Redirect(http.StatusFound, system_setting.ServerAddress+"/console/topup?pay=success")
+		log.Printf("subscription epay return: completed trade_no=%s", verifyInfo.ServiceTradeNo)
+		log.Printf("subscription epay return: success trade_no=%s", verifyInfo.ServiceTradeNo)
+		c.Redirect(http.StatusFound, consoleTopupRedirect("pay=success&show_history=true"))
 		return
 	}
-	c.Redirect(http.StatusFound, system_setting.ServerAddress+"/console/topup?pay=pending")
+	log.Printf("subscription epay return: pending trade status=%s trade_no=%s", verifyInfo.TradeStatus, verifyInfo.ServiceTradeNo)
+	c.Redirect(http.StatusFound, consoleTopupRedirect("pay=pending&show_history=true"))
 }
