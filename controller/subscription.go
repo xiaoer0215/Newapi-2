@@ -145,8 +145,12 @@ func AdminCreateSubscriptionPlan(c *gin.Context) {
 		return
 	}
 	req.Plan.UpgradeGroup = strings.TrimSpace(req.Plan.UpgradeGroup)
+	if req.Plan.ShowInMemberUpgrade && req.Plan.UpgradeGroup == "" {
+		common.ApiErrorMsg(c, "会员升级页显示的套餐必须设置升级分组")
+		return
+	}
 	if req.Plan.UpgradeGroup != "" {
-		if _, ok := ratio_setting.GetGroupRatioCopy()[req.Plan.UpgradeGroup]; !ok {
+		if !ratio_setting.ContainsGroup(req.Plan.UpgradeGroup) {
 			common.ApiErrorMsg(c, "升级分组不存在")
 			return
 		}
@@ -208,8 +212,12 @@ func AdminUpdateSubscriptionPlan(c *gin.Context) {
 		return
 	}
 	req.Plan.UpgradeGroup = strings.TrimSpace(req.Plan.UpgradeGroup)
+	if req.Plan.ShowInMemberUpgrade && req.Plan.UpgradeGroup == "" {
+		common.ApiErrorMsg(c, "会员升级页显示的套餐必须设置升级分组")
+		return
+	}
 	if req.Plan.UpgradeGroup != "" {
-		if _, ok := ratio_setting.GetGroupRatioCopy()[req.Plan.UpgradeGroup]; !ok {
+		if !ratio_setting.ContainsGroup(req.Plan.UpgradeGroup) {
 			common.ApiErrorMsg(c, "升级分组不存在")
 			return
 		}
@@ -237,6 +245,7 @@ func AdminUpdateSubscriptionPlan(c *gin.Context) {
 			"max_purchase_per_user":      req.Plan.MaxPurchasePerUser,
 			"total_amount":               req.Plan.TotalAmount,
 			"upgrade_group":              req.Plan.UpgradeGroup,
+			"show_in_member_upgrade":     req.Plan.ShowInMemberUpgrade,
 			"quota_reset_period":         req.Plan.QuotaResetPeriod,
 			"quota_reset_custom_seconds": req.Plan.QuotaResetCustomSeconds,
 			"updated_at":                 common.GetTimestamp(),
@@ -348,7 +357,7 @@ func AdminBindSubscription(c *gin.Context) {
 		common.ApiErrorMsg(c, "参数错误")
 		return
 	}
-	msg, err := model.AdminBindSubscription(req.UserId, req.PlanId, "")
+	msg, err := model.AdminBindSubscription(req.UserId, req.PlanId, c.GetString("username"))
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -392,7 +401,7 @@ func AdminCreateUserSubscription(c *gin.Context) {
 		common.ApiErrorMsg(c, "参数错误")
 		return
 	}
-	msg, err := model.AdminBindSubscription(userId, req.PlanId, "")
+	msg, err := model.AdminBindSubscription(userId, req.PlanId, c.GetString("username"))
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -411,7 +420,7 @@ func AdminInvalidateUserSubscription(c *gin.Context) {
 		common.ApiErrorMsg(c, "无效的订阅ID")
 		return
 	}
-	msg, err := model.AdminInvalidateUserSubscription(subId)
+	msg, err := model.AdminInvalidateUserSubscription(subId, c.GetString("username"))
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -430,7 +439,7 @@ func AdminDeleteUserSubscription(c *gin.Context) {
 		common.ApiErrorMsg(c, "无效的订阅ID")
 		return
 	}
-	msg, err := model.AdminDeleteUserSubscription(subId)
+	msg, err := model.AdminDeleteUserSubscription(subId, c.GetString("username"))
 	if err != nil {
 		common.ApiError(c, err)
 		return
