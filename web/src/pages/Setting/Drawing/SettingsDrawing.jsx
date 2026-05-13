@@ -18,9 +18,10 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Col, Form, Row, Spin, Tag } from '@douyinfe/semi-ui';
+import { Button, Col, Form, Row, Space, Spin, Tag } from '@douyinfe/semi-ui';
 import {
   API,
+  copy,
   selectFilter,
   showError,
   showSuccess,
@@ -63,13 +64,55 @@ const serializeValue = (value) => {
 };
 
 const DRAWING_CDN_PROVIDERS = [
-  { label: 'SKY Image', value: 'skyimg' },
-  { label: 'Litterbox 72h', value: 'litterbox_72h' },
-  { label: 'SCDN CN优选', value: 'scdn_cn' },
-  { label: 'SCDN EdgeOne', value: 'scdn_edgeone' },
-  { label: 'SCDN Anycast', value: 'scdn_anycast' },
-  { label: '是图床 游客', value: 'tuchuang_xqd' },
-  { label: '360图床', value: 'wzapi_360' },
+  {
+    label: 'SKY Image',
+    value: 'skyimg',
+    site: 'https://skyimg.net',
+    endpoint: 'https://skyimg.net/api/upload',
+    limit: '15MB',
+  },
+  {
+    label: 'Litterbox 72h',
+    value: 'litterbox_72h',
+    site: 'https://litterbox.catbox.moe',
+    endpoint: 'https://litterbox.catbox.moe/resources/internals/api.php',
+    limit: '15MB',
+  },
+  {
+    label: 'SCDN CN优选',
+    value: 'scdn_cn',
+    site: 'https://img.scdn.io',
+    endpoint: 'https://img.scdn.io/api/v1.php',
+    limit: '15MB',
+  },
+  {
+    label: 'SCDN EdgeOne',
+    value: 'scdn_edgeone',
+    site: 'https://img.scdn.io',
+    endpoint: 'https://img.scdn.io/api/v1.php',
+    limit: '15MB',
+  },
+  {
+    label: 'SCDN Anycast',
+    value: 'scdn_anycast',
+    site: 'https://img.scdn.io',
+    endpoint: 'https://img.scdn.io/api/v1.php',
+    limit: '15MB',
+  },
+  {
+    label: '是图床 游客',
+    value: 'tuchuang_xqd',
+    site: 'https://tuchuang.xqd.cn',
+    endpoint: 'https://tuchuang.xqd.cn/api/upload',
+    limit: '15MB',
+  },
+  {
+    label: '360图床',
+    value: 'wzapi_360',
+    site: 'https://wzapi.com',
+    endpoint: 'https://wzapi.com/api/360tc',
+    limit: '1MB',
+  },
 ];
 
 const DEFAULT_CDN_PROVIDERS = DRAWING_CDN_PROVIDERS.map((item) => item.value).join(',');
@@ -221,6 +264,19 @@ export default function SettingsDrawing(props) {
     }
     return modelOptions;
   }, [inputs.DrawingTokenModels, modelOptions]);
+
+  const enabledProviderSet = useMemo(
+    () => new Set(splitProviderIds(inputs.DrawingCDNProviders)),
+    [inputs.DrawingCDNProviders],
+  );
+
+  const copyProviderSite = async (provider) => {
+    if (await copy(provider.site)) {
+      showSuccess(`${provider.label} 网站已复制：${provider.site}`);
+    } else {
+      showError(t('复制失败，请手动复制'));
+    }
+  };
 
   useEffect(() => {
     loadGroups();
@@ -570,6 +626,57 @@ export default function SettingsDrawing(props) {
               </div>
             </Col>
           </Row>
+
+          <div
+            style={{
+              margin: '2px 0 18px',
+              padding: '12px 14px',
+              borderRadius: 12,
+              background: 'var(--semi-color-fill-0)',
+              border: '1px solid var(--semi-color-border)',
+            }}
+          >
+            <div
+              style={{
+                marginBottom: 10,
+                fontWeight: 600,
+                color: 'var(--semi-color-text-0)',
+              }}
+            >
+              {t('图床地址（点击图床名字复制网站）')}
+            </div>
+            <Space wrap spacing={8}>
+              {DRAWING_CDN_PROVIDERS.map((provider) => {
+                const enabled = enabledProviderSet.has(provider.value);
+                return (
+                  <Tag
+                    key={provider.value}
+                    color={enabled ? 'blue' : 'grey'}
+                    size='large'
+                    onClick={() => copyProviderSite(provider)}
+                    title={`点击复制：${provider.site}\n接口：${provider.endpoint}`}
+                    style={{
+                      cursor: 'pointer',
+                      userSelect: 'none',
+                      marginBottom: 6,
+                    }}
+                  >
+                    {provider.label} · {new URL(provider.site).host} · {provider.limit}
+                    {enabled ? ' · 已启用' : ' · 未启用'}
+                  </Tag>
+                );
+              })}
+            </Space>
+            <div
+              style={{
+                marginTop: 6,
+                fontSize: 12,
+                color: 'var(--semi-color-text-2)',
+              }}
+            >
+              {t('蓝色表示当前启用，灰色表示未启用；免费图床是否真实可用，以实际上传返回结果为准。')}
+            </div>
+          </div>
 
           <Row>
             <Button size='default' onClick={onSubmit}>
