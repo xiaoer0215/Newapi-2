@@ -1,4 +1,4 @@
-import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+﻿import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Button,
   Card,
@@ -107,30 +107,37 @@ const affiliateStyles = `
 .affiliate-setting-box { border-radius: 18px; border: 1px solid rgba(219,234,254,.95); background: #f8fbff; padding: 16px; }
 .affiliate-tier-editor { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 .affiliate-tier-editor-item { border-radius: 18px; border: 1px solid rgba(219,234,254,.95); background: #fff; padding: 14px; }
-.affiliate-tabs .semi-tabs-bar { display: flex !important; width: fit-content !important; max-width: 100%; margin: 0 auto 18px !important; padding: 5px !important; gap: 4px !important; border-radius: 14px !important; background: #f1f7ff !important; border: 1px solid rgba(219,234,254,.9) !important; overflow-x: auto; }
-.affiliate-tabs .semi-tabs-tab { flex: 0 0 auto; margin: 0 !important; border-radius: 11px !important; font-weight: 700; color: #64748b; text-align: center !important; background: transparent !important; box-shadow: none !important; }
-.affiliate-tabs .semi-tabs-tab-button { min-width: 112px !important; height: 38px !important; padding: 0 16px !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; border-radius: 11px !important; text-align: center !important; border: 1px solid transparent !important; background: transparent !important; color: #64748b !important; box-shadow: none !important; }
-.affiliate-tabs .semi-tabs-tab-button > div { width: 100%; display: flex !important; align-items: center !important; justify-content: center !important; text-align: center !important; }
+.affiliate-tabs .semi-tabs-bar { display: flex !important; width: 100% !important; max-width: 100%; margin: 0 auto 14px !important; padding: 4px !important; gap: 2px !important; justify-content: center !important; flex-wrap: wrap !important; border-radius: 14px !important; background: #f1f7ff !important; border: 1px solid rgba(219,234,254,.9) !important; overflow: visible !important; scrollbar-width: none !important; -ms-overflow-style: none !important; }
+.affiliate-tabs .semi-tabs-bar::before,
+.affiliate-tabs .semi-tabs-bar::after,
+.affiliate-tabs .semi-tabs-tab::before,
+.affiliate-tabs .semi-tabs-tab::after,
+.affiliate-tabs .semi-tabs-tab-button::before,
+.affiliate-tabs .semi-tabs-tab-button::after { display: none !important; content: none !important; width: 0 !important; height: 0 !important; border: 0 !important; box-shadow: none !important; }
+.affiliate-tabs .semi-tabs-bar *,
+.affiliate-tabs .semi-tabs-bar { scrollbar-width: none !important; -ms-overflow-style: none !important; }
+.affiliate-tabs .semi-tabs-bar *::-webkit-scrollbar,
+.affiliate-tabs .semi-tabs-bar::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; background: transparent !important; }
+.affiliate-tabs .semi-tabs-bar-overflow-list,
+.affiliate-tabs .semi-overflow-list,
+.affiliate-tabs .semi-overflow-list-scroll-wrapper,
+.affiliate-tabs .semi-overflow-list-content { display: flex !important; align-items: center !important; justify-content: center !important; flex-wrap: wrap !important; gap: 2px !important; overflow: visible !important; max-width: 100% !important; }
+.affiliate-tabs .semi-tabs-bar-button.semi-tabs-bar-top .semi-tabs-tab:not(:last-of-type) { margin-right: 2px !important; }
+.affiliate-tabs .semi-tabs-tab,
+.affiliate-tabs .semi-tabs-tab-button { flex: 0 0 auto !important; min-width: 0 !important; height: 34px !important; margin: 0 !important; padding: 0 12px !important; border: 1px solid transparent !important; border-radius: 11px !important; background: transparent !important; background-color: transparent !important; box-shadow: none !important; color: #64748b !important; text-align: center !important; }
 .affiliate-tabs .semi-tabs-tab.semi-tabs-tab-active,
-.affiliate-tabs .semi-tabs-tab.semi-tabs-tab-active:hover,
-.affiliate-tabs .semi-tabs-tab-button.semi-tabs-tab-active,
-.affiliate-tabs .semi-tabs-tab-button.semi-tabs-tab-active:hover,
-.affiliate-tabs .semi-tabs-tab[aria-selected='true'],
-.affiliate-tabs .semi-tabs-tab[aria-selected='true']:hover,
-.affiliate-tabs .semi-tabs-tab-active .semi-tabs-tab-button { background: #ffffff !important; background-color: #ffffff !important; color: #2563eb !important; border: 1px solid rgba(191,219,254,.95) !important; box-shadow: 0 8px 20px rgba(37,99,235,.10) !important; }
+.affiliate-tabs .semi-tabs-tab[aria-selected='true'] { background: #ffffff !important; background-color: #ffffff !important; color: #2563eb !important; border: 1px solid rgba(147,197,253,.95) !important; box-shadow: 0 8px 20px rgba(37,99,235,.12) !important; }
+.affiliate-tabs .semi-tabs-tab-active .semi-tabs-tab-button,
+.affiliate-tabs .semi-tabs-tab[aria-selected='true'] .semi-tabs-tab-button { background: transparent !important; background-color: transparent !important; border: 0 !important; box-shadow: none !important; color: #2563eb !important; }
+.affiliate-tabs .semi-tabs-tab-button > div { width: 100%; display: flex !important; align-items: center !important; justify-content: center !important; text-align: center !important; }
+.affiliate-tabs .semi-tabs-tab-button:hover { background: transparent !important; background-color: transparent !important; }
 .affiliate-tabs .semi-tabs-tab:not(.semi-tabs-tab-active):not([aria-selected='true']) { background: transparent !important; background-color: transparent !important; box-shadow: none !important; border-color: transparent !important; color: #64748b !important; }
 .affiliate-tabs .semi-tabs-tab:not(.semi-tabs-tab-active):not([aria-selected='true']) .semi-tabs-tab-button { background: transparent !important; background-color: transparent !important; box-shadow: none !important; }
-.affiliate-tabs .semi-tabs-tab-button:hover { background: rgba(255,255,255,.92) !important; background-color: rgba(255,255,255,.92) !important; color: #1d4ed8 !important; }
-
-.affiliate-tabs .semi-tabs-tab,
-.affiliate-tabs .semi-tabs-tab-button,
-.affiliate-tabs .semi-tabs-tab.semi-tabs-tab-active,
-.affiliate-tabs .semi-tabs-tab-button.semi-tabs-tab-active { min-width: 0 !important; height: auto !important; padding: 0 !important; border: 0 !important; background: transparent !important; background-color: transparent !important; box-shadow: none !important; }
-.affiliate-tab-label { min-width: 112px; height: 38px; padding: 0 16px; display: inline-flex; align-items: center; justify-content: center; border-radius: 11px; border: 1px solid transparent; background: transparent; color: #334155; font-weight: 800; white-space: nowrap; box-sizing: border-box; }
+.affiliate-tab-label { height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border: 0 !important; background: transparent !important; color: #334155; font-weight: 800; white-space: nowrap; box-sizing: border-box; box-shadow: none !important; }
 .affiliate-tab-label.is-active,
 .affiliate-tabs .semi-tabs-tab-active .affiliate-tab-label,
-.affiliate-tabs .semi-tabs-tab[aria-selected='true'] .affiliate-tab-label { background: #ffffff !important; background-color: #ffffff !important; color: #2563eb !important; border-color: rgba(147,197,253,.95) !important; box-shadow: 0 8px 20px rgba(37,99,235,.12) !important; }
-.affiliate-tabs .semi-tabs-tab:hover .affiliate-tab-label:not(.is-active) { background: rgba(255,255,255,.72); color: #1d4ed8; }
+.affiliate-tabs .semi-tabs-tab[aria-selected='true'] .affiliate-tab-label { background: transparent !important; background-color: transparent !important; color: #2563eb !important; border: 0 !important; box-shadow: none !important; }
+.affiliate-tabs .semi-tabs-tab:hover .affiliate-tab-label:not(.is-active) { background: transparent !important; color: #1d4ed8; }
 .affiliate-tabs .semi-tabs-content { padding-top: 2px; }
 .affiliate-tabs .semi-table-container { border-radius: 18px; overflow: hidden; border: 1px solid rgba(226,232,240,.9); }
 .affiliate-tabs .semi-table-thead > .semi-table-row > .semi-table-row-head { background: #f8fbff; color: #475569; font-weight: 800; }
@@ -1157,3 +1164,7 @@ const Affiliate = () => {
 };
 
 export default Affiliate;
+
+
+
+
